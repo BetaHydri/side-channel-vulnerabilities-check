@@ -39,10 +39,11 @@
     .\SideChannel_Check.ps1 -ExportPath "C:\temp\SideChannelReport.csv"
     
 .NOTES
-    Author: PowerShell Security Tool
+    Author: Jan Tiedemann
     Version: 1.0
     Requires: PowerShell 5.1+ and Administrator privileges
     Based on: Microsoft KB4073119
+    GitHub: https://github.com/BetaHydri/side-channel-vulnerabilities-check
 #>
 
 param(
@@ -207,7 +208,25 @@ function Test-SideChannelMitigation {
         Write-ColorOutput "Impact: $Impact" -Color Info
     }
     else {
-        Write-ColorOutput "$($Name.PadRight(40)) : $status" -Color $statusColor
+        # Enhanced console output with clear status indicators
+        $statusIndicator = switch ($status) {
+            "Enabled" { "✓ ENABLED" }
+            "Disabled" { "✗ DISABLED" }
+            "Not Configured" { "○ NOT SET" }
+            default { $status }
+        }
+        
+        $paddedName = $Name.PadRight(45)
+        Write-Host "$paddedName : " -NoNewline
+        Write-Host "$statusIndicator" -ForegroundColor $Colors[$statusColor] -NoNewline
+        
+        # Add current value for context
+        if ($currentValue -ne $null -and $currentValue -ne "Not Set") {
+            Write-Host " (Value: $currentValue)" -ForegroundColor Gray
+        }
+        else {
+            Write-Host ""
+        }
     }
     
     return $result
@@ -293,11 +312,52 @@ function Get-VirtualizationInfo {
             # Hyper-V not available or not running VMs
         }
         
-        # Check VBS and HVCI
-        $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
-        if ($deviceGuard) {
-            $virtualizationInfo.VBSStatus = if ($deviceGuard.VirtualizationBasedSecurityStatus -eq 2) { "Running" } elseif ($deviceGuard.VirtualizationBasedSecurityStatus -eq 1) { "Enabled" } else { "Disabled" }
-            $virtualizationInfo.HVCIStatus = if ($deviceGuard.CodeIntegrityPolicyEnforcementStatus -eq 2) { "Enforced" } elseif ($deviceGuard.CodeIntegrityPolicyEnforcementStatus -eq 1) { "Audit Mode" } else { "Disabled" }
+        # Check VBS and HVCI using correct namespace
+        try {
+            # Try the correct namespace first
+            $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+            if (!$deviceGuard) {
+                # Fallback to default namespace
+                $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+            }
+            
+            if ($deviceGuard) {
+                $virtualizationInfo.VBSStatus = switch ($deviceGuard.VirtualizationBasedSecurityStatus) {
+                    2 { "Running" }
+                    1 { "Enabled" }
+                    0 { "Disabled" }
+                    default { "Unknown ($($deviceGuard.VirtualizationBasedSecurityStatus))" }
+                }
+                $virtualizationInfo.HVCIStatus = switch ($deviceGuard.CodeIntegrityPolicyEnforcementStatus) {
+                    2 { "Enforced" }
+                    1 { "Audit Mode" }
+                    0 { "Disabled" }
+                    default { "Unknown ($($deviceGuard.CodeIntegrityPolicyEnforcementStatus))" }
+                }
+            }
+            else {
+                # Alternative method using registry
+                $vbsRegValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name "EnableVirtualizationBasedSecurity"
+                if ($null -ne $vbsRegValue -and $vbsRegValue -eq 1) {
+                    $virtualizationInfo.VBSStatus = "Enabled (Registry)"
+                }
+                else {
+                    $virtualizationInfo.VBSStatus = "Not Available"
+                }
+                
+                $hvciRegValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled"
+                if ($null -ne $hvciRegValue -and $hvciRegValue -eq 1) {
+                    $virtualizationInfo.HVCIStatus = "Enabled (Registry)"
+                }
+                else {
+                    $virtualizationInfo.HVCIStatus = "Not Available"
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Error checking VBS status: $($_.Exception.Message)"
+            $virtualizationInfo.VBSStatus = "Error"
+            $virtualizationInfo.HVCIStatus = "Error"
         }
     }
     catch {
@@ -618,28 +678,140 @@ else {
     }
 }
 
-# Check if Virtualization Based Security is available
-$vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+# Section break before detailed analysis
+Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput "DETAILED SECURITY ANALYSIS" -Color Header
+Write-ColorOutput "="*80 -Color Header
+
+# Check if Virtualization Based Security is available (detailed status)
+try {
+    $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+    if (!$vbsStatus) {
+        $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    $vbsStatus = $null
+}
+
 if ($vbsStatus) {
+    Write-ColorOutput "`nVirtualization Based Security Detailed Status:" -Color Header
+    Write-ColorOutput "=================================================" -Color Header
+    
+    # VBS Hardware Requirements vs Runtime Status
+    $vbsHwReady = $vbsStatus.VirtualizationBasedSecurityHardwareRequirementState -eq 1
+    $vbsRunning = $vbsStatus.VirtualizationBasedSecurityStatus -eq 2
+    $hvciHwReady = $vbsStatus.HypervisorEnforcedCodeIntegrityHardwareRequirementState -eq 1
+    $hvciRunning = $vbsStatus.CodeIntegrityPolicyEnforcementStatus -eq 2
+    
+    Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
+    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+    Write-Host "$(if ($vbsHwReady) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray  
+    Write-Host "$(if ($vbsRunning) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    
+    Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
+    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+    Write-Host "$(if ($hvciHwReady) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+    Write-Host "$(if ($hvciRunning) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    
+    # Explanation of the difference
+    if (!$vbsHwReady -and $vbsRunning) {
+        Write-ColorOutput "`n💡 Note: VBS is running despite hardware readiness showing 'No'." -Color Info
+        Write-ColorOutput "   This indicates VBS is enabled via software/policy, not full hardware support." -Color Info
+    }
+    if (!$hvciHwReady -and $hvciRunning) {
+        Write-ColorOutput "`n💡 Note: HVCI is active despite hardware readiness showing 'No'." -Color Info
+        Write-ColorOutput "   This indicates HVCI is using compatible mode or software enforcement." -Color Info
+    }
+    
+    Write-ColorOutput "`nSecurity Services Details:" -Color Info
+    Write-ColorOutput "Running Services: $($vbsStatus.SecurityServicesRunning -join ', ')" -Color Info
+    Write-ColorOutput "Configured Services: $($vbsStatus.SecurityServicesConfigured -join ', ')" -Color Info
+    
+    # Service explanation
+    $serviceExplanation = @{
+        "1" = "Credential Guard"
+        "2" = "HVCI (Hypervisor-protected Code Integrity)"
+        "3" = "System Guard Secure Launch"
+        "4" = "SMM Firmware Measurement"
+    }
+    
+    if ($vbsStatus.SecurityServicesRunning) {
+        Write-ColorOutput "`nActive Security Services:" -Color Info
+        foreach ($service in $vbsStatus.SecurityServicesRunning) {
+            $serviceName = $serviceExplanation[$service.ToString()]
+            if ($serviceName) {
+                Write-ColorOutput "  • $serviceName" -Color Good
+            }
+            else {
+                Write-ColorOutput "  • Service ID: $service" -Color Info
+            }
+        }
+    }
+    
+    # Detailed explanation of VBS/HVCI status differences
+    Write-ColorOutput "`n" + "-"*60 -Color Header
+    Write-ColorOutput "VBS/HVCI Status Explanation:" -Color Header
+    Write-ColorOutput "-"*60 -Color Header
+    Write-ColorOutput "• 'Hardware Ready' = System meets full hardware requirements" -Color Info
+    Write-ColorOutput "• 'Currently Active' = Feature is actually running right now" -Color Info
+    Write-ColorOutput "`nWhy might Hardware Ready = No but Active = Yes?" -Color Warning
+    Write-ColorOutput "1. VBS/HVCI can run in 'compatible mode' without full HW support" -Color Info
+    Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
+    Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
+    Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
+    Write-ColorOutput "`n✓ What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
+}
+else {
     Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
-    Write-ColorOutput "VBS Available: $($vbsStatus.VirtualizationBasedSecurityHardwareRequirementState -eq 1)" -Color Info
-    Write-ColorOutput "HVCI Available: $($vbsStatus.HypervisorEnforcedCodeIntegrityHardwareRequirementState -eq 1)" -Color Info
+    Write-ColorOutput "VBS Status: Not Available (Win32_DeviceGuard not accessible)" -Color Warning
+    Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
 }
 
 # Display results table
 Show-ResultsTable -Results $Results
 
 # Summary
-Write-ColorOutput "`n=== Summary ===" -Color Header
+Write-ColorOutput "`n=== SECURITY CONFIGURATION SUMMARY ===" -Color Header
+
 $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
+$notConfiguredCount = ($Results | Where-Object { $_.Status -eq "Not Configured" }).Count
+$disabledCount = ($Results | Where-Object { $_.Status -eq "Disabled" }).Count
 $totalCount = $Results.Count
 $configuredPercent = [math]::Round(($enabledCount / $totalCount) * 100, 1)
 
-Write-ColorOutput "Total Checks: $totalCount" -Color Info
-Write-ColorOutput "Enabled: $enabledCount" -Color Good
-Write-ColorOutput "Not Configured: $(($Results | Where-Object { $_.Status -eq "Not Configured" }).Count)" -Color Warning  
-Write-ColorOutput "Disabled: $(($Results | Where-Object { $_.Status -eq "Disabled" }).Count)" -Color Bad
-Write-ColorOutput "Configuration Level: $configuredPercent%" -Color Info
+# Visual status breakdown
+Write-Host "`nSecurity Status Overview:" -ForegroundColor $Colors['Header']
+Write-Host "=========================" -ForegroundColor $Colors['Header']
+Write-Host "✓ ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
+Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
+Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+
+Write-Host "○ NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host "$notConfiguredCount" -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+
+Write-Host "✗ DISABLED:      " -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host "$disabledCount" -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+
+Write-Host "`nOverall Security Level: " -NoNewline -ForegroundColor $Colors['Info']
+$levelColor = if ($configuredPercent -ge 80) { 'Good' } elseif ($configuredPercent -ge 60) { 'Warning' } else { 'Bad' }
+Write-Host "$configuredPercent%" -ForegroundColor $Colors[$levelColor]
+
+# Security level indicator
+$securityBar = ""
+$filledBlocks = [math]::Floor($configuredPercent / 10)
+$emptyBlocks = 10 - $filledBlocks
+
+for ($i = 0; $i -lt $filledBlocks; $i++) { $securityBar += "█" }
+for ($i = 0; $i -lt $emptyBlocks; $i++) { $securityBar += "░" }
+
+Write-Host "Security Bar:     [" -NoNewline -ForegroundColor Gray
+Write-Host "$securityBar" -NoNewline -ForegroundColor $Colors[$levelColor]
+Write-Host "] $configuredPercent%" -ForegroundColor Gray
 
 # Apply configurations if requested
 if ($Apply) {

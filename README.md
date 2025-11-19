@@ -1,6 +1,9 @@
 # Side-Channel Vulnerability Configuration Checker
+*Konfigurationsprüfer für Side-Channel-Schwachstellen*
 
 Ein umfassendes PowerShell-Tool zur Überprüfung und Konfiguration von Windows-Schutzmaßnahmen gegen Side-Channel-Vulnerabilities gemäß Microsoft-Sicherheitsleitlinien (KB4073119).
+
+*A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119).*
 
 ## 🔒 Überblick
 
@@ -206,71 +209,91 @@ Status Legend:
 .\SideChannel_Check.ps1 -ExportPath "C:\Reports\HostSecurityReport.csv"
 ```
 
-## 🔍 Troubleshooting
+## 🔍 Problembehandlung
 
-### Common Issues:
+### Häufige Probleme:
 
-**"Access Denied" errors:**
-- Ensure PowerShell is running as Administrator
-- Check if Windows Defender or security software is blocking registry access
+**"Zugriff verweigert" Fehler:**
+- Stellen Sie sicher, dass PowerShell als Administrator läuft
+- Prüfen Sie, ob Windows Defender oder Sicherheitssoftware Registry-Zugriff blockiert
 
-**"Cannot find registry path" errors:**
-- Some paths may not exist on all Windows versions
-- The script will create missing registry paths when using `-Apply`
+**"Registry-Pfad nicht gefunden" Fehler:**
+- Einige Pfade existieren möglicherweise nicht in allen Windows-Versionen
+- Das Skript erstellt fehlende Registry-Pfade bei Verwendung von `-Apply`
 
-**Performance impact after applying:**
-- Review which mitigations were applied
-- Consider disabling specific mitigations if applications are affected
-- Consult application vendor documentation for compatibility
+**Leistungseinbußen nach Anwendung:**
+- Überprüfen Sie, welche Schutzmaßnahmen angewendet wurden
+- Erwägen Sie die Deaktivierung spezifischer Mitigationen bei Anwendungsproblemen
+- Konsultieren Sie die Anwendungsherstellerdokumentation für Kompatibilität
 
-### Reverting Changes:
-To manually revert specific mitigations, delete the registry values or set them to their original values. Always test in a controlled environment.
+**Virtualisierungs-spezifische Probleme:**
+- VM-Gäste: Stellen Sie sicher, dass Host-System aktuell ist
+- Hypervisor-Hosts: Prüfen Sie Hardware-Virtualisierungsunterstützung
+- Nested VMs: Überprüfen Sie ExposeVirtualizationExtensions-Einstellungen
 
-## 📚 References
+### Änderungen rückgängig machen:
+Um spezifische Schutzmaßnahmen manuell zurückzusetzen, löschen Sie die Registry-Werte oder setzen Sie sie auf ihre ursprünglichen Werte. Testen Sie immer in kontrollierter Umgebung.
 
-- [Microsoft KB4073119](https://support.microsoft.com/en-us/topic/kb4073119-windows-client-guidance-for-it-pros-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-35820a8a-ae13-1299-88cc-357f104f5b11) - Official Microsoft guidance
-- [CVE-2017-5753](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5753) - Spectre Variant 1
-- [CVE-2017-5715](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5715) - Spectre Variant 2  
+## 📚 Referenzen
+
+- [Microsoft KB4073119](https://support.microsoft.com/en-us/topic/kb4073119-windows-client-guidance-for-it-pros-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-35820a8a-ae13-1299-88cc-357f104f5b11) - Offizielle Microsoft-Anleitung
+- [CVE-2017-5753](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5753) - Spectre Variante 1
+- [CVE-2017-5715](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5715) - Spectre Variante 2  
 - [CVE-2017-5754](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5754) - Meltdown
 - [CVE-2018-3639](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-3639) - Speculative Store Bypass
-
-## 🤝 Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-### Areas for contribution:
-- Additional security checks
-- Support for older Windows versions
-- Performance impact analysis
-- Integration with other security tools
+- [Microsoft VBS Documentation](https://docs.microsoft.com/en-us/windows/security/threat-protection/device-guard/introduction-to-device-guard-virtualization-based-security-and-windows-defender-application-control) - Virtualization Based Security
+- [Hyper-V Security Guide](https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security) - Hyper-V Sicherheitsleitfaden
 
 ## 🆘 Support
 
-If you encounter issues or have questions:
+Bei Problemen oder Fragen:
 
-1. Check the [Troubleshooting](#-troubleshooting) section
-2. Review Microsoft's official documentation
-3. Create an issue in the repository
-4. Consult your organization's security team
+1. Prüfen Sie den [Troubleshooting](#-troubleshooting) Abschnitt
+2. Konsultieren Sie die offizielle Microsoft-Dokumentation
+3. Erstellen Sie ein Issue im Repository
+4. Wenden Sie sich an Ihr Sicherheitsteam
 
-## ⚖️ Disclaimer
+## ⚖️ Haftungsausschluss
 
-This tool is provided "as-is" without warranty. Always:
-- Test in non-production environments first
-- Have a rollback plan
-- Consult your security policies
-- Understand the implications of each mitigation
+Dieses Tool wird "wie besehen" ohne Gewährleistung bereitgestellt. Immer:
+- Zuerst in Nicht-Produktionsumgebungen testen
+- Rollback-Plan haben
+- Sicherheitsrichtlinien konsultieren
+- Auswirkungen jeder Schutzmaßnahme verstehen
 
-The authors are not responsible for any system issues that may arise from using this tool.
+Die Autoren sind nicht verantwortlich für Systemprobleme, die durch die Verwendung dieses Tools entstehen können.
+
+---
+
+## 👤 Autor
+
+**Jan Tiedemann**  
+IT Security Specialist & PowerShell Developer
+
+- 🔧 Spezialisiert auf Windows-Sicherheit und Virtualisierung
+- 💼 Fokus auf Side-Channel-Vulnerability-Mitigationen
+- 🛡️ Enterprise Security Consulting
+
+## 🤝 Mitwirken
+
+Beiträge sind willkommen! Bitte:
+
+1. Repository forken
+2. Feature-Branch erstellen
+3. Änderungen vornehmen
+4. Tests hinzufügen falls zutreffend
+5. Pull Request einreichen
+
+### Bereiche für Beiträge:
+- Zusätzliche Sicherheitsprüfungen
+- Support für ältere Windows-Versionen
+- Leistungsanalysen
+- Integration mit anderen Sicherheitstools
+- Hypervisor-spezifische Erweiterungen
 
 ---
 
 **Version:** 1.0  
-**Last Updated:** November 2025  
-**Compatibility:** Windows 10/11, Windows Server 2016+
+**Letztes Update:** November 2025  
+**Kompatibilität:** Windows 10/11, Windows Server 2016+  
+**Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
