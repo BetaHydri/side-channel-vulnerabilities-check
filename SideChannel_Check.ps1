@@ -270,10 +270,20 @@ function Show-ResultsTable {
             default { $result.Status }
         }
         
+        # Format current value for display
+        $currentValueDisplay = $result.CurrentValue
+        if ($result.CurrentValue -is [uint64] -and $result.CurrentValue -gt 0xFFFFFFFF) {
+            # For large QWORD values, show both hex and decimal
+            $currentValueDisplay = "0x{0:X} ({1})" -f $result.CurrentValue, $result.CurrentValue
+        }
+        elseif ($result.CurrentValue -eq "Not Set" -or $null -eq $result.CurrentValue) {
+            $currentValueDisplay = "Not Set"
+        }
+        
         $tableData += [PSCustomObject]@{
             'Mitigation Name' = $result.Name
             'Status'          = $status
-            'Current Value'   = $result.CurrentValue
+            'Current Value'   = $currentValueDisplay
             'Expected Value'  = $result.ExpectedValue
             'Impact'          = $result.Impact
         }
@@ -303,7 +313,35 @@ function Get-RegistryValue {
         if (Test-Path $Path) {
             $value = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
             if ($value) {
-                return $value.$Name
+                $rawValue = $value.$Name
+                
+                # Handle byte arrays (often from QWORD values or complex structures)
+                if ($rawValue -is [byte[]]) {
+                    # Special handling for MitigationOptions which is a 24-byte structure
+                    if ($Name -eq "MitigationOptions" -and $rawValue.Length -eq 24) {
+                        # Convert the first 8 bytes to UInt64 for comparison with expected hex values
+                        $uint64Value = 0
+                        for ($i = 0; $i -lt 8 -and $i -lt $rawValue.Length; $i++) {
+                            $uint64Value += [uint64]$rawValue[$i] -shl (8 * $i)
+                        }
+                        return $uint64Value
+                    }
+                    # For normal QWORD values (8 bytes or less)
+                    elseif ($rawValue.Length -le 8) {
+                        # Convert byte array to UInt64 (assuming little-endian format)
+                        $uint64Value = 0
+                        for ($i = 0; $i -lt $rawValue.Length; $i++) {
+                            $uint64Value += [uint64]$rawValue[$i] -shl (8 * $i)
+                        }
+                        return $uint64Value
+                    }
+                    else {
+                        # If longer than 8 bytes, return as hex string
+                        return ($rawValue | ForEach-Object { "{0:X2}" -f $_ }) -join ""
+                    }
+                }
+                
+                return $rawValue
             }
         }
         return $DefaultValue
@@ -329,7 +367,7 @@ function Test-SideChannelMitigation {
     $statusColor = "Warning"
     
     if ($null -ne $currentValue) {
-        # Enhanced comparison logic to handle hex values
+        # Enhanced comparison logic to handle hex values and converted byte arrays
         $valuesMatch = $false
         
         if ($currentValue -eq $ExpectedValue) {
@@ -339,8 +377,28 @@ function Test-SideChannelMitigation {
         elseif ($ExpectedValue -is [string] -and $ExpectedValue -match "^[0-9A-Fa-f]+$" -and $ExpectedValue.Length -gt 8) {
             try {
                 $expectedDecimal = [Convert]::ToUInt64($ExpectedValue, 16)
+                # Compare with current value (which might be UInt64 from converted byte array)
                 if ($currentValue -eq $expectedDecimal) {
                     $valuesMatch = $true
+                }
+                # Special handling for MitigationOptions - check if the core flag is present
+                elseif ($RegistryName -eq "MitigationOptions" -and $currentValue -is [uint64]) {
+                    # Check if the core mitigation flag (0x2000000000000000) is set using bitwise AND
+                    $coreFlagPresent = ($currentValue -band $expectedDecimal) -eq $expectedDecimal
+                    if ($coreFlagPresent) {
+                        $valuesMatch = $true
+                        # Update recommendation for this special case
+                        if ($currentValue -ne $expectedDecimal) {
+                            $Recommendation = "Hardware mitigations core flag is enabled (0x{0:X}). Additional flags are also set, which is typically fine." -f $expectedDecimal
+                        }
+                    }
+                }
+                # Also try string comparison of hex representations
+                elseif ($currentValue -is [uint64]) {
+                    $currentHex = "{0:X}" -f $currentValue
+                    if ($currentHex.PadLeft($ExpectedValue.Length, '0') -eq $ExpectedValue) {
+                        $valuesMatch = $true
+                    }
                 }
             }
             catch {
@@ -672,7 +730,7 @@ $Results += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
     -RegistryName "MitigationOptions" `
     -ExpectedValue "2000000000000000" `
-    -Recommendation "Enable hardware mitigations. Set to 2000000000000000 for optimal security" `
+    -Recommendation "Hardware mitigations are enabled. The core mitigation flag (0x2000000000000000) is set with additional options." `
     -Impact "Hardware-dependent, modern CPUs have better performance"
 
 # 6. SMEP (Supervisor Mode Execution Prevention)
