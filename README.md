@@ -1,25 +1,37 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119).
+Ein umfassendes PowerShell-Tool zur Überprüfung und Konfiguration von Windows-Schutzmaßnahmen gegen Side-Channel-Vulnerabilities gemäß Microsoft-Sicherheitsleitlinien (KB4073119).
 
-## 🔒 Overview
+## 🔒 Überblick
 
-This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks including:
+Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihrer Windows-Systeme gegen CPU-basierte Side-Channel-Angriffe, einschließlich:
 
-- **Spectre** (Variants 1, 2, and 4)
-- **Meltdown** attacks
-- **Intel TSX** vulnerabilities
+- **Spectre** (Varianten 1, 2 und 4)
+- **Meltdown** Angriffe
+- **Intel TSX** Vulnerabilities
 - **Branch Target Injection** (BTI)
 - **Speculative Store Bypass** (SSB)
 
+## 🖥️ Virtualisierungs-Support
+
+**NEU**: Erweiterte Unterstützung für virtualisierte Umgebungen:
+
+- ✅ **VM-Erkennung** - Automatische Identifikation von Host/Guest-Systemen
+- ✅ **Hypervisor-spezifische Prüfungen** - Spezielle Checks für Hyper-V, VMware, KVM
+- ✅ **Host-Empfehlungen** - Sicherheitshinweise für Virtualisierungs-Hosts
+- ✅ **Guest-Empfehlungen** - VM-spezifische Sicherheitskonfiguration
+- ✅ **Hardware-Voraussetzungen** - Detaillierte Anforderungen für sichere Virtualisierung
+
 ## 🚀 Features
 
-- ✅ **Comprehensive Security Assessment** - Checks 11+ critical security mitigations
-- 📊 **Clear Table Display** - Professional formatted output with visual status indicators
-- ⚙️ **Automated Configuration** - One-click application of security settings with `-Apply` switch
-- 📈 **Detailed Reporting** - Export results to CSV for documentation
-- 🎯 **Safe Operation** - Read-only by default, only modifies system when explicitly requested
-- 🖥️ **System Information** - Shows CPU and OS details relevant to vulnerabilities
+- ✅ **Umfassende Sicherheitsbewertung** - Prüft 15+ kritische Sicherheitsmitigationen
+- ✅ **Virtualisierungs-Aware** - Erkennt VM/Host-Umgebung und gibt spezifische Empfehlungen
+- 📊 **Klare Tabellendarstellung** - Professionell formatierte Ausgabe mit visuellen Statusindikatoren
+- ⚙️ **Automatisierte Konfiguration** - Ein-Klick-Anwendung von Sicherheitseinstellungen mit `-Apply`
+- 📈 **Detailliertes Reporting** - Export der Ergebnisse als CSV für Dokumentation
+- 🎯 **Sicherer Betrieb** - Standardmäßig nur lesend, modifiziert System nur auf explizite Anfrage
+- 🖥️ **Systeminformationen** - Zeigt CPU- und OS-Details relevant für Vulnerabilities
+- 🔄 **VBS/HVCI-Support** - Prüfung virtualisierungsbasierter Sicherheitsfeatures
 
 ## 📋 Requirements
 
@@ -96,30 +108,103 @@ Status Legend:
 ○ Not Set  - Registry value not configured (using defaults)
 ```
 
-## 🛡️ Security Mitigations Checked
+## 🛡️ Überprüfte Sicherheitsmaßnahmen
 
-| Mitigation | Description | Registry Path | Impact |
-|------------|-------------|---------------|---------|
-| **Speculative Store Bypass Disable (SSBD)** | Mitigates Spectre Variant 4 | `HKLM:\SYSTEM\...\Memory Management` | Minimal |
-| **Branch Target Injection (BTI)** | Mitigates Spectre Variant 2 | `HKLM:\SYSTEM\...\kernel` | Low-Medium |
-| **Kernel VA Shadow (KVAS)** | Meltdown protection | `HKLM:\SYSTEM\...\Memory Management` | Medium |
-| **Enhanced IBRS** | Intel hardware mitigation | `HKLM:\SYSTEM\...\Memory Management` | Low |
-| **Intel TSX Disable** | Prevents TSX-based attacks | `HKLM:\SYSTEM\...\kernel` | Application-dependent |
-| **Hardware Mitigations** | CPU-level protections | `HKLM:\SYSTEM\...\kernel` | Hardware-dependent |
+| Schutzmaßnahme | Beschreibung | Registry-Pfad | Auswirkung |
+|----------------|--------------|---------------|------------|
+| **Speculative Store Bypass Disable (SSBD)** | Schutz vor Spectre Variante 4 | `HKLM:\SYSTEM\...\Memory Management` | Minimal |
+| **Branch Target Injection (BTI)** | Schutz vor Spectre Variante 2 | `HKLM:\SYSTEM\...\kernel` | Niedrig-Mittel |
+| **Kernel VA Shadow (KVAS)** | Meltdown-Schutz | `HKLM:\SYSTEM\...\Memory Management` | Mittel |
+| **Enhanced IBRS** | Intel Hardware-Mitigation | `HKLM:\SYSTEM\...\Memory Management` | Niedrig |
+| **Intel TSX Disable** | Verhindert TSX-basierte Angriffe | `HKLM:\SYSTEM\...\kernel` | Anwendungsabhängig |
+| **Hardware Mitigations** | CPU-Level-Schutz | `HKLM:\SYSTEM\...\kernel` | Hardware-abhängig |
+| **VBS (Virtualization Based Security)** | Hardware-basierte Sicherheit | `HKLM:\SYSTEM\...\DeviceGuard` | Erfordert UEFI/TPM |
+| **HVCI (Hypervisor Code Integrity)** | Hypervisor-geschützte Code-Integrität | `HKLM:\SYSTEM\...\HypervisorEnforcedCodeIntegrity` | Treiber-Kompatibilität |
+| **Credential Guard** | Schutz vor Credential-Diebstahl | `HKLM:\SYSTEM\...\Lsa` | VBS erforderlich |
 
-## ⚠️ Important Notes
+## 🖥️ Virtualisierungs-spezifische Prüfungen
 
-### Before Running `-Apply`:
-- **Backup your registry** or create a system restore point
-- **Test in a non-production environment** first
-- **Review your application compatibility** - some mitigations may impact performance
-- **Plan for system restart** - changes require reboot to take effect
+### Für VM-Gäste:
+- **SLAT-Support-Prüfung** - Überprüfung der Second Level Address Translation
+- **VM-Tools-Sicherheit** - Hypervisor-spezifische Sicherheitsfeatures
+- **Guest-Integration** - Sicherheitsrelevante Integrationsservices
 
-### Performance Considerations:
-- Most mitigations have **minimal performance impact** on modern CPUs
-- **Intel TSX** disable may affect applications using Transactional Synchronization Extensions
-- **Enhanced IBRS** requires sufficient physical memory
-- **Hardware mitigations** performance varies by CPU generation
+### Für Hypervisor-Hosts:
+- **Hyper-V Core Scheduler** - SMT-bewusste Scheduler für VM-Isolation
+- **Nested Virtualization** - Sicherheitsüberlegungen für verschachtelte VMs
+- **VM-Isolations-Richtlinien** - Konfiguration für sichere Multi-Tenant-Umgebungen
+
+## 🔧 Virtualisierungs-Voraussetzungen
+
+### Hardware-Anforderungen:
+- **Intel**: VT-x mit EPT, VT-d **oder** **AMD**: AMD-V mit RVI, AMD-Vi
+- **IOMMU-Support** für sichere DMA-Isolation
+- **TPM 2.0** für VBS/Credential Guard
+- **UEFI Secure Boot** Unterstützung
+
+### Hypervisor-spezifische Anforderungen:
+
+#### **Microsoft Hyper-V:**
+- Windows Server 2019+ für Core Scheduler
+- Generation 2 VMs für erweiterte Sicherheit
+- VBS/HVCI auf Host aktiviert
+
+#### **VMware vSphere:**
+- ESXi 6.7 U2+ für Side-Channel Aware Scheduler
+- VM Hardware Version 14+ 
+- VMware Tools mit Sicherheits-Updates
+
+#### **Linux KVM/QEMU:**
+- Kernel 4.15+ mit spec-ctrl Unterstützung
+- CPU-Flags: +spec-ctrl, +ibpb, +ssbd
+- Intel EPT/AMD RVI aktiviert
+
+## ⚠️ Wichtige Hinweise
+
+### Vor der Ausführung von `-Apply`:
+- **Registry sichern** oder Systemwiederherstellungspunkt erstellen
+- **Zuerst in Nicht-Produktionsumgebung testen**
+- **Anwendungskompatibilität prüfen** - einige Schutzmaßnahmen können die Leistung beeinträchtigen
+- **Systemneustart einplanen** - Änderungen erfordern Neustart
+
+### Virtualisierungs-spezifische Überlegungen:
+- **Host-System zuerst absichern** vor Konfiguration der Gäste
+- **Hypervisor-Updates** haben Priorität vor Guest-Konfiguration
+- **Nested Virtualization** erhöht Angriffsfläche - vorsichtig verwenden
+- **VM-Isolation** konfigurieren für Multi-Tenant-Umgebungen
+
+### Leistungsüberlegungen:
+- Die meisten Schutzmaßnahmen haben **minimale Leistungseinbußen** auf modernen CPUs
+- **Intel TSX**-Deaktivierung kann Anwendungen mit Transactional Synchronization Extensions betreffen
+- **Enhanced IBRS** erfordert ausreichend physischen Speicher
+- **Hardware-Mitigationen** variieren je nach CPU-Generation
+- **Core Scheduler** reduziert VM-Performance bei SMT-Systemen
+
+## 🖥️ Virtualisierungs-spezifische Verwendung
+
+### VM-Gast-System:
+```powershell
+# Grundlegende Überprüfung im VM-Gast
+.\SideChannel_Check.ps1
+
+# Detaillierte Informationen mit Host-Empfehlungen
+.\SideChannel_Check.ps1 -Detailed
+
+# Anwendung von Guest-spezifischen Mitigationen
+.\SideChannel_Check.ps1 -Apply
+```
+
+### Hypervisor-Host:
+```powershell
+# Host-System-Analyse mit Virtualisierungs-Checks
+.\SideChannel_Check.ps1 -Detailed
+
+# Host-Konfiguration für sichere VM-Umgebung
+.\SideChannel_Check.ps1 -Apply
+
+# Export für Compliance-Dokumentation
+.\SideChannel_Check.ps1 -ExportPath "C:\Reports\HostSecurityReport.csv"
+```
 
 ## 🔍 Troubleshooting
 

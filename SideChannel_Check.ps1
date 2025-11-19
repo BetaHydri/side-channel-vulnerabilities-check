@@ -11,6 +11,12 @@
     guidance KB4073119. It verifies registry settings, Windows features, and 
     provides recommendations for enabling additional protections.
     
+    VIRTUALIZATION SUPPORT:
+    - Detects if running on VM or physical hardware
+    - Checks hypervisor-specific mitigations
+    - Provides Host/Guest specific recommendations
+    - Validates nested virtualization capabilities
+    
 .PARAMETER Detailed
     Shows detailed information about each check
     
@@ -228,6 +234,130 @@ function Get-WindowsVersion {
     }
 }
 
+function Get-VirtualizationInfo {
+    $virtualizationInfo = @{
+        IsVirtualMachine            = $false
+        HypervisorPresent           = $false
+        HypervisorVendor            = "Unknown"
+        VirtualizationTechnology    = "None"
+        NestedVirtualizationEnabled = $false
+        HyperVStatus                = "Not Available"
+        VBSStatus                   = "Not Available"
+        HVCIStatus                  = "Not Available"
+    }
+    
+    try {
+        # Check if running in a VM
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+        $virtualizationInfo.IsVirtualMachine = $computerSystem.Model -match "Virtual|VMware|VirtualBox|Hyper-V|Xen|KVM"
+        
+        # Detect hypervisor
+        $bios = Get-CimInstance -ClassName Win32_BIOS
+        if ($bios.Manufacturer -match "VMware") {
+            $virtualizationInfo.HypervisorVendor = "VMware"
+            $virtualizationInfo.VirtualizationTechnology = "VMware vSphere/Workstation"
+        }
+        elseif ($bios.Manufacturer -match "Microsoft|Hyper-V") {
+            $virtualizationInfo.HypervisorVendor = "Microsoft"
+            $virtualizationInfo.VirtualizationTechnology = "Hyper-V"
+        }
+        elseif ($computerSystem.Manufacturer -match "QEMU|KVM") {
+            $virtualizationInfo.HypervisorVendor = "QEMU/KVM"
+            $virtualizationInfo.VirtualizationTechnology = "Linux KVM"
+        }
+        elseif ($computerSystem.Manufacturer -match "innotek|VirtualBox") {
+            $virtualizationInfo.HypervisorVendor = "Oracle"
+            $virtualizationInfo.VirtualizationTechnology = "VirtualBox"
+        }
+        
+        # Check for hypervisor presence
+        $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled -or (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest\Parameters" -ErrorAction SilentlyContinue)) {
+            $virtualizationInfo.HypervisorPresent = $true
+        }
+        
+        # Check Hyper-V status
+        $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
+        if ($hyperv) {
+            $virtualizationInfo.HyperVStatus = $hyperv.State
+        }
+        
+        # Check nested virtualization (Intel VT-x/AMD-V in VM)
+        try {
+            $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+            if ($vmProcessor) {
+                $virtualizationInfo.NestedVirtualizationEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+            }
+        }
+        catch {
+            # Hyper-V not available or not running VMs
+        }
+        
+        # Check VBS and HVCI
+        $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+        if ($deviceGuard) {
+            $virtualizationInfo.VBSStatus = if ($deviceGuard.VirtualizationBasedSecurityStatus -eq 2) { "Running" } elseif ($deviceGuard.VirtualizationBasedSecurityStatus -eq 1) { "Enabled" } else { "Disabled" }
+            $virtualizationInfo.HVCIStatus = if ($deviceGuard.CodeIntegrityPolicyEnforcementStatus -eq 2) { "Enforced" } elseif ($deviceGuard.CodeIntegrityPolicyEnforcementStatus -eq 1) { "Audit Mode" } else { "Disabled" }
+        }
+    }
+    catch {
+        Write-Warning "Error detecting virtualization info: $($_.Exception.Message)"
+    }
+    
+    return $virtualizationInfo
+}
+
+function Get-HypervisorMitigations {
+    param(
+        [string]$HypervisorVendor
+    )
+    
+    $mitigations = @()
+    
+    switch ($HypervisorVendor) {
+        "Microsoft" {
+            # Hyper-V specific checks
+            $mitigations += @{
+                Name         = "Hyper-V Core Scheduler"
+                Description  = "Core Scheduler prevents SMT-based side-channel attacks between VMs"
+                RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization\MinVmVersionForCpuBasedMitigations"
+                Command      = "Set-VMProcessor -VMName * -HwThreadCountPerCore 1"
+                Impact       = "May reduce VM performance on SMT-enabled CPUs"
+            }
+            $mitigations += @{
+                Name            = "Hyper-V SLAT (Second Level Address Translation)"
+                Description     = "Hardware-assisted virtualization for memory protection"
+                RequiredFeature = "Intel EPT or AMD RVI support"
+                Impact          = "Essential for VM isolation and performance"
+            }
+        }
+        "VMware" {
+            $mitigations += @{
+                Name         = "VMware Side-Channel Aware Scheduler"
+                Description  = "ESXi scheduler aware of side-channel attacks"
+                ConfigOption = "sched.cpu.vsmp.effectiveAffinity"
+                Impact       = "Available in vSphere 6.7 U2 and later"
+            }
+            $mitigations += @{
+                Name         = "VMware L1TF Mitigation"
+                Description  = "L1 Terminal Fault protection in ESXi"
+                ConfigOption = "vmx.allowNonVPID = FALSE"
+                Impact       = "Requires CPU microcode updates"
+            }
+        }
+        "QEMU/KVM" {
+            $mitigations += @{
+                Name         = "KVM IBRS/IBPB Support"
+                Description  = "Indirect Branch Restricted Speculation support"
+                ConfigOption = "-cpu host,+spec-ctrl,+ibpb"
+                Impact       = "Requires host CPU microcode and kernel support"
+            }
+        }
+    }
+    
+    return $mitigations
+}
+
 # Main execution
 Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
 Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
@@ -235,11 +365,29 @@ Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
 # System Information
 $cpuInfo = Get-CPUInfo
 $osInfo = Get-WindowsVersion
+$virtInfo = Get-VirtualizationInfo
 
 Write-ColorOutput "System Information:" -Color Header
 Write-ColorOutput "CPU: $($cpuInfo.Name)" -Color Info
 Write-ColorOutput "OS: $($osInfo.Caption) Build $($osInfo.BuildNumber)" -Color Info
-Write-ColorOutput "Architecture: $($osInfo.Architecture)`n" -Color Info
+Write-ColorOutput "Architecture: $($osInfo.Architecture)" -Color Info
+
+Write-ColorOutput "\nVirtualization Environment:" -Color Header
+Write-ColorOutput "Running in VM: $(if ($virtInfo.IsVirtualMachine) { 'Yes' } else { 'No' })" -Color $(if ($virtInfo.IsVirtualMachine) { 'Warning' } else { 'Info' })
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "Hypervisor: $($virtInfo.HypervisorVendor)" -Color Info
+    Write-ColorOutput "Technology: $($virtInfo.VirtualizationTechnology)" -Color Info
+}
+Write-ColorOutput "Hyper-V Status: $($virtInfo.HyperVStatus)" -Color Info
+Write-ColorOutput "VBS Status: $($virtInfo.VBSStatus)" -Color Info
+Write-ColorOutput "HVCI Status: $($virtInfo.HVCIStatus)" -Color Info
+if ($virtInfo.NestedVirtualizationEnabled) {
+    Write-ColorOutput "Nested Virtualization: Enabled" -Color Good
+}
+elseif ($virtInfo.HyperVStatus -eq "Enabled") {
+    Write-ColorOutput "Nested Virtualization: Disabled" -Color Warning
+}
+
 
 Write-ColorOutput "Checking Side-Channel Vulnerability Mitigations...`n" -Color Header
 
@@ -351,6 +499,125 @@ $Results += [PSCustomObject]@{
     CanBeEnabled   = $true
 }
 
+# Virtualization-Specific Security Checks
+Write-ColorOutput "`nChecking Virtualization-Specific Security Features..." -Color Header
+
+# 1. Virtualization Based Security (VBS)
+$vbsEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name "EnableVirtualizationBasedSecurity"
+$Results += [PSCustomObject]@{
+    Name           = "Virtualization Based Security (VBS)"
+    Description    = "Hardware-based security features using hypervisor"
+    Status         = if ($vbsEnabled -eq 1) { "Enabled" } else { "Not Configured" }
+    CurrentValue   = if ($null -ne $vbsEnabled) { $vbsEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard"
+    RegistryName   = "EnableVirtualizationBasedSecurity"
+    Recommendation = "Enable VBS for hardware-based security isolation"
+    Impact         = "Requires UEFI, Secure Boot, and compatible hardware"
+    CanBeEnabled   = $true
+}
+
+# 2. Hypervisor-protected Code Integrity (HVCI)
+$hvciEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled"
+$Results += [PSCustomObject]@{
+    Name           = "Hypervisor-protected Code Integrity (HVCI)"
+    Description    = "Hardware-based code integrity enforcement"
+    Status         = if ($hvciEnabled -eq 1) { "Enabled" } else { "Not Configured" }
+    CurrentValue   = if ($null -ne $hvciEnabled) { $hvciEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
+    RegistryName   = "Enabled"
+    Recommendation = "Enable HVCI for kernel-mode code integrity"
+    Impact         = "May cause compatibility issues with unsigned drivers"
+    CanBeEnabled   = $true
+}
+
+# 3. Credential Guard
+$credGuardEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LsaCfgFlags"
+$Results += [PSCustomObject]@{
+    Name           = "Credential Guard"
+    Description    = "Protects domain credentials using VBS"
+    Status         = if ($credGuardEnabled -eq 1) { "Enabled" } elseif ($credGuardEnabled -eq 2) { "Enabled with UEFI Lock" } else { "Not Configured" }
+    CurrentValue   = if ($null -ne $credGuardEnabled) { $credGuardEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+    RegistryName   = "LsaCfgFlags"
+    Recommendation = "Enable Credential Guard to protect against credential theft"
+    Impact         = "Requires VBS and may affect some applications"
+    CanBeEnabled   = $true
+}
+
+# VM-Specific Checks
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "`nVM Guest-Specific Security Checks:" -Color Header
+    
+    # 4. VM Guest SLAT Support Check
+    $Results += [PSCustomObject]@{
+        Name           = "VM Guest: SLAT Support"
+        Description    = "Second Level Address Translation support in guest"
+        Status         = "Information"
+        CurrentValue   = "Check hypervisor configuration"
+        ExpectedValue  = "Enabled on host"
+        RegistryPath   = "N/A"
+        RegistryName   = "N/A"
+        Recommendation = "Ensure host hypervisor has SLAT (Intel EPT/AMD RVI) enabled"
+        Impact         = "Critical for VM memory isolation and side-channel protection"
+        CanBeEnabled   = $false
+    }
+    
+    # 5. VM Tools Security Features
+    if ($virtInfo.HypervisorVendor -eq "VMware") {
+        $vmToolsVersion = Get-RegistryValue -Path "HKLM:\SOFTWARE\VMware, Inc.\VMware Tools" -Name "InstallPath"
+        $Results += [PSCustomObject]@{
+            Name           = "VMware Tools Security Features"
+            Description    = "VMware Tools with side-channel mitigations"
+            Status         = if ($vmToolsVersion) { "Installed" } else { "Not Installed" }
+            CurrentValue   = if ($vmToolsVersion) { "Present" } else { "Missing" }
+            ExpectedValue  = "Latest Version"
+            RegistryPath   = "N/A"
+            RegistryName   = "N/A"
+            Recommendation = "Update VMware Tools to latest version for security patches"
+            Impact         = "Newer versions include side-channel vulnerability mitigations"
+            CanBeEnabled   = $false
+        }
+    }
+}
+else {
+    # Physical Host or Hypervisor-Specific Checks
+    Write-ColorOutput "`nHypervisor Host-Specific Security Checks:" -Color Header
+    
+    # 6. Hyper-V Core Scheduler
+    if ($virtInfo.HyperVStatus -eq "Enabled") {
+        $coreScheduler = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -Name "CoreSchedulerType"
+        $Results += [PSCustomObject]@{
+            Name           = "Hyper-V Core Scheduler"
+            Description    = "SMT-aware scheduler for VM isolation"
+            Status         = if ($coreScheduler -eq 1) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = if ($null -ne $coreScheduler) { $coreScheduler } else { "Not Set" }
+            ExpectedValue  = 1
+            RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization"
+            RegistryName   = "CoreSchedulerType"
+            Recommendation = "Enable Core Scheduler for better VM isolation on SMT systems"
+            Impact         = "May reduce performance but improves security between VMs"
+            CanBeEnabled   = $true
+        }
+        
+        # 7. Nested Virtualization Security
+        $Results += [PSCustomObject]@{
+            Name           = "Nested Virtualization Security"
+            Description    = "Security considerations for nested hypervisors"
+            Status         = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
+            CurrentValue   = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
+            ExpectedValue  = "Carefully configured"
+            RegistryPath   = "N/A"
+            RegistryName   = "N/A"
+            Recommendation = "Use nested virtualization carefully - additional attack surface"
+            Impact         = "Nested VMs may have reduced side-channel protection"
+            CanBeEnabled   = $false
+        }
+    }
+}
+
 # Check if Virtualization Based Security is available
 $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
 if ($vbsStatus) {
@@ -430,6 +697,75 @@ else {
         Write-ColorOutput "All checked mitigations are properly configured!" -Color Good
     }
 }
+
+# Virtualization-Specific Recommendations
+Write-ColorOutput "`n=== Virtualization Security Recommendations ===" -Color Header
+
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "Running in Virtual Machine - Guest Recommendations:" -Color Info
+    Write-ColorOutput "• Ensure hypervisor host has latest microcode updates" -Color Warning
+    Write-ColorOutput "• Verify hypervisor has side-channel mitigations enabled" -Color Warning
+    Write-ColorOutput "• Keep guest OS and drivers updated" -Color Warning
+    
+    switch ($virtInfo.HypervisorVendor) {
+        "Microsoft" {
+            Write-ColorOutput "`nHyper-V Guest Specific:" -Color Header
+            Write-ColorOutput "• Host should use Core Scheduler (Windows Server 2019+)" -Color Warning
+            Write-ColorOutput "• Enable Enhanced Session Mode for better security" -Color Info
+            Write-ColorOutput "• Ensure host has VBS/HVCI enabled" -Color Warning
+        }
+        "VMware" {
+            Write-ColorOutput "`nVMware Guest Specific:" -Color Header
+            Write-ColorOutput "• ESXi host should be 6.7 U2+ with Side-Channel Aware Scheduler" -Color Warning
+            Write-ColorOutput "• VM hardware version should be 14+ for latest security features" -Color Warning
+            Write-ColorOutput "• Enable VMware Tools for additional security features" -Color Info
+        }
+        "QEMU/KVM" {
+            Write-ColorOutput "`nKVM Guest Specific:" -Color Header
+            Write-ColorOutput "• Host kernel should support spec-ctrl (4.15+)" -Color Warning
+            Write-ColorOutput "• Use CPU flags: +spec-ctrl,+ibpb,+ssbd" -Color Warning
+            Write-ColorOutput "• Enable SLAT (Intel EPT/AMD RVI) on host" -Color Warning
+        }
+        default {
+            Write-ColorOutput "`nGeneral VM Recommendations:" -Color Header
+            Write-ColorOutput "• Contact hypervisor vendor for side-channel mitigation guidance" -Color Warning
+            Write-ColorOutput "• Verify hardware virtualization extensions are properly exposed" -Color Info
+        }
+    }
+}
+else {
+    Write-ColorOutput "Running on Physical Hardware - Host Recommendations:" -Color Info
+    Write-ColorOutput "• Apply CPU microcode updates from manufacturer" -Color Warning
+    Write-ColorOutput "• Enable all available CPU security features in BIOS/UEFI" -Color Warning
+    
+    if ($virtInfo.HyperVStatus -eq "Enabled") {
+        Write-ColorOutput "`nHyper-V Host Specific:" -Color Header
+        Write-ColorOutput "• Enable Core Scheduler: bcdedit /set hypervisorschedulertype core" -Color Info
+        Write-ColorOutput "• Configure VM isolation policies" -Color Info
+        Write-ColorOutput "• Use Generation 2 VMs for enhanced security" -Color Info
+        Write-ColorOutput "• Enable Secure Boot for VMs when possible" -Color Info
+        Write-ColorOutput "• Consider disabling SMT if security > performance" -Color Warning
+    }
+    
+    Write-ColorOutput "`nGeneral Host Security:" -Color Header
+    Write-ColorOutput "• Enable VBS/HVCI if hardware supports it" -Color Warning
+    Write-ColorOutput "• Use UEFI Secure Boot" -Color Warning
+    Write-ColorOutput "• Enable TPM 2.0 if available" -Color Info
+    Write-ColorOutput "• Configure proper VM resource isolation" -Color Warning
+}
+
+Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ===" -Color Header
+Write-ColorOutput "Required CPU Features:" -Color Info
+Write-ColorOutput "• Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color Warning
+Write-ColorOutput "• Hardware support for SMEP/SMAP" -Color Warning
+Write-ColorOutput "• CPU microcode with Spectre/Meltdown mitigations" -Color Warning
+Write-ColorOutput "• For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color Warning
+
+Write-ColorOutput "`nFirmware Requirements:" -Color Info
+Write-ColorOutput "• UEFI firmware (not legacy BIOS)" -Color Warning
+Write-ColorOutput "• Secure Boot capability" -Color Warning
+Write-ColorOutput "• TPM 2.0 (for Credential Guard and other VBS features)" -Color Warning
+Write-ColorOutput "• Latest firmware updates from manufacturer" -Color Warning
 
 # Export results if requested
 if ($ExportPath) {
