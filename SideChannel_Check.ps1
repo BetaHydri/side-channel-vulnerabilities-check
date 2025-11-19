@@ -83,14 +83,79 @@ function Set-RegistryValue {
     try {
         # Create the registry path if it doesn't exist
         if (-not (Test-Path $Path)) {
-            New-Item -Path $Path -Force | Out-Null
-            Write-ColorOutput "Created registry path: $Path" -Color Info
+            try {
+                # Try to create the full path recursively
+                $pathParts = $Path.Split('\')
+                $currentPath = $pathParts[0]
+                
+                for ($i = 1; $i -lt $pathParts.Length; $i++) {
+                    $currentPath += "\$($pathParts[$i])"
+                    if (-not (Test-Path $currentPath)) {
+                        try {
+                            New-Item -Path $currentPath -Force | Out-Null
+                        }
+                        catch {
+                            # If New-Item fails, try alternative approach
+                            if ($currentPath -match "^HKLM:") {
+                                $regPath = $currentPath -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
+                                [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey(($regPath -replace "^HKEY_LOCAL_MACHINE\\", "")) | Out-Null
+                            }
+                        }
+                    }
+                }
+                Write-ColorOutput "Created registry path: $Path" -Color Info
+            }
+            catch {
+                Write-ColorOutput "Warning: Could not create full registry path: $($_.Exception.Message)" -Color Warning
+            }
         }
         
-        # Set the registry value
-        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type $Type -Force
-        Write-ColorOutput "✓ Set $Path\$Name = $Value" -Color Good
-        return $true
+        # Handle different value types and sizes
+        $actualValue = $Value
+        $actualType = $Type
+        
+        # Special handling for large hex values
+        if ($Value -is [string] -and $Value.Length -gt 8 -and $Value -match "^[0-9A-Fa-f]+$") {
+            # This is a large hex value, treat it as QWORD or String
+            try {
+                $actualValue = [Convert]::ToUInt64($Value, 16)
+                $actualType = "QWORD"
+            }
+            catch {
+                # If QWORD fails, use String type
+                $actualType = "String"
+                $actualValue = $Value
+            }
+        }
+        
+        # Set the registry value with proper type handling
+        try {
+            Set-ItemProperty -Path $Path -Name $Name -Value $actualValue -Type $actualType -Force
+            Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: $actualType)" -Color Good
+            return $true
+        }
+        catch [System.UnauthorizedAccessException] {
+            Write-ColorOutput "✗ Access denied setting $Path\$Name - Run as Administrator" -Color Bad
+            return $false
+        }
+        catch [System.ArgumentException] {
+            # If the type conversion fails, try String type
+            if ($actualType -ne "String") {
+                try {
+                    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type "String" -Force
+                    Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: String fallback)" -Color Good
+                    return $true
+                }
+                catch {
+                    Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                    return $false
+                }
+            }
+            else {
+                Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                return $false
+            }
+        }
     }
     catch {
         Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
@@ -174,7 +239,31 @@ function Test-SideChannelMitigation {
     $statusColor = "Warning"
     
     if ($null -ne $currentValue) {
+        # Enhanced comparison logic to handle hex values
+        $valuesMatch = $false
+        
         if ($currentValue -eq $ExpectedValue) {
+            $valuesMatch = $true
+        }
+        # Check if ExpectedValue is a hex string and convert for comparison
+        elseif ($ExpectedValue -is [string] -and $ExpectedValue -match "^[0-9A-Fa-f]+$" -and $ExpectedValue.Length -gt 8) {
+            try {
+                $expectedDecimal = [Convert]::ToUInt64($ExpectedValue, 16)
+                if ($currentValue -eq $expectedDecimal) {
+                    $valuesMatch = $true
+                }
+            }
+            catch {
+                # If conversion fails, stick with string comparison
+                $valuesMatch = ($currentValue.ToString() -eq $ExpectedValue)
+            }
+        }
+        # Check if current value might be hex representation of expected decimal
+        elseif ($ExpectedValue -is [int] -or $ExpectedValue -is [long]) {
+            $valuesMatch = ($currentValue -eq $ExpectedValue)
+        }
+        
+        if ($valuesMatch) {
             $status = "Enabled"
             $statusColor = "Good"
         }
