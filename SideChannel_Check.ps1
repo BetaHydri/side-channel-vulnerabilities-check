@@ -81,32 +81,107 @@ function Set-RegistryValue {
     )
     
     try {
+        # Special handling for Windows Defender Exploit Guard paths
+        $isWindowsDefenderPath = $Path -match "Windows Defender.*Exploit Guard"
+        
         # Create the registry path if it doesn't exist
         if (-not (Test-Path $Path)) {
-            try {
-                # Try to create the full path recursively
-                $pathParts = $Path.Split('\')
-                $currentPath = $pathParts[0]
-                
-                for ($i = 1; $i -lt $pathParts.Length; $i++) {
-                    $currentPath += "\$($pathParts[$i])"
-                    if (-not (Test-Path $currentPath)) {
-                        try {
-                            New-Item -Path $currentPath -Force | Out-Null
-                        }
-                        catch {
-                            # If New-Item fails, try alternative approach
-                            if ($currentPath -match "^HKLM:") {
-                                $regPath = $currentPath -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
-                                [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey(($regPath -replace "^HKEY_LOCAL_MACHINE\\", "")) | Out-Null
+            if ($isWindowsDefenderPath) {
+                # Special handling for Windows Defender paths
+                try {
+                    Write-ColorOutput "Attempting to configure Windows Defender Exploit Guard..." -Color Info
+                    
+                    # Try using Windows Defender PowerShell cmdlets first
+                    if (Get-Command "Set-ProcessMitigation" -ErrorAction SilentlyContinue) {
+                        # Use Set-ProcessMitigation for ASLR configuration
+                        if ($Name -eq "ASLR_ForceRelocateImages") {
+                            try {
+                                Set-ProcessMitigation -System -Enable ForceRelocateImages -ErrorAction Stop
+                                Write-ColorOutput "✓ Set Windows Defender ASLR via Set-ProcessMitigation" -Color Good
+                                return $true
+                            }
+                            catch {
+                                Write-ColorOutput "Warning: Set-ProcessMitigation failed: $($_.Exception.Message)" -Color Warning
                             }
                         }
                     }
+                    
+                    # Fallback: Try to use reg.exe command
+                    $regPath = $Path -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
+                    $regCommand = "reg add `"$regPath`" /v `"$Name`" /t REG_$Type /d $Value /f"
+                    
+                    try {
+                        $result = & cmd.exe /c $regCommand 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-ColorOutput "✓ Set $Path\$Name = $Value (via reg.exe)" -Color Good
+                            return $true
+                        }
+                        else {
+                            Write-ColorOutput "Warning: reg.exe failed with exit code $LASTEXITCODE" -Color Warning
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "Warning: reg.exe execution failed: $($_.Exception.Message)" -Color Warning
+                    }
+                    
+                    # Final fallback: Try direct registry manipulation
+                    $regKeyPath = $regPath -replace "^HKEY_LOCAL_MACHINE\\", ""
+                    try {
+                        $regKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($regKeyPath, $true)
+                        if ($null -eq $regKey) {
+                            # Try to create the key
+                            $regKey = [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey($regKeyPath)
+                        }
+                        
+                        if ($null -ne $regKey) {
+                            $regValue = switch ($Type) {
+                                "DWORD" { [Microsoft.Win32.RegistryValueKind]::DWord }
+                                "QWORD" { [Microsoft.Win32.RegistryValueKind]::QWord }
+                                "String" { [Microsoft.Win32.RegistryValueKind]::String }
+                                default { [Microsoft.Win32.RegistryValueKind]::DWord }
+                            }
+                            $regKey.SetValue($Name, $Value, $regValue)
+                            $regKey.Close()
+                            Write-ColorOutput "✓ Set $Path\$Name = $Value (via Registry API)" -Color Good
+                            return $true
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "Warning: Registry API failed: $($_.Exception.Message)" -Color Warning
+                    }
+                    
                 }
-                Write-ColorOutput "Created registry path: $Path" -Color Info
+                catch {
+                    Write-ColorOutput "Warning: Special Windows Defender handling failed: $($_.Exception.Message)" -Color Warning
+                }
             }
-            catch {
-                Write-ColorOutput "Warning: Could not create full registry path: $($_.Exception.Message)" -Color Warning
+            else {
+                # Normal path creation for non-Windows Defender paths
+                try {
+                    # Try to create the full path recursively
+                    $pathParts = $Path.Split('\')
+                    $currentPath = $pathParts[0]
+                    
+                    for ($i = 1; $i -lt $pathParts.Length; $i++) {
+                        $currentPath += "\$($pathParts[$i])"
+                        if (-not (Test-Path $currentPath)) {
+                            try {
+                                New-Item -Path $currentPath -Force | Out-Null
+                            }
+                            catch {
+                                # If New-Item fails, try alternative approach
+                                if ($currentPath -match "^HKLM:") {
+                                    $regPath = $currentPath -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
+                                    [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey(($regPath -replace "^HKEY_LOCAL_MACHINE\\", "")) | Out-Null
+                                }
+                            }
+                        }
+                    }
+                    Write-ColorOutput "Created registry path: $Path" -Color Info
+                }
+                catch {
+                    Write-ColorOutput "Warning: Could not create registry path: $($_.Exception.Message)" -Color Warning
+                }
             }
         }
         
@@ -128,34 +203,49 @@ function Set-RegistryValue {
             }
         }
         
-        # Set the registry value with proper type handling
-        try {
-            Set-ItemProperty -Path $Path -Name $Name -Value $actualValue -Type $actualType -Force
-            Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: $actualType)" -Color Good
-            return $true
-        }
-        catch [System.UnauthorizedAccessException] {
-            Write-ColorOutput "✗ Access denied setting $Path\$Name - Run as Administrator" -Color Bad
-            return $false
-        }
-        catch [System.ArgumentException] {
-            # If the type conversion fails, try String type
-            if ($actualType -ne "String") {
-                try {
-                    Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type "String" -Force
-                    Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: String fallback)" -Color Good
+        # Set the registry value with proper type handling (skip if Windows Defender was handled above)
+        if (-not ($isWindowsDefenderPath -and $Name -eq "ASLR_ForceRelocateImages")) {
+            try {
+                # Verify path exists before setting
+                if (Test-Path $Path) {
+                    Set-ItemProperty -Path $Path -Name $Name -Value $actualValue -Type $actualType -Force
+                    Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: $actualType)" -Color Good
                     return $true
                 }
-                catch {
+                else {
+                    Write-ColorOutput "✗ Registry path $Path does not exist and could not be created" -Color Bad
+                    return $false
+                }
+            }
+            catch [System.UnauthorizedAccessException] {
+                Write-ColorOutput "✗ Access denied setting $Path\$Name - Insufficient privileges" -Color Bad
+                return $false
+            }
+            catch [System.ArgumentException] {
+                # If the type conversion fails, try String type
+                if ($actualType -ne "String") {
+                    try {
+                        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type "String" -Force
+                        Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: String fallback)" -Color Good
+                        return $true
+                    }
+                    catch {
+                        Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                        return $false
+                    }
+                }
+                else {
                     Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
                     return $false
                 }
             }
-            else {
+            catch {
                 Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
                 return $false
             }
         }
+        
+        return $true
     }
     catch {
         Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
