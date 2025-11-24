@@ -9,11 +9,20 @@ Ein umfassendes PowerShell-Tool zur Überprüfung und Konfiguration von Windows-
 
 Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihrer Windows-Systeme gegen CPU-basierte Side-Channel-Angriffe, einschließlich:
 
+### Klassische Vulnerabilities:
 - **Spectre** (Varianten 1, 2 und 4)
 - **Meltdown** Angriffe
 - **Intel TSX** Vulnerabilities
 - **Branch Target Injection** (BTI)
 - **Speculative Store Bypass** (SSB)
+
+### Moderne CVEs (2018-2023):
+- **L1TF** (L1 Terminal Fault) - CVE-2018-3620
+- **BHB** (Branch History Buffer) - CVE-2022-0001/0002
+- **GDS** (Gather Data Sample) - CVE-2022-40982
+- **SRSO** (Speculative Return Stack Overflow) - CVE-2023-20569
+- **RFDS** (Register File Data Sampling) - CVE-2023-28746
+- **MDS** (Microarchitectural Data Sampling) mitigation
 
 ## 🖥️ Virtualisierungs-Support
 
@@ -27,10 +36,13 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 
 ## 🚀 Features
 
-- ✅ **Umfassende Sicherheitsbewertung** - Prüft 15+ kritische Sicherheitsmitigationen
+- ✅ **Umfassende Sicherheitsbewertung** - Prüft 21+ kritische Sicherheitsmitigationen inkl. moderner CVEs (2018-2023)
+- ✅ **Erweiterte CVE-Unterstützung** - Basiert auf Microsoft's SpeculationControl tool Analyse
 - ✅ **Virtualisierungs-Aware** - Erkennt VM/Host-Umgebung und gibt spezifische Empfehlungen
+- 🧠 **OS-Version-bewusst** - Automatische Anpassung an Windows-Version (Core Scheduler Detection)
 - 📊 **Klare Tabellendarstellung** - Professionell formatierte Ausgabe mit visuellen Statusindikatoren
 - ⚙️ **Automatisierte Konfiguration** - Ein-Klick-Anwendung von Sicherheitseinstellungen mit `-Apply`
+- 🔬 **CPU-spezifische Validierung** - Intel vs AMD spezifische Mitigationsempfehlungen
 - 📈 **Detailliertes Reporting** - Export der Ergebnisse als CSV für Dokumentation
 - 🎯 **Sicherer Betrieb** - Standardmäßig nur lesend, modifiziert System nur auf explizite Anfrage
 - 🖥️ **Systeminformationen** - Zeigt CPU- und OS-Details relevant für Vulnerabilities
@@ -42,6 +54,27 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 - **PowerShell**: Version 5.1 or higher
 - **Privileges**: Administrator rights required
 - **Architecture**: x64 systems (Intel/AMD processors)
+
+## 🔄 Kompatibilität mit Microsoft Tools
+
+Dieses Tool wurde **erweitert basierend auf Microsoft's offizieller SpeculationControl Modul Analyse**:
+
+```powershell
+# Für umfassende Bewertung beide Tools verwenden:
+.\SideChannel_Check.ps1                    # Dieses erweiterte Enterprise-Tool
+Install-Module SpeculationControl          # Microsoft's offizielle Bewertung
+Get-SpeculationControlSettings             # Hardware-Level-Analyse
+```
+
+### Vergleich der Tools:
+| Feature | Dieses Tool | Microsoft SpeculationControl |
+|---------|-------------|------------------------------|
+| **CVE-Abdeckung** | ✅ Vollständig (2017-2023) | ✅ Vollständig (2017-2023) |
+| **Virtualisierung** | ✅ Umfassend | ❌ Keine |
+| **Auto-Konfiguration** | ✅ `-Apply` Switch | ❌ Nur Bewertung |
+| **Enterprise Features** | ✅ CSV Export, Tabellen | ⚠️ Basis-Text |
+| **OS-Version-Bewusstsein** | ✅ Automatisch | ⚠️ Basis |
+| **Hardware-Analyse** | ⚠️ Registry-basiert | ✅ Native APIs |
 
 ## 🔧 Installation
 
@@ -133,9 +166,12 @@ Status Legend:
 - **Guest-Integration** - Sicherheitsrelevante Integrationsservices
 
 ### Für Hypervisor-Hosts:
-- **Hyper-V Core Scheduler** - SMT-bewusste Scheduler für VM-Isolation
+- **Hyper-V Core Scheduler** - OS-version-bewusste SMT-Scheduler-Konfiguration
+  - **Windows 10/Server 2016/2019**: Manuelle Aktivierung erforderlich
+  - **Windows 11/Server 2022+**: Automatisch aktiviert (Build 20348+)
 - **Nested Virtualization** - Sicherheitsüberlegungen für verschachtelte VMs
 - **VM-Isolations-Richtlinien** - Konfiguration für sichere Multi-Tenant-Umgebungen
+- **Modern CVE Support** - CPU-spezifische Mitigation basierend auf Hersteller
 
 ## 🔧 Virtualisierungs-Voraussetzungen
 
@@ -168,7 +204,19 @@ Status Legend:
 - **Registry sichern** oder Systemwiederherstellungspunkt erstellen
 - **Zuerst in Nicht-Produktionsumgebung testen**
 - **Anwendungskompatibilität prüfen** - einige Schutzmaßnahmen können die Leistung beeinträchtigen
+- **CPU-Mikrocode aktualisieren** - Moderne CVE-Mitigationen erfordern aktuelle Microcode
 - **Systemneustart einplanen** - Änderungen erfordern Neustart
+
+### Moderne CVE-Mitigationen (2018-2023):
+- **CPU-spezifische Validierung** - Intel vs AMD spezifische Mitigationen
+- **Mikrocode-Abhängigkeiten** - BHB, GDS, SRSO, RFDS erfordern aktuelle CPU-Mikrocode
+- **Hersteller-spezifisch** - SRSO nur für AMD, GDS/RFDS primär Intel
+- **Leistungsanalyse** - Moderne Mitigationen haben variable Performance-Auswirkungen
+
+### OS-Version-spezifische Überlegungen:
+- **Core Scheduler** - Automatisch in Windows 11/Server 2022+ (Build 20348+)
+- **Legacy-Support** - Windows 10/Server 2016/2019 benötigen manuelle Konfiguration
+- **Build-Erkennung** - Tool erkennt automatisch erforderliche vs. bereits aktive Features
 
 ### Virtualisierungs-spezifische Überlegungen:
 - **Host-System zuerst absichern** vor Konfiguration der Gäste
@@ -177,11 +225,12 @@ Status Legend:
 - **VM-Isolation** konfigurieren für Multi-Tenant-Umgebungen
 
 ### Leistungsüberlegungen:
-- Die meisten Schutzmaßnahmen haben **minimale Leistungseinbußen** auf modernen CPUs
+- Die meisten klassischen Schutzmaßnahmen haben **minimale Leistungseinbußen** auf modernen CPUs
+- **Moderne CVE-Mitigationen** können höhere Performance-Auswirkungen haben
 - **Intel TSX**-Deaktivierung kann Anwendungen mit Transactional Synchronization Extensions betreffen
 - **Enhanced IBRS** erfordert ausreichend physischen Speicher
 - **Hardware-Mitigationen** variieren je nach CPU-Generation
-- **Core Scheduler** reduziert VM-Performance bei SMT-Systemen
+- **L1TF-Mitigationen** haben signifikante Auswirkungen in virtualisierten Umgebungen
 
 ## 🖥️ Virtualisierungs-spezifische Verwendung
 

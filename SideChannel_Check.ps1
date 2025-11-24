@@ -84,6 +84,62 @@ function Set-RegistryValue {
         # Special handling for Windows Defender Exploit Guard paths
         $isWindowsDefenderPath = $Path -match "Windows Defender.*Exploit Guard"
         
+        # Special handling for modern CVE mitigations (2022-2023)
+        $ModernCVEMitigations = @(
+            "BranchHistoryBufferEnabled",                    # BHB - CVE-2022-0001/0002
+            "GatherDataSampleMitigation",                    # GDS - CVE-2022-40982
+            "SpeculativeReturnStackMitigation",             # SRSO - CVE-2023-20569
+            "RegisterFileDataSamplingMitigation",           # RFDS - CVE-2023-28746
+            "MicroarchitecturalDataSamplingMitigation",     # MDS
+            "L1TerminalFaultMitigation"                      # L1TF - CVE-2018-3620
+        )
+        
+        # Enhanced CVE mitigation configuration
+        if ($Name -in $ModernCVEMitigations) {
+            Write-ColorOutput "🔧 Configuring advanced CVE mitigation: $Name" -Color Warning
+            
+            # Get CPU information for compatibility validation
+            $CPUInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
+            $CPUManufacturer = $CPUInfo.Manufacturer
+            
+            # CPU-specific validation and guidance
+            $mitigation = switch ($Name) {
+                "BranchHistoryBufferEnabled" { 
+                    @{ Description = "BHB (Branch History Buffer)"; CPUs = "Intel and AMD with microcode updates"; Critical = $false }
+                }
+                "GatherDataSampleMitigation" { 
+                    @{ Description = "GDS (Gather Data Sample)"; CPUs = "Intel server/datacenter CPUs"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
+                }
+                "SpeculativeReturnStackMitigation" { 
+                    @{ Description = "SRSO (Speculative Return Stack Overflow)"; CPUs = "AMD Zen architecture"; Critical = ($CPUManufacturer -eq "AuthenticAMD") }
+                }
+                "RegisterFileDataSamplingMitigation" { 
+                    @{ Description = "RFDS (Register File Data Sampling)"; CPUs = "Intel CPUs with RFDS vulnerability"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
+                }
+                "MicroarchitecturalDataSamplingMitigation" { 
+                    @{ Description = "MDS (Microarchitectural Data Sampling)"; CPUs = "Intel CPUs vulnerable to MDS"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
+                }
+                "L1TerminalFaultMitigation" { 
+                    @{ Description = "L1TF (L1 Terminal Fault)"; CPUs = "Intel CPUs in virtualized environments"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
+                }
+            }
+            
+            Write-ColorOutput "   Mitigation: $($mitigation.Description)" -Color Info
+            Write-ColorOutput "   Target CPUs: $($mitigation.CPUs)" -Color Info
+            Write-ColorOutput "   Current CPU: $CPUManufacturer" -Color Info
+            
+            # Skip SRSO for non-AMD CPUs
+            if ($Name -eq "SpeculativeReturnStackMitigation" -and $CPUManufacturer -ne "AuthenticAMD") {
+                Write-ColorOutput "   ⚠ Skipping SRSO mitigation - AMD-specific vulnerability" -Color Warning
+                return $false
+            }
+            
+            # Warn for vendor-specific mitigations on different CPUs
+            if (-not $mitigation.Critical -and $Name -match "GatherDataSample|RegisterFileDataSampling|L1TerminalFault|MicroarchitecturalDataSampling") {
+                Write-ColorOutput "   ℹ This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
+            }
+        }
+        
         # Create the registry path if it doesn't exist
         if (-not (Test-Path $Path)) {
             if ($isWindowsDefenderPath) {
@@ -658,6 +714,9 @@ function Get-HypervisorMitigations {
 # Main execution
 Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
 Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
+Write-ColorOutput "Enhanced with additional CVEs from Microsoft's SpeculationControl tool analysis`n" -Color Warning
+Write-ColorOutput "💡 For official Microsoft assessment, also consider running:" -Color Info
+Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
 
 # System Information
 $cpuInfo = Get-CPUInfo
@@ -778,6 +837,105 @@ $Results += Test-SideChannelMitigation -Name "Enhanced IBRS" `
     -Recommendation "Consider disabling paging executive for better security" `
     -Impact "Requires sufficient physical memory"
 
+# Additional Modern CVE Checks - Based on Microsoft SpeculationControl tool analysis
+
+# 11. BHB (Branch History Buffer) - CVE-2022-0001, CVE-2022-0002
+$Results += Test-SideChannelMitigation -Name "BHB Mitigation" `
+    -Description "Branch History Buffer injection mitigation (CVE-2022-0001, CVE-2022-0002)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "BranchHistoryBufferEnabled" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable BHB mitigation for modern Intel/AMD CPU protection" `
+    -Impact "Minimal performance impact on recent CPUs"
+
+# 12. GDS (Gather Data Sample) - CVE-2022-40982  
+$Results += Test-SideChannelMitigation -Name "GDS Mitigation" `
+    -Description "Gather Data Sample vulnerability mitigation (CVE-2022-40982)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "GatherDataSampleMitigation" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable GDS mitigation for Intel CPU data sampling protection" `
+    -Impact "Performance impact varies by workload"
+
+# 13. SRSO (Speculative Return Stack Overflow) - CVE-2023-20569
+$Results += Test-SideChannelMitigation -Name "SRSO Mitigation" `
+    -Description "Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "SpeculativeReturnStackMitigation" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable SRSO mitigation for AMD Zen architecture protection" `
+    -Impact "Minor performance impact on AMD Zen processors"
+
+# 14. RFDS (Register File Data Sampling) - CVE-2023-28746
+$Results += Test-SideChannelMitigation -Name "RFDS Mitigation" `
+    -Description "Register File Data Sampling vulnerability mitigation (CVE-2023-28746)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "RegisterFileDataSamplingMitigation" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable RFDS mitigation for Intel CPU register file protection" `
+    -Impact "Minimal performance overhead on supported CPUs"
+
+# 15. L1TF (L1 Terminal Fault) - CVE-2018-3620
+# Perform Intel CPU-specific vulnerability detection
+if ($CPUManufacturer -eq "GenuineIntel") {
+    # Extract Intel CPU Family/Model/Stepping for vulnerability assessment
+    $IntelCPUDetails = $null
+    if ($CPUInfo.Description -match 'Family (\d+) Model (\d+) Stepping (\d+)') {
+        $IntelCPUDetails = @{
+            Family   = [int]$Matches[1]
+            Model    = [int]$Matches[2]
+            Stepping = [int]$Matches[3]
+        }
+    }
+    
+    # Define known L1TF vulnerable Intel CPU signatures
+    $L1TFVulnerableCPUs = @(
+        @{Family = 6; Model = 26; Stepping = 4 }, @{Family = 6; Model = 26; Stepping = 5 },
+        @{Family = 6; Model = 30; Stepping = 5 }, @{Family = 6; Model = 37; Stepping = 1 },
+        @{Family = 6; Model = 44; Stepping = 2 }, @{Family = 6; Model = 42; Stepping = 7 },
+        @{Family = 6; Model = 45; Stepping = 7 }, @{Family = 6; Model = 58; Stepping = 9 },
+        @{Family = 6; Model = 62; Stepping = 4 }, @{Family = 6; Model = 60; Stepping = 3 },
+        @{Family = 6; Model = 79; Stepping = 1 }, @{Family = 6; Model = 142; Stepping = 9 },
+        @{Family = 6; Model = 158; Stepping = 9 }, @{Family = 6; Model = 158; Stepping = 10 }
+    )
+    
+    $IsL1TFVulnerable = $false
+    if ($IntelCPUDetails) {
+        foreach ($VulnCPU in $L1TFVulnerableCPUs) {
+            if ($IntelCPUDetails.Family -eq $VulnCPU.Family -and 
+                $IntelCPUDetails.Model -eq $VulnCPU.Model -and 
+                $IntelCPUDetails.Stepping -eq $VulnCPU.Stepping) {
+                $IsL1TFVulnerable = $true
+                break
+            }
+        }
+    }
+    
+    $L1TFRecommendation = if ($IsL1TFVulnerable) {
+        "CPU signature matches L1TF vulnerable list. Ensure L1D flush mitigation and latest microcode updates."
+    }
+    else {
+        "CPU does not match known L1TF vulnerable signatures, but enable mitigation if available."
+    }
+    
+    $Results += Test-SideChannelMitigation -Name "L1TF Mitigation" `
+        -Description "L1 Terminal Fault (Foreshadow) mitigation for Intel CPUs (CVE-2018-3620)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "L1TerminalFaultMitigation" `
+        -ExpectedValue 1 `
+        -Recommendation $L1TFRecommendation `
+        -Impact "High performance impact in virtualized environments"
+}
+
+# 16. MDS (Microarchitectural Data Sampling) 
+$Results += Test-SideChannelMitigation -Name "MDS Mitigation" `
+    -Description "Microarchitectural Data Sampling vulnerability mitigation" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "MicroarchitecturalDataSamplingMitigation" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable MDS mitigation to prevent microarchitectural data leakage" `
+    -Impact "Moderate performance impact on affected Intel CPUs"
+
 # Check Windows Defender features
 Write-ColorOutput "`nChecking Windows Security Features..." -Color Header
 
@@ -883,19 +1041,42 @@ else {
     # Physical Host or Hypervisor-Specific Checks
     Write-ColorOutput "`nHypervisor Host-Specific Security Checks:" -Color Header
     
-    # 6. Hyper-V Core Scheduler
+    # 6. Hyper-V Core Scheduler (OS version dependent)
     if ($virtInfo.HyperVStatus -eq "Enabled") {
+        # Get OS build number to determine if Core Scheduler is default
+        $osBuildNumber = [int](Get-ItemProperty "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
+        
+        # Core Scheduler became default in:
+        # - Windows 11 (Build 22000+)
+        # - Windows Server 2022 (Build 20348+)
+        $needsCoreSchedulerConfig = $osBuildNumber -lt 20348
+        
         $coreScheduler = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -Name "CoreSchedulerType"
+        
+        $coreSchedulerStatus = if ($needsCoreSchedulerConfig) {
+            if ($coreScheduler -eq 1) { "Enabled" } else { "Not Configured" }
+        }
+        else {
+            "Default (OS Built-in)"  # Newer OS versions have it enabled by default
+        }
+        
+        $coreSchedulerRecommendation = if ($needsCoreSchedulerConfig) {
+            "Enable Core Scheduler for SMT security: bcdedit /set hypervisorschedulertype core"
+        }
+        else {
+            "Core Scheduler is enabled by default in this Windows version (Build $osBuildNumber)"
+        }
+        
         $Results += [PSCustomObject]@{
             Name           = "Hyper-V Core Scheduler"
-            Description    = "SMT-aware scheduler for VM isolation"
-            Status         = if ($coreScheduler -eq 1) { "Enabled" } else { "Not Configured" }
-            CurrentValue   = if ($null -ne $coreScheduler) { $coreScheduler } else { "Not Set" }
-            ExpectedValue  = 1
-            RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization"
-            RegistryName   = "CoreSchedulerType"
-            Recommendation = "Enable Core Scheduler for better VM isolation on SMT systems"
-            Impact         = "May reduce performance but improves security between VMs"
+            Description    = "SMT-aware scheduler for VM isolation (prevents cross-VM side-channel attacks)"
+            Status         = $coreSchedulerStatus
+            CurrentValue   = if ($needsCoreSchedulerConfig -and $null -ne $coreScheduler) { $coreScheduler } else { "OS Default" }
+            ExpectedValue  = if ($needsCoreSchedulerConfig) { 1 } else { "Built-in" }
+            RegistryPath   = if ($needsCoreSchedulerConfig) { "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" } else { "N/A" }
+            RegistryName   = if ($needsCoreSchedulerConfig) { "CoreSchedulerType" } else { "N/A" }
+            Recommendation = $coreSchedulerRecommendation
+            Impact         = if ($needsCoreSchedulerConfig) { "Minor performance reduction, significant security improvement" } else { "No action needed - already optimized" }
             CanBeEnabled   = $true
         }
         
@@ -1098,9 +1279,49 @@ else {
         
         Write-ColorOutput "`nOr manually use these registry commands:" -Color Info
         foreach ($item in $notConfigured | Where-Object { $_.CanBeEnabled }) {
-            Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t REG_DWORD /d $($item.ExpectedValue) /f" -Color Info
+            # Special handling for different registry value types
+            $regType = "REG_DWORD"
+            $regValue = $item.ExpectedValue
+            
+            # Handle large hex values (like MitigationOptions)
+            if ($item.ExpectedValue -is [string] -and $item.ExpectedValue.Length -gt 10 -and $item.ExpectedValue -match "^[0-9A-Fa-f]+$") {
+                try {
+                    $regValue = [Convert]::ToUInt64($item.ExpectedValue, 16)
+                    $regType = "REG_QWORD"
+                }
+                catch {
+                    $regValue = $item.ExpectedValue
+                }
+            }
+            
+            # Add comment for modern CVE mitigations
+            $ModernCVENames = @("BranchHistoryBufferEnabled", "GatherDataSampleMitigation", "SpeculativeReturnStackMitigation", "RegisterFileDataSamplingMitigation", "MicroarchitecturalDataSamplingMitigation", "L1TerminalFaultMitigation")
+            if ($item.RegistryName -in $ModernCVENames) {
+                $cveDescription = switch ($item.RegistryName) {
+                    "BranchHistoryBufferEnabled" { "BHB CVE-2022-0001/0002" }
+                    "GatherDataSampleMitigation" { "GDS CVE-2022-40982" }
+                    "SpeculativeReturnStackMitigation" { "SRSO CVE-2023-20569" }
+                    "RegisterFileDataSamplingMitigation" { "RFDS CVE-2023-28746" }
+                    "MicroarchitecturalDataSamplingMitigation" { "MDS mitigation" }
+                    "L1TerminalFaultMitigation" { "L1TF CVE-2018-3620" }
+                }
+                Write-ColorOutput "# $($item.Name) - $cveDescription" -Color Info
+            }
+            
+            Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t $regType /d $regValue /f" -Color Info
         }
         Write-ColorOutput "`nNote: A system restart may be required after making registry changes." -Color Warning
+        
+        # Additional guidance for modern CVE mitigations
+        $hasModernCVEs = $notConfigured | Where-Object { $_.Name -match "BHB|GDS|SRSO|RFDS|MDS|L1TF" }
+        if ($hasModernCVEs) {
+            Write-ColorOutput "`n💡 Advanced CVE Mitigations Notice:" -Color Header
+            Write-ColorOutput "• These mitigations target recent vulnerabilities (2018-2023)" -Color Info
+            Write-ColorOutput "• Some mitigations require specific CPU microcode updates" -Color Info
+            Write-ColorOutput "• CPU vendor compatibility varies (Intel vs AMD specific)" -Color Info
+            Write-ColorOutput "• Consider testing in non-production environments first" -Color Warning
+            Write-ColorOutput "• Performance impact varies by CPU generation and workload" -Color Info
+        }
     }
     else {
         Write-ColorOutput "All checked mitigations are properly configured!" -Color Good
@@ -1119,7 +1340,7 @@ if ($virtInfo.IsVirtualMachine) {
     switch ($virtInfo.HypervisorVendor) {
         "Microsoft" {
             Write-ColorOutput "`nHyper-V Guest Specific:" -Color Header
-            Write-ColorOutput "• Host should use Core Scheduler (Windows Server 2019+)" -Color Warning
+            Write-ColorOutput "• Host should use Core Scheduler (auto-enabled in newer Windows versions)" -Color Info
             Write-ColorOutput "• Enable Enhanced Session Mode for better security" -Color Info
             Write-ColorOutput "• Ensure host has VBS/HVCI enabled" -Color Warning
         }
@@ -1149,7 +1370,17 @@ else {
     
     if ($virtInfo.HyperVStatus -eq "Enabled") {
         Write-ColorOutput "`nHyper-V Host Specific:" -Color Header
-        Write-ColorOutput "• Enable Core Scheduler: bcdedit /set hypervisorschedulertype core" -Color Info
+        
+        # OS version-aware Core Scheduler recommendation
+        $osBuildNumber = [int](Get-ItemProperty "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
+        if ($osBuildNumber -lt 20348) {
+            Write-ColorOutput "• Enable Core Scheduler (required for this OS): bcdedit /set hypervisorschedulertype core" -Color Warning
+            Write-ColorOutput "  └─ Prevents SMT-based side-channel attacks between VMs" -Color Info
+        }
+        else {
+            Write-ColorOutput "• Core Scheduler: ✓ Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
+        }
+        
         Write-ColorOutput "• Configure VM isolation policies" -Color Info
         Write-ColorOutput "• Use Generation 2 VMs for enhanced security" -Color Info
         Write-ColorOutput "• Enable Secure Boot for VMs when possible" -Color Info
