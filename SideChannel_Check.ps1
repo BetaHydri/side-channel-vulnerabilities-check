@@ -96,7 +96,7 @@ function Set-RegistryValue {
         
         # Enhanced CVE mitigation configuration
         if ($Name -in $ModernCVEMitigations) {
-            Write-ColorOutput "🔧 Configuring advanced CVE mitigation: $Name" -Color Warning
+            Write-ColorOutput "Configuring advanced CVE mitigation: $Name" -Color Warning
             
             # Get CPU information for compatibility validation
             $CPUInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
@@ -130,13 +130,13 @@ function Set-RegistryValue {
             
             # Skip SRSO for non-AMD CPUs
             if ($Name -eq "SpeculativeReturnStackMitigation" -and $CPUManufacturer -ne "AuthenticAMD") {
-                Write-ColorOutput "   ⚠ Skipping SRSO mitigation - AMD-specific vulnerability" -Color Warning
+                Write-ColorOutput "   WARNING: Skipping SRSO mitigation - AMD-specific vulnerability" -Color Warning
                 return $false
             }
             
             # Warn for vendor-specific mitigations on different CPUs
             if (-not $mitigation.Critical -and $Name -match "GatherDataSample|RegisterFileDataSampling|L1TerminalFault|MicroarchitecturalDataSampling") {
-                Write-ColorOutput "   ℹ This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
+                Write-ColorOutput "   INFO: This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
             }
         
             # Create the registry path if it doesn't exist
@@ -714,7 +714,7 @@ function Set-RegistryValue {
     Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
     Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
     Write-ColorOutput "Enhanced with additional CVEs from Microsoft's SpeculationControl tool analysis`n" -Color Warning
-    Write-ColorOutput "💡 For official Microsoft assessment, also consider running:" -Color Info
+    Write-ColorOutput "NOTE: For official Microsoft assessment, also consider running:" -Color Info
     Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
 
     # System Information
@@ -1135,11 +1135,11 @@ function Set-RegistryValue {
     
         # Explanation of the difference
         if (!$vbsHwReady -and $vbsRunning) {
-            Write-ColorOutput "`n💡 Note: VBS is running despite hardware readiness showing 'No'." -Color Info
+            Write-ColorOutput "`nNOTE: VBS is running despite hardware readiness showing 'No'." -Color Info
             Write-ColorOutput "   This indicates VBS is enabled via software/policy, not full hardware support." -Color Info
         }
         if (!$hvciHwReady -and $hvciRunning) {
-            Write-ColorOutput "`n💡 Note: HVCI is active despite hardware readiness showing 'No'." -Color Info
+            Write-ColorOutput "`nNOTE: HVCI is active despite hardware readiness showing 'No'." -Color Info
             Write-ColorOutput "   This indicates HVCI is using compatible mode or software enforcement." -Color Info
         }
     
@@ -1264,7 +1264,7 @@ function Set-RegistryValue {
         Write-Host "       $($flag.Name)" -ForegroundColor White
     
         if ($flag.Flag -eq 0x2000000000000000) {
-            Write-ColorOutput "                               ↳ This is the primary flag for side-channel mitigations!" -Color Info
+            Write-ColorOutput "                               --> This is the primary flag for side-channel mitigations!" -Color Info
         }
     }
 
