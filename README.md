@@ -157,6 +157,12 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\Reports\DetailedReport.csv"
 ```
 
+### VMware Host Security Guide
+```powershell
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+```
+**For VMware Administrators**: Displays comprehensive ESXi host security configuration guide with specific commands and settings for protecting VMs against side-channel attacks.
+
 ## 🎯 Interactive Mitigation Selection
 
 **NEW Enterprise Feature**: Granular control over which security mitigations to apply.
