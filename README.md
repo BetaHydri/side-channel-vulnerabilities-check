@@ -55,6 +55,7 @@ This tool helps system administrators assess and configure their Windows systems
 - 🖥️ **System Information** - Shows CPU and OS details relevant for vulnerabilities
 - 🔄 **VBS/HVCI Support** - Checks virtualization-based security features
 - 🛡️ **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
+- 🏢 **VMware Host Security** - **NEW**: Comprehensive ESXi security configuration guide
 
 ## 📋 Requirements
 
