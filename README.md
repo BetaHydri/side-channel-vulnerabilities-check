@@ -440,6 +440,142 @@ Enabled: 2 of 25 known flags
 - VM Hardware Version 14+
 - VMware Tools with security updates
 
+## 🛡️ VMware Host Security Configuration
+
+**Critical**: VMware hosts require specific ESXi configurations to protect VMs against side-channel vulnerabilities.
+
+### **🔧 Essential ESXi Host Settings:**
+
+#### **1. Side-Channel Aware Scheduler (SCAS)**
+```bash
+# Enable Side-Channel Aware Scheduler (ESXi 6.7 U2+)
+esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true
+esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIntraVM -i true
+
+# Alternative: Disable Hyperthreading completely (more secure but performance impact)
+esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingActive -i false
+```
+
+#### **2. L1 Terminal Fault (L1TF) Protection**
+```bash
+# Enable L1D cache flush for VMs
+esxcli system settings advanced set -o /VMkernel/Boot/runToCompletionOnly -i true
+
+# Disable non-VPID execution (VM configuration)
+# Add to VM's .vmx file: vmx.allowNonVPID = FALSE
+```
+
+#### **3. MDS/TAA Microcode Mitigations**
+```bash
+# Enable CPU microcode updates
+esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
+
+# Enable MDS mitigation
+esxcli system settings advanced set -o /VMkernel/Boot/mitigateL1TF -i true
+```
+
+#### **4. Spectre/Meltdown Host Protection**
+```bash
+# Enable IBRS/IBPB support
+esxcli system settings advanced set -o /VMkernel/Boot/disableSpeculativeExecution -i false
+
+# Enable SSBD (Speculative Store Bypass Disable)
+esxcli system settings advanced set -o /VMkernel/Boot/enableSSBD -i true
+```
+
+### **⚙️ VM-Level Configuration:**
+
+#### **VM Hardware Settings:**
+- **VM Hardware Version**: 14+ (required for CPU security features)
+- **CPU Configuration**: Enable "Expose hardware assisted virtualization"
+- **Memory**: Enable "Reserve all guest memory (All locked)"
+- **Execution Policy**: Enable "Virtualize CPU performance counters"
+
+#### **VM Advanced Parameters (.vmx file):**
+```ini
+# Disable vulnerable features
+vmx.allowNonVPID = "FALSE"
+vmx.allowVpid = "TRUE"
+isolation.tools.unity.disable = "TRUE"
+isolation.tools.unityActive.disable = "TRUE"
+
+# Enable security features
+vpmc.enable = "TRUE"
+hypervisor.cpuid.v0 = "FALSE"
+monitor.phys_bits_used = "40"
+
+# CPU security flags
+featMask.vm.hv.capable = "Min:1"
+featMask.vm.hv.replay.capable = "Min:1"
+```
+
+### **🔍 VMware-Specific Security Verification:**
+
+#### **Check ESXi Security Status:**
+```bash
+# Verify Side-Channel Aware Scheduler
+esxcli system settings advanced list -o /VMkernel/Boot/hyperthreadingMitigation
+
+# Check CPU security features
+esxcli hardware cpu global get
+esxcli hardware cpu feature get -f spectre-ctrl
+
+# Verify L1TF protection
+esxcli system settings advanced list -o /VMkernel/Boot/mitigateL1TF
+
+# Check microcode version
+esxcli hardware cpu global get | grep -i microcode
+```
+
+#### **VM Security Verification:**
+```bash
+# Check VM security settings
+vim-cmd vmsvc/get.config <VMID> | grep -E "(vmx.allow|featMask|isolation)"
+
+# Verify VMware Tools version (should be latest)
+vmware-toolbox-cmd -v
+```
+
+### **📋 VMware Security Checklist:**
+
+**Host Level (ESXi):**
+- ✅ Update ESXi to 6.7 U2+ or 7.0+
+- ✅ Apply latest CPU microcode updates
+- ✅ Enable Side-Channel Aware Scheduler
+- ✅ Configure L1TF protection
+- ✅ Enable MDS/TAA mitigations
+- ✅ Verify Spectre/Meltdown host protections
+
+**VM Level:**
+- ✅ Update to VM Hardware Version 14+
+- ✅ Install latest VMware Tools
+- ✅ Configure VM security parameters
+- ✅ Enable CPU performance counter virtualization
+- ✅ Reserve guest memory (for critical VMs)
+- ✅ Apply guest OS mitigations (using this script)
+
+**Network Security:**
+- ✅ Isolate management network
+- ✅ Use encrypted vMotion
+- ✅ Enable VM communication encryption
+- ✅ Configure distributed firewall rules
+
+### **⚡ Performance Impact Considerations:**
+
+| Mitigation | Performance Impact | Recommendation |
+|------------|-------------------|----------------|
+| **Side-Channel Aware Scheduler** | 2-5% | Enable for multi-tenant environments |
+| **L1TF Protection** | 5-15% | Critical for untrusted VMs |
+| **Full Hyperthreading Disable** | 20-40% | Only for highest security requirements |
+| **MDS Mitigation** | 3-8% | Enable for Intel hosts |
+| **VM Memory Reservation** | 0% (but uses more host memory) | For critical security workloads |
+
+### **🔗 VMware Security Resources:**
+
+- [VMware Security Advisories](https://www.vmware.com/security/advisories.html)
+- [Side-Channel Attack Mitigations](https://kb.vmware.com/s/article/55636)
+- [ESXi CPU Performance Monitoring](https://docs.vmware.com/en/VMware-vSphere/7.0/com.vmware.vsphere.monitoring.doc/GUID-4D4AC9F1-2C67-4F2E-B9E9-E7B4442BB970.html)
+
 #### **Linux KVM/QEMU:**
 - Kernel 4.15+ with spec-ctrl support
 - CPU flags: +spec-ctrl, +ibpb, +ssbd
