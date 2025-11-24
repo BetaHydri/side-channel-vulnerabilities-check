@@ -1531,6 +1531,8 @@ else {
         
         Write-ColorOutput "`nTo apply these configurations automatically, run:" -Color Info
         Write-ColorOutput ".\SideChannel_Check.ps1 -Apply" -Color Info
+        Write-ColorOutput "`nFor interactive selection (recommended):" -Color Info
+        Write-ColorOutput ".\SideChannel_Check.ps1 -Apply -Interactive" -Color Good
         
         Write-ColorOutput "`nOr manually use these registry commands:" -Color Info
         foreach ($item in $notConfigured | Where-Object { $_.CanBeEnabled }) {

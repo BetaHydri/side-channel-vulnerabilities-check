@@ -496,6 +496,9 @@ Enabled: 2 of 25 known flags
 
 # Apply guest-specific mitigations
 .\SideChannel_Check.ps1 -Apply
+
+# Apply guest mitigations interactively (recommended)
+.\SideChannel_Check.ps1 -Apply -Interactive
 ```
 
 ### Hypervisor Host:
@@ -505,6 +508,9 @@ Enabled: 2 of 25 known flags
 
 # Host configuration for secure VM environment
 .\SideChannel_Check.ps1 -Apply
+
+# Host configuration with interactive selection (recommended)
+.\SideChannel_Check.ps1 -Apply -Interactive
 
 # Export for compliance documentation
 .\SideChannel_Check.ps1 -ExportPath "C:\Reports\HostSecurityReport.csv"
