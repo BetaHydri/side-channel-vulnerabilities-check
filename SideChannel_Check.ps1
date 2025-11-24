@@ -1188,6 +1188,110 @@ else {
     Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
 }
 
+# Hardware Security Mitigation Value Matrix for detailed output
+Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
+Write-ColorOutput "="*80 -Color Header
+
+Write-ColorOutput "`nThe Hardware Security Mitigations (MitigationOptions) registry value is a bit-field" -Color Info
+Write-ColorOutput "that controls various CPU-level security features. Here's what the flags mean:" -Color Info
+
+Write-ColorOutput "`nCommon Hardware Mitigation Flags:" -Color Header
+Write-ColorOutput "=================================" -Color Header
+
+# Get current MitigationOptions value for comparison
+$currentMitigationValue = $null
+$mitigationResult = $Results | Where-Object { $_.Name -eq "Hardware Security Mitigations" }
+if ($mitigationResult -and $mitigationResult.CurrentValue -ne "Not Set") {
+    try {
+        if ($mitigationResult.CurrentValue -is [string] -and $mitigationResult.CurrentValue -match "^[0-9A-Fa-f]+$") {
+            $currentMitigationValue = [Convert]::ToUInt64($mitigationResult.CurrentValue, 16)
+        }
+        elseif ($mitigationResult.CurrentValue -is [uint64]) {
+            $currentMitigationValue = $mitigationResult.CurrentValue
+        }
+    }
+    catch {
+        $currentMitigationValue = $null
+    }
+}
+
+# Define known mitigation flags
+$mitigationFlags = @(
+    @{ Flag = 0x0000000000000001; Name = "CFG (Control Flow Guard)"; Description = "Prevents ROP/JOP attacks" },
+    @{ Flag = 0x0000000000000002; Name = "CFG Export Suppression"; Description = "Disables CFG for export functions" },
+    @{ Flag = 0x0000000000000004; Name = "CFG Strict Mode"; Description = "Stricter CFG enforcement" },
+    @{ Flag = 0x0000000000000008; Name = "DEP (Data Execution Prevention)"; Description = "Prevents code execution in data pages" },
+    @{ Flag = 0x0000000000000010; Name = "DEP ATL Thunk Emulation"; Description = "Legacy ATL thunk compatibility" },
+    @{ Flag = 0x0000000000000020; Name = "SEHOP (SEH Overwrite Protection)"; Description = "Protects exception handlers" },
+    @{ Flag = 0x0000000000000040; Name = "Heap Terminate on Corruption"; Description = "Immediately terminates on heap corruption" },
+    @{ Flag = 0x0000000000000080; Name = "Bottom-up ASLR"; Description = "Randomizes memory layout" },
+    @{ Flag = 0x0000000000000100; Name = "High Entropy ASLR"; Description = "64-bit address space randomization" },
+    @{ Flag = 0x0000000000000200; Name = "Force Relocate Images"; Description = "Forces ASLR even for non-ASLR images" },
+    @{ Flag = 0x0000000000000400; Name = "Heap Terminate on Corruption (Enhanced)"; Description = "Enhanced heap protection" },
+    @{ Flag = 0x0000000000001000; Name = "Stack Pivot Protection"; Description = "Prevents stack pivoting attacks" },
+    @{ Flag = 0x0000000000002000; Name = "Import Address Filtering"; Description = "Filters dangerous API imports" },
+    @{ Flag = 0x0000000000004000; Name = "Module Signature Enforcement"; Description = "Requires signed modules" },
+    @{ Flag = 0x0000000000008000; Name = "Font Disable"; Description = "Disables loading untrusted fonts" },
+    @{ Flag = 0x0000000000010000; Name = "Image Load Signature Mitigation"; Description = "Validates image signatures" },
+    @{ Flag = 0x0000000000020000; Name = "Non-System Font Disable"; Description = "Blocks non-system fonts" },
+    @{ Flag = 0x0000000000040000; Name = "Audit Non-System Font Loading"; Description = "Audits font loading" },
+    @{ Flag = 0x0000000000080000; Name = "Child Process Policy"; Description = "Restricts child process creation" },
+    @{ Flag = 0x0000000000100000; Name = "Payload Restriction Policy"; Description = "Prevents payload execution" },
+    @{ Flag = 0x0000000001000000; Name = "CET (Intel CET Shadow Stack)"; Description = "Hardware-assisted CFI" },
+    @{ Flag = 0x0000000002000000; Name = "CET Strict Mode"; Description = "Strict CET enforcement" },
+    @{ Flag = 0x0000000004000000; Name = "CET Dynamic Code"; Description = "CET for dynamic code" },
+    @{ Flag = 0x0000000008000000; Name = "Intel MPX (Memory Protection Extensions)"; Description = "Hardware bounds checking (deprecated)" },
+    @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
+)
+
+Write-ColorOutput "`nFlag Value          Status    Mitigation Name" -Color Header
+Write-ColorOutput "----------          ------    ---------------" -Color Header
+
+foreach ($flag in $mitigationFlags | Sort-Object Flag) {
+    $flagValue = "0x{0:X16}" -f $flag.Flag
+    $isEnabled = if ($currentMitigationValue) { 
+        ($currentMitigationValue -band $flag.Flag) -eq $flag.Flag 
+    }
+    else { 
+        $false 
+    }
+    
+    $statusIcon = if ($isEnabled) { "✓" } else { "○" }
+    $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
+    
+    Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
+    Write-Host "$statusIcon" -NoNewline -ForegroundColor $Colors[$statusColor]
+    Write-Host "       $($flag.Name)" -ForegroundColor White
+    
+    if ($flag.Flag -eq 0x2000000000000000) {
+        Write-ColorOutput "                               ↳ This is the primary flag for side-channel mitigations!" -Color Info
+    }
+}
+
+if ($currentMitigationValue) {
+    Write-ColorOutput "`nCurrent MitigationOptions Value:" -Color Header
+    Write-Host "Decimal: " -NoNewline -ForegroundColor Gray
+    Write-Host "$currentMitigationValue" -ForegroundColor White
+    Write-Host "Hex:     " -NoNewline -ForegroundColor Gray  
+    Write-Host ("0x{0:X}" -f $currentMitigationValue) -ForegroundColor White
+    
+    $enabledCount = ($mitigationFlags | Where-Object { ($currentMitigationValue -band $_.Flag) -eq $_.Flag }).Count
+    $totalFlags = $mitigationFlags.Count
+    Write-Host "Enabled: " -NoNewline -ForegroundColor Gray
+    Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " of $totalFlags known flags" -ForegroundColor Gray
+}
+else {
+    Write-ColorOutput "`nCurrent MitigationOptions Value: Not Set" -Color Warning
+    Write-ColorOutput "This means Windows is using default hardware mitigation settings." -Color Info
+}
+
+Write-ColorOutput "`nRecommended Minimum Value:" -Color Header
+Write-ColorOutput "0x2000000000000000 (Core Hardware Security Features)" -Color Good
+Write-ColorOutput "`nNote: The exact flags enabled depend on your CPU capabilities and Windows version." -Color Info
+Write-ColorOutput "Some flags are only available on newer processors or Windows versions." -Color Info
+
 # Display results table
 Show-ResultsTable -Results $Results
 

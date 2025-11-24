@@ -40,6 +40,7 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 - ✅ **Erweiterte CVE-Unterstützung** - Basiert auf Microsoft's SpeculationControl tool Analyse
 - ✅ **Virtualisierungs-Aware** - Erkennt VM/Host-Umgebung und gibt spezifische Empfehlungen
 - 🧠 **OS-Version-bewusst** - Automatische Anpassung an Windows-Version (Core Scheduler Detection)
+- 🔍 **Hardware Mitigation Matrix** - **NEU**: Entschlüsselt MitigationOptions Registry-Werte im `-Detailed` Modus
 - 📊 **Klare Tabellendarstellung** - Professionell formatierte Ausgabe mit visuellen Statusindikatoren
 - ⚙️ **Automatisierte Konfiguration** - Ein-Klick-Anwendung von Sicherheitseinstellungen mit `-Apply`
 - 🔬 **CPU-spezifische Validierung** - Intel vs AMD spezifische Mitigationsempfehlungen
@@ -124,6 +125,47 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 ```powershell
 .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\Reports\DetailedReport.csv"
 ```
+
+## 🔍 Hardware Security Mitigation Value Matrix
+
+**NEU in Version 2.0**: Der `-Detailed` Modus enthält jetzt eine umfassende **Hardware Security Mitigation Value Matrix**, die die kryptischen MitigationOptions Registry-Werte entschlüsselt.
+
+### Was die Matrix zeigt:
+```powershell
+.\SideChannel_Check.ps1 -Detailed
+```
+
+```
+HARDWARE SECURITY MITIGATION VALUE MATRIX
+==========================================
+
+Flag Value          Status    Mitigation Name
+----------          ------    ---------------
+0x0000000000000001  ○       CFG (Control Flow Guard)
+0x0000000000000100  ✓       High Entropy ASLR
+0x2000000000000000  ✓       Core Hardware Security Features
+                               ↳ This is the primary flag for side-channel mitigations!
+
+Current MitigationOptions Value:
+Decimal: 2305843009213694208
+Hex:     0x2000000000000100
+Enabled: 2 of 25 known flags
+```
+
+### Nutzen für Administratoren:
+- **🔍 Hex-Werte entschlüsseln**: Verstehen Sie was `2305843009213694208` bedeutet
+- **🛡️ Sicherheits-Audit**: Klare Übersicht über aktive Hardware-Mitigationen
+- **📋 Compliance**: Einfache Überprüfung spezifischer Sicherheits-Flags
+- **🔧 Troubleshooting**: Identifikation fehlender Sicherheitskonfigurationen
+- **🎓 Bildung**: Lernen Sie die Windows-Sicherheitsarchitektur kennen
+
+### Verfügbare Hardware-Mitigationen:
+- **CFG** (Control Flow Guard) - ROP/JOP-Angriffsprävention
+- **DEP** (Data Execution Prevention) - Code-Execution in Datenbereichen verhindern
+- **ASLR** (Address Space Layout Randomization) - Speicher-Layout-Randomisierung
+- **CET** (Intel Control-flow Enforcement Technology) - Hardware-assistierte CFI
+- **Core Hardware Security Features** - Essentielle CPU-Sicherheitsmitigationen
+- **25+ weitere Flags** - Vollständige Liste in der detaillierten Ausgabe
 
 ## 📊 Example Output
 
