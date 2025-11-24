@@ -895,10 +895,10 @@ $Results += Test-SideChannelMitigation -Name "RFDS Mitigation" `
 
 # 15. L1TF (L1 Terminal Fault) - CVE-2018-3620
 # Perform Intel CPU-specific vulnerability detection
-if ($CPUManufacturer -eq "GenuineIntel") {
+if ($cpuInfo.Manufacturer -eq "GenuineIntel") {
     # Extract Intel CPU Family/Model/Stepping for vulnerability assessment
     $IntelCPUDetails = $null
-    if ($CPUInfo.Description -match 'Family (\d+) Model (\d+) Stepping (\d+)') {
+    if ($cpuInfo.Description -match 'Family (\d+) Model (\d+) Stepping (\d+)') {
         $IntelCPUDetails = @{
             Family   = [int]$Matches[1]
             Model    = [int]$Matches[2]
