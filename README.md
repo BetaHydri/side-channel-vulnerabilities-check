@@ -1,22 +1,19 @@
 # Side-Channel Vulnerability Configuration Checker
-*Konfigurationsprüfer für Side-Channel-Schwachstellen*
 
-Ein umfassendes PowerShell-Tool zur Überprüfung und Konfiguration von Windows-Schutzmaßnahmen gegen Side-Channel-Vulnerabilities gemäß Microsoft-Sicherheitsleitlinien (KB4073119).
+A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119).
 
-*A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119).*
+## 🔒 Overview
 
-## 🔒 Überblick
+This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks, including:
 
-Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihrer Windows-Systeme gegen CPU-basierte Side-Channel-Angriffe, einschließlich:
-
-### Klassische Vulnerabilities:
-- **Spectre** (Varianten 1, 2 und 4)
-- **Meltdown** Angriffe
-- **Intel TSX** Vulnerabilities
+### Classic Vulnerabilities:
+- **Spectre** (Variants 1, 2, and 4)
+- **Meltdown** attacks
+- **Intel TSX** vulnerabilities
 - **Branch Target Injection** (BTI)
 - **Speculative Store Bypass** (SSB)
 
-### Moderne CVEs (2018-2023):
+### Modern CVEs (2018-2023):
 - **L1TF** (L1 Terminal Fault) - CVE-2018-3620
 - **BHB** (Branch History Buffer) - CVE-2022-0001/0002
 - **GDS** (Gather Data Sample) - CVE-2022-40982
@@ -24,30 +21,30 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 - **RFDS** (Register File Data Sampling) - CVE-2023-28746
 - **MDS** (Microarchitectural Data Sampling) mitigation
 
-## 🖥️ Virtualisierungs-Support
+## 🖥️ Virtualization Support
 
-**NEU**: Erweiterte Unterstützung für virtualisierte Umgebungen:
+**NEW**: Enhanced support for virtualized environments:
 
-- ✅ **VM-Erkennung** - Automatische Identifikation von Host/Guest-Systemen
-- ✅ **Hypervisor-spezifische Prüfungen** - Spezielle Checks für Hyper-V, VMware, KVM
-- ✅ **Host-Empfehlungen** - Sicherheitshinweise für Virtualisierungs-Hosts
-- ✅ **Guest-Empfehlungen** - VM-spezifische Sicherheitskonfiguration
-- ✅ **Hardware-Voraussetzungen** - Detaillierte Anforderungen für sichere Virtualisierung
+- ✅ **VM Detection** - Automatic identification of host/guest systems
+- ✅ **Hypervisor-specific Checks** - Special checks for Hyper-V, VMware, KVM
+- ✅ **Host Recommendations** - Security guidance for virtualization hosts
+- ✅ **Guest Recommendations** - VM-specific security configuration
+- ✅ **Hardware Requirements** - Detailed requirements for secure virtualization
 
 ## 🚀 Features
 
-- ✅ **Umfassende Sicherheitsbewertung** - Prüft 21+ kritische Sicherheitsmitigationen inkl. moderner CVEs (2018-2023)
-- ✅ **Erweiterte CVE-Unterstützung** - Basiert auf Microsoft's SpeculationControl tool Analyse
-- ✅ **Virtualisierungs-Aware** - Erkennt VM/Host-Umgebung und gibt spezifische Empfehlungen
-- 🧠 **OS-Version-bewusst** - Automatische Anpassung an Windows-Version (Core Scheduler Detection)
-- 🔍 **Hardware Mitigation Matrix** - **NEU**: Entschlüsselt MitigationOptions Registry-Werte im `-Detailed` Modus
-- 📊 **Klare Tabellendarstellung** - Professionell formatierte Ausgabe mit visuellen Statusindikatoren
-- ⚙️ **Automatisierte Konfiguration** - Ein-Klick-Anwendung von Sicherheitseinstellungen mit `-Apply`
-- 🔬 **CPU-spezifische Validierung** - Intel vs AMD spezifische Mitigationsempfehlungen
-- 📈 **Detailliertes Reporting** - Export der Ergebnisse als CSV für Dokumentation
-- 🎯 **Sicherer Betrieb** - Standardmäßig nur lesend, modifiziert System nur auf explizite Anfrage
-- 🖥️ **Systeminformationen** - Zeigt CPU- und OS-Details relevant für Vulnerabilities
-- 🔄 **VBS/HVCI-Support** - Prüfung virtualisierungsbasierter Sicherheitsfeatures
+- ✅ **Comprehensive Security Assessment** - Checks 21+ critical security mitigations including modern CVEs (2018-2023)
+- ✅ **Extended CVE Support** - Based on Microsoft's SpeculationControl tool analysis
+- ✅ **Virtualization-Aware** - Detects VM/host environment and provides specific recommendations
+- 🧠 **OS Version-Aware** - Automatic adaptation to Windows version (Core Scheduler Detection)
+- 🔍 **Hardware Mitigation Matrix** - **NEW**: Decodes MitigationOptions registry values in `-Detailed` mode
+- 📊 **Clear Table Display** - Professionally formatted output with visual status indicators
+- ⚙️ **Automated Configuration** - One-click application of security settings with `-Apply`
+- 🔬 **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
+- 📈 **Detailed Reporting** - Export results as CSV for documentation
+- 🎯 **Safe Operation** - Read-only by default, only modifies system on explicit request
+- 🖥️ **System Information** - Shows CPU and OS details relevant for vulnerabilities
+- 🔄 **VBS/HVCI Support** - Checks virtualization-based security features
 
 ## 📋 Requirements
 
@@ -62,26 +59,26 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 - **Cross-Version Tested**: Both versions display identical output and functionality
 - **Windows Server Default**: PowerShell 5.1 compatibility ensures seamless operation
 
-## 🔄 Kompatibilität mit Microsoft Tools
+## 🔄 Compatibility with Microsoft Tools
 
-Dieses Tool wurde **erweitert basierend auf Microsoft's offizieller SpeculationControl Modul Analyse**:
+This tool has been **extended based on Microsoft's official SpeculationControl module analysis**:
 
 ```powershell
-# Für umfassende Bewertung beide Tools verwenden:
-.\SideChannel_Check.ps1                    # Dieses erweiterte Enterprise-Tool
-Install-Module SpeculationControl          # Microsoft's offizielle Bewertung
-Get-SpeculationControlSettings             # Hardware-Level-Analyse
+# For comprehensive assessment use both tools:
+.\SideChannel_Check.ps1                    # This extended enterprise tool
+Install-Module SpeculationControl          # Microsoft's official assessment
+Get-SpeculationControlSettings             # Hardware-level analysis
 ```
 
-### Vergleich der Tools:
-| Feature | Dieses Tool | Microsoft SpeculationControl |
-|---------|-------------|------------------------------|
-| **CVE-Abdeckung** | ✅ Vollständig (2017-2023) | ✅ Vollständig (2017-2023) |
-| **Virtualisierung** | ✅ Umfassend | ❌ Keine |
-| **Auto-Konfiguration** | ✅ `-Apply` Switch | ❌ Nur Bewertung |
-| **Enterprise Features** | ✅ CSV Export, Tabellen | ⚠️ Basis-Text |
-| **OS-Version-Bewusstsein** | ✅ Automatisch | ⚠️ Basis |
-| **Hardware-Analyse** | ⚠️ Registry-basiert | ✅ Native APIs |
+### Tool Comparison:
+| Feature | This Tool | Microsoft SpeculationControl |
+|---------|-----------|-------------------------------|
+| **CVE Coverage** | ✅ Complete (2017-2023) | ✅ Complete (2017-2023) |
+| **Virtualization** | ✅ Comprehensive | ❌ None |
+| **Auto-Configuration** | ✅ `-Apply` Switch | ❌ Assessment only |
+| **Enterprise Features** | ✅ CSV Export, Tables | ⚠️ Basic text |
+| **OS Version-Awareness** | ✅ Automatic | ⚠️ Basic |
+| **Hardware Analysis** | ⚠️ Registry-based | ✅ Native APIs |
 
 ## 🔧 Installation
 
@@ -134,9 +131,9 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 
 ## 🔍 Hardware Security Mitigation Value Matrix
 
-**NEU in Version 2.0**: Der `-Detailed` Modus enthält jetzt eine umfassende **Hardware Security Mitigation Value Matrix**, die die kryptischen MitigationOptions Registry-Werte entschlüsselt.
+**NEW in Version 2.0**: The `-Detailed` mode now includes a comprehensive **Hardware Security Mitigation Value Matrix** that decodes the cryptic MitigationOptions registry values.
 
-### Was die Matrix zeigt:
+### What the Matrix shows:
 ```powershell
 .\SideChannel_Check.ps1 -Detailed
 ```
@@ -158,20 +155,20 @@ Hex:     0x2000000000000100
 Enabled: 2 of 25 known flags
 ```
 
-### Nutzen für Administratoren:
-- **🔍 Hex-Werte entschlüsseln**: Verstehen Sie was `2305843009213694208` bedeutet
-- **🛡️ Sicherheits-Audit**: Klare Übersicht über aktive Hardware-Mitigationen
-- **📋 Compliance**: Einfache Überprüfung spezifischer Sicherheits-Flags
-- **🔧 Troubleshooting**: Identifikation fehlender Sicherheitskonfigurationen
-- **🎓 Bildung**: Lernen Sie die Windows-Sicherheitsarchitektur kennen
+### Benefits for Administrators:
+- **🔍 Decode Hex Values**: Understand what `2305843009213694208` means
+- **🛡️ Security Audit**: Clear overview of active hardware mitigations
+- **📋 Compliance**: Easy verification of specific security flags
+- **🔧 Troubleshooting**: Identification of missing security configurations
+- **🎓 Education**: Learn about Windows security architecture
 
-### Verfügbare Hardware-Mitigationen:
-- **CFG** (Control Flow Guard) - ROP/JOP-Angriffsprävention
-- **DEP** (Data Execution Prevention) - Code-Execution in Datenbereichen verhindern
-- **ASLR** (Address Space Layout Randomization) - Speicher-Layout-Randomisierung
-- **CET** (Intel Control-flow Enforcement Technology) - Hardware-assistierte CFI
-- **Core Hardware Security Features** - Essentielle CPU-Sicherheitsmitigationen
-- **25+ weitere Flags** - Vollständige Liste in der detaillierten Ausgabe
+### Available Hardware Mitigations:
+- **CFG** (Control Flow Guard) - ROP/JOP attack prevention
+- **DEP** (Data Execution Prevention) - Prevent code execution in data areas
+- **ASLR** (Address Space Layout Randomization) - Memory layout randomization
+- **CET** (Intel Control-flow Enforcement Technology) - Hardware-assisted CFI
+- **Core Hardware Security Features** - Essential CPU security mitigations
+- **25+ additional flags** - Complete list in detailed output
 
 ## 📊 Example Output
 
@@ -195,179 +192,177 @@ Status Legend:
 [?] Not Set  - Registry value not configured (using defaults)
 ```
 
-## 🛡️ Überprüfte Sicherheitsmaßnahmen
+## 🛡️ Checked Security Measures
 
-### Klassische Side-Channel Mitigationen:
+### Classic Side-Channel Mitigations:
 
-| Schutzmaßnahme | Beschreibung | Registry-Pfad | Auswirkung |
+| Protection Measure | Description | Registry Path | Impact |
 |----------------|--------------|---------------|------------|
-| **Speculative Store Bypass Disable (SSBD)** | Schutz vor Spectre Variante 4 | `HKLM:\SYSTEM\...\Memory Management` | Minimal |
-| **Branch Target Injection (BTI)** | Schutz vor Spectre Variante 2 | `HKLM:\SYSTEM\...\kernel` | Niedrig-Mittel |
-| **Kernel VA Shadow (KVAS)** | Meltdown-Schutz | `HKLM:\SYSTEM\...\Memory Management` | Mittel |
-| **Enhanced IBRS** | Intel Hardware-Mitigation | `HKLM:\SYSTEM\...\Memory Management` | Niedrig |
-| **Intel TSX Disable** | Verhindert TSX-basierte Angriffe | `HKLM:\SYSTEM\...\kernel` | Anwendungsabhängig |
-| **Hardware Mitigations** | CPU-Level-Schutz | `HKLM:\SYSTEM\...\kernel` | Hardware-abhängig |
+| **Speculative Store Bypass Disable (SSBD)** | Protection against Spectre Variant 4 | `HKLM:\SYSTEM\...\Memory Management` | Minimal |
+| **Branch Target Injection (BTI)** | Protection against Spectre Variant 2 | `HKLM:\SYSTEM\...\kernel` | Low-Medium |
+| **Kernel VA Shadow (KVAS)** | Meltdown protection | `HKLM:\SYSTEM\...\Memory Management` | Medium |
+| **Enhanced IBRS** | Intel hardware mitigation | `HKLM:\SYSTEM\...\Memory Management` | Low |
+| **Intel TSX Disable** | Prevents TSX-based attacks | `HKLM:\SYSTEM\...\kernel` | Application-dependent |
+| **Hardware Mitigations** | CPU-level protection | `HKLM:\SYSTEM\...\kernel` | Hardware-dependent |
 
-### Moderne CVE-Mitigationen (2018-2023):
+### Modern CVE Mitigations (2018-2023):
 
-| CVE | Mitigation | Ziel-CPUs | Beschreibung |
+| CVE | Mitigation | Target CPUs | Description |
 |-----|------------|-----------|-------------|
-| **CVE-2018-3620** | L1TF Mitigation | Intel (Virtualisierung) | L1 Terminal Fault Schutz |
+| **CVE-2018-3620** | L1TF Mitigation | Intel (Virtualization) | L1 Terminal Fault protection |
 | **CVE-2022-0001/0002** | BHB Mitigation | Intel/AMD (Modern) | Branch History Buffer |
 | **CVE-2022-40982** | GDS Mitigation | Intel (Server/Datacenter) | Gather Data Sample |
 | **CVE-2023-20569** | SRSO Mitigation | AMD Zen | Speculative Return Stack Overflow |
 | **CVE-2023-28746** | RFDS Mitigation | Intel (Modern) | Register File Data Sampling |
 | **MDS** | MDS Mitigation | Intel (Affected) | Microarchitectural Data Sampling |
 
-### Windows-Sicherheitsfeatures:
+### Windows Security Features:
 
-| Schutzmaßnahme | Beschreibung | Registry-Pfad | Auswirkung |
+| Protection Measure | Description | Registry Path | Impact |
 |----------------|--------------|---------------|------------|
-| **VBS (Virtualization Based Security)** | Hardware-basierte Sicherheit | `HKLM:\SYSTEM\...\DeviceGuard` | Erfordert UEFI/TPM |
-| **HVCI (Hypervisor Code Integrity)** | Hypervisor-geschützte Code-Integrität | `HKLM:\SYSTEM\...\HypervisorEnforcedCodeIntegrity` | Treiber-Kompatibilität |
-| **Credential Guard** | Schutz vor Credential-Diebstahl | `HKLM:\SYSTEM\...\Lsa` | VBS erforderlich |
-| **Windows Defender ASLR** | Address Space Layout Randomization | Windows Defender Exploit Guard | Anwendungskompatibilität |
+| **VBS (Virtualization Based Security)** | Hardware-based security | `HKLM:\SYSTEM\...\DeviceGuard` | Requires UEFI/TPM |
+| **HVCI (Hypervisor Code Integrity)** | Hypervisor-protected code integrity | `HKLM:\SYSTEM\...\HypervisorEnforcedCodeIntegrity` | Driver compatibility |
+| **Credential Guard** | Protection against credential theft | `HKLM:\SYSTEM\...\Lsa` | VBS required |
+| **Windows Defender ASLR** | Address Space Layout Randomization | Windows Defender Exploit Guard | Application compatibility |
 
-## 🖥️ Virtualisierungs-spezifische Prüfungen
+## 🖥️ Virtualization-specific Checks
 
-### Für VM-Gäste:
-- **SLAT-Support-Prüfung** - Überprüfung der Second Level Address Translation
-- **VM-Tools-Sicherheit** - Hypervisor-spezifische Sicherheitsfeatures
-- **Guest-Integration** - Sicherheitsrelevante Integrationsservices
+### For VM Guests:
+- **SLAT Support Check** - Verification of Second Level Address Translation
+- **VM Tools Security** - Hypervisor-specific security features
+- **Guest Integration** - Security-relevant integration services
 
-### Für Hypervisor-Hosts:
-- **Hyper-V Core Scheduler** - OS-version-bewusste SMT-Scheduler-Konfiguration
-  - **Windows 10/Server 2016/2019**: Manuelle Aktivierung erforderlich
-  - **Windows 11/Server 2022+**: Automatisch aktiviert (Build 20348+)
-- **Nested Virtualization** - Sicherheitsüberlegungen für verschachtelte VMs
-- **VM-Isolations-Richtlinien** - Konfiguration für sichere Multi-Tenant-Umgebungen
-- **Modern CVE Support** - CPU-spezifische Mitigation basierend auf Hersteller
+### For Hypervisor Hosts:
+- **Hyper-V Core Scheduler** - OS version-aware SMT scheduler configuration
+  - **Windows 10/Server 2016/2019**: Manual activation required
+  - **Windows 11/Server 2022+**: Automatically enabled (Build 20348+)
+- **Nested Virtualization** - Security considerations for nested VMs
+- **VM Isolation Policies** - Configuration for secure multi-tenant environments
+- **Modern CVE Support** - CPU-specific mitigation based on manufacturer
 
-## 🔧 Virtualisierungs-Voraussetzungen
+## 🔧 Virtualization Requirements
 
-### Hardware-Anforderungen:
-- **Intel**: VT-x mit EPT, VT-d **oder** **AMD**: AMD-V mit RVI, AMD-Vi
-- **IOMMU-Support** für sichere DMA-Isolation
-- **TPM 2.0** für VBS/Credential Guard
-- **UEFI Secure Boot** Unterstützung
+### Hardware Requirements:
+- **Intel**: VT-x with EPT, VT-d **or** **AMD**: AMD-V with RVI, AMD-Vi
+- **IOMMU Support** for secure DMA isolation
+- **TPM 2.0** for VBS/Credential Guard
+- **UEFI Secure Boot** support
 
-### Hypervisor-spezifische Anforderungen:
+### Hypervisor-specific Requirements:
 
 #### **Microsoft Hyper-V:**
-- Windows Server 2019+ für Core Scheduler
-- Generation 2 VMs für erweiterte Sicherheit
-- VBS/HVCI auf Host aktiviert
+- Windows Server 2019+ for Core Scheduler
+- Generation 2 VMs for enhanced security
+- VBS/HVCI enabled on host
 
 #### **VMware vSphere:**
-- ESXi 6.7 U2+ für Side-Channel Aware Scheduler
-- VM Hardware Version 14+ 
-- VMware Tools mit Sicherheits-Updates
+- ESXi 6.7 U2+ for Side-Channel Aware Scheduler
+- VM Hardware Version 14+
+- VMware Tools with security updates
 
 #### **Linux KVM/QEMU:**
-- Kernel 4.15+ mit spec-ctrl Unterstützung
-- CPU-Flags: +spec-ctrl, +ibpb, +ssbd
-- Intel EPT/AMD RVI aktiviert
+- Kernel 4.15+ with spec-ctrl support
+- CPU flags: +spec-ctrl, +ibpb, +ssbd
+- Intel EPT/AMD RVI enabled## ⚠️ Important Notes
 
-## ⚠️ Wichtige Hinweise
+### Before running `-Apply`:
+- **Backup registry** or create system restore point
+- **Test in non-production environment first**
+- **Check application compatibility** - some protections may impact performance
+- **Update CPU microcode** - Modern CVE mitigations require current microcode
+- **Plan system restart** - Changes require reboot
 
-### Vor der Ausführung von `-Apply`:
-- **Registry sichern** oder Systemwiederherstellungspunkt erstellen
-- **Zuerst in Nicht-Produktionsumgebung testen**
-- **Anwendungskompatibilität prüfen** - einige Schutzmaßnahmen können die Leistung beeinträchtigen
-- **CPU-Mikrocode aktualisieren** - Moderne CVE-Mitigationen erfordern aktuelle Microcode
-- **Systemneustart einplanen** - Änderungen erfordern Neustart
+### Modern CVE Mitigations (2018-2023):
+- **CPU-specific validation** - Intel vs AMD specific mitigations
+- **Microcode dependencies** - BHB, GDS, SRSO, RFDS require current CPU microcode
+- **Vendor-specific** - SRSO only for AMD, GDS/RFDS primarily Intel
+- **Performance analysis** - Modern mitigations have variable performance impacts
 
-### Moderne CVE-Mitigationen (2018-2023):
-- **CPU-spezifische Validierung** - Intel vs AMD spezifische Mitigationen
-- **Mikrocode-Abhängigkeiten** - BHB, GDS, SRSO, RFDS erfordern aktuelle CPU-Mikrocode
-- **Hersteller-spezifisch** - SRSO nur für AMD, GDS/RFDS primär Intel
-- **Leistungsanalyse** - Moderne Mitigationen haben variable Performance-Auswirkungen
+### OS Version-specific Considerations:
+- **Core Scheduler** - Automatic in Windows 11/Server 2022+ (Build 20348+)
+- **Legacy Support** - Windows 10/Server 2016/2019 need manual configuration
+- **Build Detection** - Tool automatically detects required vs. already active features
 
-### OS-Version-spezifische Überlegungen:
-- **Core Scheduler** - Automatisch in Windows 11/Server 2022+ (Build 20348+)
-- **Legacy-Support** - Windows 10/Server 2016/2019 benötigen manuelle Konfiguration
-- **Build-Erkennung** - Tool erkennt automatisch erforderliche vs. bereits aktive Features
+### Virtualization-specific Considerations:
+- **Secure host system first** before configuring guests
+- **Hypervisor updates** have priority over guest configuration
+- **Nested Virtualization** increases attack surface - use carefully
+- **VM Isolation** configure for multi-tenant environments
 
-### Virtualisierungs-spezifische Überlegungen:
-- **Host-System zuerst absichern** vor Konfiguration der Gäste
-- **Hypervisor-Updates** haben Priorität vor Guest-Konfiguration
-- **Nested Virtualization** erhöht Angriffsfläche - vorsichtig verwenden
-- **VM-Isolation** konfigurieren für Multi-Tenant-Umgebungen
+### Performance Considerations:
+- Most classic protections have **minimal performance impact** on modern CPUs
+- **Modern CVE mitigations** may have higher performance impacts
+- **Intel TSX** deactivation can affect applications with Transactional Synchronization Extensions
+- **Enhanced IBRS** requires sufficient physical memory
+- **Hardware mitigations** vary by CPU generation
+- **L1TF mitigations** have significant impact in virtualized environments
 
-### Leistungsüberlegungen:
-- Die meisten klassischen Schutzmaßnahmen haben **minimale Leistungseinbußen** auf modernen CPUs
-- **Moderne CVE-Mitigationen** können höhere Performance-Auswirkungen haben
-- **Intel TSX**-Deaktivierung kann Anwendungen mit Transactional Synchronization Extensions betreffen
-- **Enhanced IBRS** erfordert ausreichend physischen Speicher
-- **Hardware-Mitigationen** variieren je nach CPU-Generation
-- **L1TF-Mitigationen** haben signifikante Auswirkungen in virtualisierten Umgebungen
+## 🖥️ Virtualization-specific Usage
 
-## 🖥️ Virtualisierungs-spezifische Verwendung
-
-### VM-Gast-System:
+### VM Guest System:
 ```powershell
-# Grundlegende Überprüfung im VM-Gast
+# Basic check in VM guest
 .\SideChannel_Check.ps1
 
-# Detaillierte Informationen mit Host-Empfehlungen
+# Detailed information with host recommendations
 .\SideChannel_Check.ps1 -Detailed
 
-# Anwendung von Guest-spezifischen Mitigationen
+# Apply guest-specific mitigations
 .\SideChannel_Check.ps1 -Apply
 ```
 
-### Hypervisor-Host:
+### Hypervisor Host:
 ```powershell
-# Host-System-Analyse mit Virtualisierungs-Checks
+# Host system analysis with virtualization checks
 .\SideChannel_Check.ps1 -Detailed
 
-# Host-Konfiguration für sichere VM-Umgebung
+# Host configuration for secure VM environment
 .\SideChannel_Check.ps1 -Apply
 
-# Export für Compliance-Dokumentation
+# Export for compliance documentation
 .\SideChannel_Check.ps1 -ExportPath "C:\Reports\HostSecurityReport.csv"
 ```
 
-## 🔍 Problembehandlung
+## 🔍 Troubleshooting
 
-### Häufige Probleme:
+### Common Issues:
 
-**"Zugriff verweigert" Fehler:**
-- Stellen Sie sicher, dass PowerShell als Administrator läuft
-- Prüfen Sie, ob Windows Defender oder Sicherheitssoftware Registry-Zugriff blockiert
+**"Access Denied" errors:**
+- Ensure PowerShell is running as Administrator
+- Check if Windows Defender or security software blocks registry access
 
-**"Registry-Pfad nicht gefunden" Fehler:**
-- Einige Pfade existieren möglicherweise nicht in allen Windows-Versionen
-- Das Skript erstellt fehlende Registry-Pfade bei Verwendung von `-Apply`
+**"Registry path not found" errors:**
+- Some paths may not exist in all Windows versions
+- The script creates missing registry paths when using `-Apply`
 
-**Leistungseinbußen nach Anwendung:**
-- Überprüfen Sie, welche Schutzmaßnahmen angewendet wurden
-- Erwägen Sie die Deaktivierung spezifischer Mitigationen bei Anwendungsproblemen
-- Konsultieren Sie die Anwendungsherstellerdokumentation für Kompatibilität
+**Performance degradation after application:**
+- Check which protections were applied
+- Consider disabling specific mitigations for application issues
+- Consult application vendor documentation for compatibility
 
-**Virtualisierungs-spezifische Probleme:**
-- VM-Gäste: Stellen Sie sicher, dass Host-System aktuell ist
-- Hypervisor-Hosts: Prüfen Sie Hardware-Virtualisierungsunterstützung
-- Nested VMs: Überprüfen Sie ExposeVirtualizationExtensions-Einstellungen
+**Virtualization-specific issues:**
+- VM guests: Ensure host system is up to date
+- Hypervisor hosts: Check hardware virtualization support
+- Nested VMs: Verify ExposeVirtualizationExtensions settings
 
-### Änderungen rückgängig machen:
-Um spezifische Schutzmaßnahmen manuell zurückzusetzen, löschen Sie die Registry-Werte oder setzen Sie sie auf ihre ursprünglichen Werte. Testen Sie immer in kontrollierter Umgebung.
+### Reverting Changes:
+To manually reset specific protections, delete the registry values or set them to their original values. Always test in controlled environment.
 
-## 📚 Referenzen
+## 📚 References
 
-### Offizielle Microsoft-Dokumentation:
-- [Microsoft KB4073119](https://support.microsoft.com/en-us/topic/kb4073119-windows-client-guidance-for-it-pros-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-35820a8a-ae13-1299-88cc-357f104f5b11) - Offizielle Microsoft-Anleitung
-- [Microsoft SpeculationControl PowerShell Module](https://www.powershellgallery.com/packages/SpeculationControl) - Offizielles Microsoft Assessment Tool
+### Official Microsoft Documentation:
+- [Microsoft KB4073119](https://support.microsoft.com/en-us/topic/kb4073119-windows-client-guidance-for-it-pros-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-35820a8a-ae13-1299-88cc-357f104f5b11) - Official Microsoft guidance
+- [Microsoft SpeculationControl PowerShell Module](https://www.powershellgallery.com/packages/SpeculationControl) - Official Microsoft assessment tool
 - [Microsoft VBS Documentation](https://docs.microsoft.com/en-us/windows/security/threat-protection/device-guard/introduction-to-device-guard-virtualization-based-security-and-windows-defender-application-control) - Virtualization Based Security
-- [Hyper-V Security Guide](https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security) - Hyper-V Sicherheitsleitfaden
+- [Hyper-V Security Guide](https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security) - Hyper-V security guide
 
-### Klassische CVE-Referenzen:
-- [CVE-2017-5753](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5753) - Spectre Variante 1
-- [CVE-2017-5715](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5715) - Spectre Variante 2  
+### Classic CVE References:
+- [CVE-2017-5753](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5753) - Spectre Variant 1
+- [CVE-2017-5715](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5715) - Spectre Variant 2  
 - [CVE-2017-5754](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5754) - Meltdown
 - [CVE-2018-3639](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-3639) - Speculative Store Bypass
 
-### Moderne CVE-Referenzen (2018-2023):
+### Modern CVE References (2018-2023):
 - [CVE-2018-3620](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-3620) - L1 Terminal Fault (L1TF)
 - [CVE-2022-0001](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0001) - Branch History Buffer (BHB) - Variant 1
 - [CVE-2022-0002](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0002) - Branch History Buffer (BHB) - Variant 2
@@ -377,22 +372,22 @@ Um spezifische Schutzmaßnahmen manuell zurückzusetzen, löschen Sie die Regist
 
 ## 🆘 Support
 
-Bei Problemen oder Fragen:
+For issues or questions:
 
-1. Prüfen Sie den [Troubleshooting](#-troubleshooting) Abschnitt
-2. Konsultieren Sie die offizielle Microsoft-Dokumentation
-3. Erstellen Sie ein Issue im Repository
-4. Wenden Sie sich an Ihr Sicherheitsteam
+1. Check the [Troubleshooting](#-troubleshooting) section
+2. Consult the official Microsoft documentation
+3. Create an issue in the repository
+4. Contact your security team
 
-## ⚖️ Haftungsausschluss
+## ⚖️ Disclaimer
 
-Dieses Tool wird "wie besehen" ohne Gewährleistung bereitgestellt. Immer:
-- Zuerst in Nicht-Produktionsumgebungen testen
-- Rollback-Plan haben
-- Sicherheitsrichtlinien konsultieren
-- Auswirkungen jeder Schutzmaßnahme verstehen
+This tool is provided "as is" without warranty. Always:
+- Test in non-production environments first
+- Have a rollback plan
+- Consult security policies
+- Understand the impact of each protection
 
-Die Autoren sind nicht verantwortlich für Systemprobleme, die durch die Verwendung dieses Tools entstehen können.
+The authors are not responsible for system issues that may arise from using this tool.
 
 ---
 
@@ -405,30 +400,30 @@ IT Security Specialist & PowerShell Developer
 - 💼 Fokus auf Side-Channel-Vulnerability-Mitigationen
 - 🛡️ Enterprise Security Consulting
 
-## 🤝 Mitwirken
+## 🤝 Contributing
 
-Beiträge sind willkommen! Bitte:
+Contributions are welcome! Please:
 
-1. Repository forken
-2. Feature-Branch erstellen
-3. Änderungen vornehmen
-4. Tests hinzufügen falls zutreffend
-5. Pull Request einreichen
+1. Fork the repository
+2. Create a feature branch
+3. Make changes
+4. Add tests if applicable
+5. Submit a pull request
 
-### Bereiche für Beiträge:
-- Zusätzliche Sicherheitsprüfungen
-- Support für ältere Windows-Versionen
-- Leistungsanalysen
-- Integration mit anderen Sicherheitstools
-- Hypervisor-spezifische Erweiterungen
+### Areas for Contributions:
+- Additional security checks
+- Support for older Windows versions
+- Performance analyses
+- Integration with other security tools
+- Hypervisor-specific extensions
 
 ---
 
 ---
 
 **Version:** 2.1  
-**Letztes Update:** November 2025  
+**Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible)  
-**CVE-Abdeckung:** 2017-2023 (Vollständig kompatibel mit Microsoft SpeculationControl 1.0.19)  
-**Kompatibilität:** Windows 10/11, Windows Server 2016+  
+**CVE Coverage:** 2017-2023 (Fully compatible with Microsoft SpeculationControl 1.0.19)  
+**Compatibility:** Windows 10/11, Windows Server 2016+  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
