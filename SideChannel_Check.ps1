@@ -34,6 +34,10 @@
 .PARAMETER Interactive
     Enables interactive mode where you can choose which mitigations to apply
     Works with -Apply parameter for granular control
+
+.PARAMETER ShowVMwareHostSecurity
+    Shows comprehensive VMware ESXi host security configuration guide
+    Displays detailed commands and settings for protecting VMs against side-channel attacks
     
 .EXAMPLE
     .\SideChannel_Check.ps1
@@ -66,7 +70,8 @@ param(
     [string]$ExportPath,
     [switch]$Apply,
     [switch]$WhatIf,
-    [switch]$Interactive
+    [switch]$Interactive,
+    [switch]$ShowVMwareHostSecurity
 )
 
 # Initialize results array
@@ -727,6 +732,126 @@ function Get-HypervisorMitigations {
     }
     
     return $mitigations
+}
+
+function Show-VMwareHostSecurity {
+    <#
+    .SYNOPSIS
+    Displays comprehensive VMware host security configuration guidance for side-channel vulnerability protection.
+    
+    .DESCRIPTION
+    Provides detailed ESXi configuration steps and security recommendations specifically for protecting 
+    VMware virtual machines against side-channel attacks like Spectre, Meltdown, L1TF, and MDS.
+    #>
+    
+    Write-ColorOutput "`n=== VMware Host Security Configuration Guide ===" -Color Header
+    Write-ColorOutput "ESXi/vSphere Security Hardening for Side-Channel Vulnerability Protection`n" -Color Warning
+    
+    Write-ColorOutput "🔧 CRITICAL ESXi HOST SETTINGS:" -Color Header
+    
+    Write-ColorOutput "`n1. Side-Channel Aware Scheduler (SCAS):" -Color Info
+    Write-ColorOutput "   # Enable Side-Channel Aware Scheduler (ESXi 6.7 U2+)" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIntraVM -i true" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Alternative: Disable Hyperthreading completely (more secure but performance impact)" -Color Warning
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingActive -i false" -Color Warning
+    
+    Write-ColorOutput "`n2. L1 Terminal Fault (L1TF) Protection:" -Color Info
+    Write-ColorOutput "   # Enable L1D cache flush for VMs" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/runToCompletionOnly -i true" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/mitigateL1TF -i true" -Color Success
+    
+    Write-ColorOutput "`n3. MDS/TAA Microcode Mitigations:" -Color Info
+    Write-ColorOutput "   # Enable CPU microcode updates" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false" -Color Success
+    
+    Write-ColorOutput "`n4. Spectre/Meltdown Host Protection:" -Color Info
+    Write-ColorOutput "   # Enable IBRS/IBPB support" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/disableSpeculativeExecution -i false" -Color Success
+    Write-ColorOutput "   # Enable SSBD (Speculative Store Bypass Disable)" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/enableSSBD -i true" -Color Success
+    
+    Write-ColorOutput "`n⚙️ VM-LEVEL CONFIGURATION:" -Color Header
+    
+    Write-ColorOutput "`nVM Hardware Requirements:" -Color Info
+    Write-ColorOutput "   - VM Hardware Version: 14+ (required for CPU security features)" -Color Success
+    Write-ColorOutput "   - CPU Configuration: Enable 'Expose hardware assisted virtualization'" -Color Success
+    Write-ColorOutput "   - Memory: Enable 'Reserve all guest memory' for critical VMs" -Color Success
+    Write-ColorOutput "   - Execution Policy: Enable 'Virtualize CPU performance counters'" -Color Success
+    
+    Write-ColorOutput "`nVM Advanced Parameters (.vmx file):" -Color Info
+    Write-ColorOutput "   # Disable vulnerable features" -Color Success
+    Write-ColorOutput "   vmx.allowNonVPID = `"FALSE`"" -Color Success
+    Write-ColorOutput "   vmx.allowVpid = `"TRUE`"" -Color Success
+    Write-ColorOutput "   isolation.tools.unity.disable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   isolation.tools.unityActive.disable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Enable security features" -Color Success
+    Write-ColorOutput "   vpmc.enable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   hypervisor.cpuid.v0 = `"FALSE`"" -Color Success
+    Write-ColorOutput "   monitor.phys_bits_used = `"40`"" -Color Success
+    Write-ColorOutput "   featMask.vm.hv.capable = `"Min:1`"" -Color Success
+    
+    Write-ColorOutput "`n🔍 VERIFICATION COMMANDS:" -Color Header
+    
+    Write-ColorOutput "`nESXi Security Status Checks:" -Color Info
+    Write-ColorOutput "   # Verify Side-Channel Aware Scheduler" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced list -o /VMkernel/Boot/hyperthreadingMitigation" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Check CPU security features" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu global get" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu feature get -f spectre-ctrl" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Verify L1TF protection" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced list -o /VMkernel/Boot/mitigateL1TF" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Check microcode version" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu global get | grep -i microcode" -Color Success
+    
+    Write-ColorOutput "`n⚡ PERFORMANCE IMPACT SUMMARY:" -Color Header
+    
+    $performanceTable = @(
+        @{ Mitigation = "Side-Channel Aware Scheduler"; Impact = "2-5%"; Recommendation = "Enable for multi-tenant environments" }
+        @{ Mitigation = "L1TF Protection"; Impact = "5-15%"; Recommendation = "Critical for untrusted VMs" }
+        @{ Mitigation = "Full Hyperthreading Disable"; Impact = "20-40%"; Recommendation = "Only for highest security requirements" }
+        @{ Mitigation = "MDS Mitigation"; Impact = "3-8%"; Recommendation = "Enable for Intel hosts" }
+        @{ Mitigation = "VM Memory Reservation"; Impact = "0% (more host memory usage)"; Recommendation = "For critical security workloads" }
+    )
+    
+    $performanceTable | Format-Table -AutoSize
+    
+    Write-ColorOutput "`n📋 SECURITY CHECKLIST:" -Color Header
+    
+    Write-ColorOutput "`nHost Level (ESXi):" -Color Info
+    Write-ColorOutput "   □ Update ESXi to 6.7 U2+ or 7.0+" -Color Warning
+    Write-ColorOutput "   □ Apply latest CPU microcode updates" -Color Warning
+    Write-ColorOutput "   □ Enable Side-Channel Aware Scheduler" -Color Warning
+    Write-ColorOutput "   □ Configure L1TF protection" -Color Warning
+    Write-ColorOutput "   □ Enable MDS/TAA mitigations" -Color Warning
+    Write-ColorOutput "   □ Verify Spectre/Meltdown host protections" -Color Warning
+    
+    Write-ColorOutput "`nVM Level:" -Color Info
+    Write-ColorOutput "   □ Update to VM Hardware Version 14+" -Color Warning
+    Write-ColorOutput "   □ Install latest VMware Tools" -Color Warning
+    Write-ColorOutput "   □ Configure VM security parameters" -Color Warning
+    Write-ColorOutput "   □ Enable CPU performance counter virtualization" -Color Warning
+    Write-ColorOutput "   □ Reserve guest memory (for critical VMs)" -Color Warning
+    Write-ColorOutput "   □ Apply guest OS mitigations (using this script)" -Color Warning
+    
+    Write-ColorOutput "`nNetwork Security:" -Color Info
+    Write-ColorOutput "   □ Isolate management network" -Color Warning
+    Write-ColorOutput "   □ Use encrypted vMotion" -Color Warning
+    Write-ColorOutput "   □ Enable VM communication encryption" -Color Warning
+    Write-ColorOutput "   □ Configure distributed firewall rules" -Color Warning
+    
+    Write-ColorOutput "`n🔗 Additional Resources:" -Color Header
+    Write-ColorOutput "   - VMware Security Advisories: https://www.vmware.com/security/advisories.html" -Color Info
+    Write-ColorOutput "   - Side-Channel Attack Mitigations: https://kb.vmware.com/s/article/55636" -Color Info
+    Write-ColorOutput "   - ESXi Security Configuration Guide: https://docs.vmware.com/en/VMware-vSphere/" -Color Info
+    
+    Write-ColorOutput "`nIMPORTANT: Test performance impact in non-production environment first!" -Color Error
+    Write-ColorOutput "Some mitigations may significantly impact performance." -Color Error
 }
 
 # Main execution
@@ -1610,6 +1735,10 @@ if ($virtInfo.IsVirtualMachine) {
             Write-ColorOutput "- ESXi host should be 6.7 U2+ with Side-Channel Aware Scheduler" -Color Warning
             Write-ColorOutput "- VM hardware version should be 14+ for latest security features" -Color Warning
             Write-ColorOutput "- Enable VMware Tools for additional security features" -Color Info
+            
+            # Display comprehensive VMware host security configuration
+            Write-ColorOutput "`nFor VMware Host Administrators:" -Color Warning
+            Write-ColorOutput "Use parameter -ShowVMwareHostSecurity for detailed ESXi security configuration guidance." -Color Warning
         }
         "QEMU/KVM" {
             Write-ColorOutput "`nKVM Guest Specific:" -Color Header
