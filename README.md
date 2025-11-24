@@ -764,9 +764,9 @@ Contributions are welcome! Please:
 ---
 
 **Version:** 2.2  
-**Last Update:** November 2024  
+**Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
 **CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
 **Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control  
-**Compatibility:** Windows 10/11, Windows Server 2016/2019/2022  
+**Compatibility:** Windows 10/11, Windows Server 2016/2019/2022/2025  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
