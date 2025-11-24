@@ -56,6 +56,9 @@
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -ExportPath "C:\temp\SideChannelReport.csv"
+
+.EXAMPLE
+    .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
     
 .NOTES
     Author: Jan Tiedemann
@@ -1796,6 +1799,11 @@ Write-ColorOutput "- UEFI firmware (not legacy BIOS)" -Color Warning
 Write-ColorOutput "- Secure Boot capability" -Color Warning
 Write-ColorOutput "- TPM 2.0 (for Credential Guard and other VBS features)" -Color Warning
 Write-ColorOutput "- Latest firmware updates from manufacturer" -Color Warning
+
+# Show VMware Host Security Configuration if requested
+if ($ShowVMwareHostSecurity) {
+    Show-VMwareHostSecurity
+}
 
 # Export results if requested
 if ($ExportPath) {
