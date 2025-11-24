@@ -25,6 +25,15 @@
     
 .PARAMETER Apply
     Apply the recommended security configurations automatically
+    When used with -Interactive, allows selection of specific mitigations
+    
+.PARAMETER WhatIf
+    Shows what changes would be made without actually applying them
+    Works in conjunction with -Apply parameter
+    
+.PARAMETER Interactive
+    Enables interactive mode where you can choose which mitigations to apply
+    Works with -Apply parameter for granular control
     
 .EXAMPLE
     .\SideChannel_Check.ps1
@@ -33,7 +42,13 @@
     .\SideChannel_Check.ps1 -Detailed
     
 .EXAMPLE
-    .\SideChannel_Check.ps1 -Apply
+    .\SideChannel_Check.ps1 -Apply -Interactive
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply -WhatIf
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -ExportPath "C:\temp\SideChannelReport.csv"
@@ -49,7 +64,9 @@
 param(
     [switch]$Detailed,
     [string]$ExportPath,
-    [switch]$Apply
+    [switch]$Apply,
+    [switch]$WhatIf,
+    [switch]$Interactive
 )
 
 # Initialize results array
@@ -62,6 +79,7 @@ $Colors = @{
     Bad     = 'Red'
     Info    = 'Cyan'
     Header  = 'Magenta'
+    Gray    = 'Gray'
 }
 
 function Write-ColorOutput {
@@ -1335,32 +1353,165 @@ Write-Host "Security Bar:     [" -NoNewline -ForegroundColor Gray
 Write-Host "$securityBar" -NoNewline -ForegroundColor $Colors[$levelColor]
 Write-Host "] $configuredPercent%" -ForegroundColor Gray
 
+# Interactive mitigation selection function
+function Select-Mitigations {
+    param(
+        [array]$AvailableMitigations,
+        [switch]$WhatIf
+    )
+    
+    Write-ColorOutput "`n=== Interactive Mitigation Selection ===" -Color Header
+    
+    if ($WhatIf) {
+        Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied" -Color Warning
+    }
+    
+    Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
+    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):`n" -Color Info
+    
+    # Display available mitigations with numbers
+    $index = 1
+    foreach ($mitigation in $AvailableMitigations) {
+        $impact = switch ($mitigation.Name) {
+            { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Low" }
+            { $_ -match "Meltdown|KVAS" } { "Medium" }
+            { $_ -match "TSX|Hardware" } { "Variable" }
+            { $_ -match "VBS|HVCI" } { "High" }
+            default { "Unknown" }
+        }
+        
+        $description = switch ($mitigation.Name) {
+            "Speculative Store Bypass Disable" { "Protects against Spectre Variant 4" }
+            "Branch Target Injection Mitigation" { "Protects against Spectre Variant 2" }
+            "Kernel VA Shadow" { "Meltdown protection (KPTI)" }
+            "Hardware Security Mitigations" { "CPU-level side-channel protections" }
+            "Intel TSX Disable" { "Prevents TSX-based attacks" }
+            "Enhanced IBRS" { "Intel hardware mitigation" }
+            "VBS" { "Virtualization Based Security" }
+            "HVCI" { "Hypervisor-protected Code Integrity" }
+            default { $mitigation.Description -replace "^CVE-[^:]+: ", "" }
+        }
+        
+        Write-Host "  [$index] " -NoNewline -ForegroundColor Yellow
+        Write-Host $mitigation.Name -NoNewline -ForegroundColor White
+        Write-Host " (Impact: $impact)" -ForegroundColor Gray
+        Write-Host "      $description" -ForegroundColor Gray
+        $index++
+    }
+    
+    Write-Host ""
+    $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, or 'all')"
+    
+    # Parse selection
+    $selectedItems = @()
+    
+    if ($selection -eq 'all') {
+        $selectedItems = $AvailableMitigations
+    }
+    else {
+        $selections = $selection -split ',' | ForEach-Object { $_.Trim() }
+        
+        foreach ($sel in $selections) {
+            if ($sel -match '(\d+)-(\d+)') {
+                # Range selection like "1-3"
+                $start = [int]$matches[1]
+                $end = [int]$matches[2]
+                for ($i = $start; $i -le $end; $i++) {
+                    if ($i -le $AvailableMitigations.Count) {
+                        $selectedItems += $AvailableMitigations[$i - 1]
+                    }
+                }
+            }
+            elseif ($sel -match '^\d+$') {
+                # Single number selection
+                $num = [int]$sel
+                if ($num -le $AvailableMitigations.Count -and $num -gt 0) {
+                    $selectedItems += $AvailableMitigations[$num - 1]
+                }
+            }
+        }
+    }
+    
+    return $selectedItems
+}
+
 # Apply configurations if requested
 if ($Apply) {
-    Write-ColorOutput "`n=== Applying Configurations ===" -Color Header
+    # Validate parameter combinations
+    if ($WhatIf -and -not $Interactive) {
+        Write-ColorOutput "`nWhatIf mode requires Interactive mode. Adding -Interactive automatically." -Color Warning
+        $Interactive = $true
+    }
+    
+    Write-ColorOutput "`n=== Configuration Application ===" -Color Header
     $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" -and $_.CanBeEnabled }
     
     if ($notConfigured.Count -gt 0) {
-        Write-ColorOutput "Applying $($notConfigured.Count) security configurations..." -Color Info
-        $successCount = 0
         
-        foreach ($item in $notConfigured) {
-            Write-ColorOutput "`nConfiguring: $($item.Name)" -Color Info
-            if (Set-RegistryValue -Path $item.RegistryPath -Name $item.RegistryName -Value $item.ExpectedValue) {
-                $successCount++
+        # Interactive mode - let user select specific mitigations
+        if ($Interactive) {
+            $selectedMitigations = Select-Mitigations -AvailableMitigations $notConfigured -WhatIf:$WhatIf
+            
+            if ($selectedMitigations.Count -eq 0) {
+                Write-ColorOutput "`nNo mitigations selected. Exiting." -Color Warning
+                return
             }
+            
+            $mitigationsToApply = $selectedMitigations
+        } else {
+            $mitigationsToApply = $notConfigured
         }
         
-        Write-ColorOutput "`nConfiguration Results:" -Color Header
-        Write-ColorOutput "Successfully applied: $successCount/$($notConfigured.Count)" -Color Good
-        
-        if ($successCount -gt 0) {
-            Write-ColorOutput "`n??  IMPORTANT: A system restart is required for changes to take effect." -Color Warning
-            $restart = Read-Host "Would you like to restart now? (y/N)"
-            if ($restart -eq 'y' -or $restart -eq 'Y') {
-                Write-ColorOutput "Restarting system in 10 seconds... Press Ctrl+C to cancel." -Color Warning
-                Start-Sleep -Seconds 10
-                Restart-Computer -Force
+        if ($WhatIf) {
+            Write-ColorOutput "`n=== WhatIf: Changes that would be made ===" -Color Header
+            Write-ColorOutput "The following registry changes would be applied:" -Color Info
+            
+            foreach ($item in $mitigationsToApply) {
+                Write-ColorOutput "`nMitigation: $($item.Name)" -Color Info
+                Write-ColorOutput "  Registry Path: $($item.RegistryPath)" -Color Gray
+                Write-ColorOutput "  Registry Name: $($item.RegistryName)" -Color Gray  
+                Write-ColorOutput "  New Value: $($item.ExpectedValue)" -Color Gray
+                $valueType = if ($item.ValueType) { $item.ValueType } else { "REG_DWORD" }
+                Write-ColorOutput "  Value Type: $valueType" -Color Gray
+                
+                # Show impact assessment
+                $impact = switch ($item.Name) {
+                    { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Minimal performance impact" }
+                    { $_ -match "Meltdown|KVAS" } { "Low-medium performance impact" }
+                    { $_ -match "TSX" } { "May affect TSX-dependent applications" }
+                    { $_ -match "Hardware" } { "Hardware-dependent performance impact" }
+                    default { "Performance impact varies" }
+                }
+                Write-ColorOutput "  Expected Impact: $impact" -Color Yellow
+            }
+            
+            Write-ColorOutput "`nWhatIf Summary:" -Color Header
+            Write-ColorOutput "Total changes that would be made: $($mitigationsToApply.Count)" -Color Info
+            Write-ColorOutput "System restart would be required: Yes" -Color Warning
+            Write-ColorOutput "`nTo actually apply these changes, run without -WhatIf parameter." -Color Info
+            
+        } else {
+            Write-ColorOutput "Applying $($mitigationsToApply.Count) security configurations..." -Color Info
+            $successCount = 0
+            
+            foreach ($item in $mitigationsToApply) {
+                Write-ColorOutput "`nConfiguring: $($item.Name)" -Color Info
+                if (Set-RegistryValue -Path $item.RegistryPath -Name $item.RegistryName -Value $item.ExpectedValue) {
+                    $successCount++
+                }
+            }
+            
+            Write-ColorOutput "`nConfiguration Results:" -Color Header
+            Write-ColorOutput "Successfully applied: $successCount/$($mitigationsToApply.Count)" -Color Good
+            
+            if ($successCount -gt 0) {
+                Write-ColorOutput "`n[!] IMPORTANT: A system restart is required for changes to take effect." -Color Warning
+                $restart = Read-Host "Would you like to restart now? (y/N)"
+                if ($restart -eq 'y' -or $restart -eq 'Y') {
+                    Write-ColorOutput "Restarting system in 10 seconds... Press Ctrl+C to cancel." -Color Warning
+                    Start-Sleep -Seconds 10
+                    Restart-Computer -Force
+                }
             }
         }
     }

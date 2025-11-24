@@ -40,6 +40,8 @@ This tool helps system administrators assess and configure their Windows systems
 - 🔍 **Hardware Mitigation Matrix** - **NEW**: Decodes MitigationOptions registry values in `-Detailed` mode
 - 📊 **Clear Table Display** - Professionally formatted output with visual status indicators
 - ⚙️ **Automated Configuration** - One-click application of security settings with `-Apply`
+- 🎯 **Interactive Mode** - **NEW**: Choose specific mitigations to apply with `-Interactive`  
+- 🔍 **WhatIf Support** - **NEW**: Preview changes before applying with `-WhatIf`
 - 🔬 **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
 - 📈 **Detailed Reporting** - Export results as CSV for documentation
 - 🎯 **Safe Operation** - Read-only by default, only modifies system on explicit request
@@ -118,6 +120,24 @@ Displays comprehensive details about each security check including registry path
 ```
 Automatically configures all missing security mitigations. **System restart required after changes.**
 
+### Interactive Mode - Choose Specific Mitigations
+```powershell
+.\SideChannel_Check.ps1 -Apply -Interactive
+```
+Allows you to select which specific mitigations to apply with a user-friendly numbered menu.
+
+### WhatIf Mode - Preview Changes
+```powershell
+.\SideChannel_Check.ps1 -Apply -WhatIf
+```
+Shows what registry changes would be made without actually applying them. Requires `-Interactive` mode.
+
+### Combined Interactive WhatIf
+```powershell
+.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+```
+Select specific mitigations and preview changes before applying.
+
 ### Export Results
 ```powershell
 .\SideChannel_Check.ps1 -ExportPath "C:\Reports\SecurityReport.csv"
@@ -129,7 +149,40 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\Reports\DetailedReport.csv"
 ```
 
-## 🔍 Hardware Security Mitigation Value Matrix
+## 🎯 Interactive Mitigation Selection
+
+**NEW in Version 2.1**: Granular control over which security mitigations to apply.
+
+### Selection Methods:
+- **Individual**: `1,3,5` - Apply specific numbered mitigations
+- **Ranges**: `1-3` - Apply mitigations 1 through 3  
+- **All**: `all` - Apply all available mitigations
+- **Mixed**: `1,3-5,7` - Combination of individual and ranges
+
+### Features:
+- 🎯 **Impact Assessment** - Shows performance impact for each mitigation (Low/Medium/High)
+- 📋 **Clear Descriptions** - Explains what each mitigation protects against
+- 🔍 **WhatIf Integration** - Preview changes before applying
+- ⚡ **Smart Defaults** - REG_DWORD assumed if ValueType not specified
+- 🛡️ **CVE Mapping** - Links mitigations to specific vulnerabilities
+
+### Example Interactive Session:
+```
+=== Interactive Mitigation Selection ===
+WhatIf Mode: Changes will be previewed but not applied
+
+The following mitigations are not configured and can be enabled:
+Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):
+
+  [1] SRSO Mitigation (Impact: Low)
+      Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)
+  [2] Windows Defender Exploit Guard ASLR (Impact: Medium)
+      Address Space Layout Randomization force relocate images
+  [3] Hardware Security Mitigations (Impact: Variable)
+      CPU-level side-channel protections
+
+Enter your selection: 1,3
+```
 
 **NEW in Version 2.0**: The `-Detailed` mode now includes a comprehensive **Hardware Security Mitigation Value Matrix** that decodes the cryptic MitigationOptions registry values.
 
