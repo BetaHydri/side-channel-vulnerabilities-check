@@ -20,11 +20,11 @@ function Write-ColorOutput {
 
 # Colors for console output
 $Colors = @{
-    'Header' = 'Cyan'
-    'Good' = 'Green'
-    'Bad' = 'Red'
+    'Header'  = 'Cyan'
+    'Good'    = 'Green'
+    'Bad'     = 'Red'
     'Warning' = 'Yellow'
-    'Info' = 'White'
+    'Info'    = 'White'
 }
 
 if ($Detailed) {
@@ -63,7 +63,8 @@ if ($Detailed) {
         $flagValue = "0x{0:X16}" -f $flag.Flag
         $isEnabled = if ($currentMitigationValue) { 
             ($currentMitigationValue -band $flag.Flag) -eq $flag.Flag 
-        } else { 
+        }
+        else { 
             $false 
         }
         
