@@ -290,12 +290,12 @@ function Set-RegistryValue {
                         }
                     }
                     else {
-                        Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                        Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
                         return $false
                     }
                 }
                 catch {
-                    Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                    Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
                     return $false
                 }
             }
@@ -303,7 +303,7 @@ function Set-RegistryValue {
             return $true
         }
         catch {
-            Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+            Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
             return $false
         }
     }
@@ -1179,7 +1179,7 @@ function Set-RegistryValue {
         Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
         Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
         Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
-        Write-ColorOutput "`n✓ What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
+        Write-ColorOutput "`n[+] What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
     }
     else {
         Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
@@ -1481,7 +1481,7 @@ function Set-RegistryValue {
                 Write-ColorOutput "  └─ Prevents SMT-based side-channel attacks between VMs" -Color Info
             }
             else {
-                Write-ColorOutput "- Core Scheduler: ✓ Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
+                Write-ColorOutput "- Core Scheduler: [+] Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
             }
         
             Write-ColorOutput "- Configure VM isolation policies" -Color Info
@@ -1522,3 +1522,4 @@ function Set-RegistryValue {
     }
 
     Write-ColorOutput "`nSide-channel vulnerability check completed." -Color Header
+
