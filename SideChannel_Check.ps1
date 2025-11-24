@@ -1458,7 +1458,8 @@ if ($Apply) {
             }
             
             $mitigationsToApply = $selectedMitigations
-        } else {
+        }
+        else {
             $mitigationsToApply = $notConfigured
         }
         
@@ -1490,7 +1491,8 @@ if ($Apply) {
             Write-ColorOutput "System restart would be required: Yes" -Color Warning
             Write-ColorOutput "`nTo actually apply these changes, run without -WhatIf parameter." -Color Info
             
-        } else {
+        }
+        else {
             Write-ColorOutput "Applying $($mitigationsToApply.Count) security configurations..." -Color Info
             $successCount = 0
             
