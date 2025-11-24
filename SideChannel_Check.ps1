@@ -875,8 +875,8 @@ Write-ColorOutput "System Information:" -Color Header
 Write-ColorOutput "CPU: $($cpuInfo.Name)" -Color Info
 Write-ColorOutput "OS: $($osInfo.Caption) Build $($osInfo.BuildNumber)" -Color Info
 Write-ColorOutput "Architecture: $($osInfo.Architecture)" -Color Info
-
-Write-ColorOutput "\nVirtualization Environment:" -Color Header
+Write-ColorOutput "" -Color Info
+Write-ColorOutput "Virtualization Environment:" -Color Header
 Write-ColorOutput "Running in VM: $(if ($virtInfo.IsVirtualMachine) { 'Yes' } else { 'No' })" -Color $(if ($virtInfo.IsVirtualMachine) { 'Warning' } else { 'Info' })
 if ($virtInfo.IsVirtualMachine) {
     Write-ColorOutput "Hypervisor: $($virtInfo.HypervisorVendor)" -Color Info
