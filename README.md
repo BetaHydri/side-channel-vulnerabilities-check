@@ -1,25 +1,31 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119).
+A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119), enhanced with modern CVE support and enterprise features.
 
 ## 🔒 Overview
 
-This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks, including:
+This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks with **full PowerShell 5.1+ compatibility** and **enterprise-grade interactive features**.
 
-### Classic Vulnerabilities:
-- **Spectre** (Variants 1, 2, and 4)
-- **Meltdown** attacks
+### 🛡️ Classic Vulnerabilities (2017-2018):
+- **Spectre** (Variants 1, 2, and 4) - CVE-2017-5753, CVE-2017-5715
+- **Meltdown** attacks - CVE-2017-5754
 - **Intel TSX** vulnerabilities
 - **Branch Target Injection** (BTI)
-- **Speculative Store Bypass** (SSB)
+- **Speculative Store Bypass** (SSB) - CVE-2018-3639
 
-### Modern CVEs (2018-2023):
+### 🆕 Modern CVEs (2018-2023):
 - **L1TF** (L1 Terminal Fault) - CVE-2018-3620
 - **BHB** (Branch History Buffer) - CVE-2022-0001/0002
 - **GDS** (Gather Data Sample) - CVE-2022-40982
 - **SRSO** (Speculative Return Stack Overflow) - CVE-2023-20569
 - **RFDS** (Register File Data Sampling) - CVE-2023-28746
 - **MDS** (Microarchitectural Data Sampling) mitigation
+
+### 🎯 NEW Enterprise Features:
+- **🎮 Interactive Mode** - Choose specific mitigations with user-friendly interface
+- **🔍 WhatIf Preview** - See changes before applying them
+- **🎯 Granular Control** - Select individual, ranges, or all mitigations
+- **🖥️ PowerShell 5.1 Compatibility** - Works seamlessly on Windows Server default installations
 
 ## 🖥️ Virtualization Support
 
@@ -31,22 +37,24 @@ This tool helps system administrators assess and configure their Windows systems
 - ✅ **Guest Recommendations** - VM-specific security configuration
 - ✅ **Hardware Requirements** - Detailed requirements for secure virtualization
 
-## 🚀 Features
+## 🚀 Enterprise Features
 
 - ✅ **Comprehensive Security Assessment** - Checks 21+ critical security mitigations including modern CVEs (2018-2023)
+- 🎮 **Interactive Mode** - **NEW**: Choose specific mitigations to apply with numbered selection interface
+- 🔍 **WhatIf Preview** - **NEW**: See registry changes before applying them
+- 🎯 **Granular Control** - **NEW**: Apply individual mitigations, ranges (1-3), or all at once
 - ✅ **Extended CVE Support** - Based on Microsoft's SpeculationControl tool analysis
 - ✅ **Virtualization-Aware** - Detects VM/host environment and provides specific recommendations
 - 🧠 **OS Version-Aware** - Automatic adaptation to Windows version (Core Scheduler Detection)
-- 🔍 **Hardware Mitigation Matrix** - **NEW**: Decodes MitigationOptions registry values in `-Detailed` mode
-- 📊 **Clear Table Display** - Professionally formatted output with visual status indicators
+- 🔍 **Hardware Mitigation Matrix** - Decodes MitigationOptions registry values in `-Detailed` mode
+- 📊 **Professional Table Display** - Formatted output with visual status indicators
 - ⚙️ **Automated Configuration** - One-click application of security settings with `-Apply`
-- 🎯 **Interactive Mode** - **NEW**: Choose specific mitigations to apply with `-Interactive`  
-- 🔍 **WhatIf Support** - **NEW**: Preview changes before applying with `-WhatIf`
 - 🔬 **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
-- 📈 **Detailed Reporting** - Export results as CSV for documentation
+- 📈 **Enterprise Reporting** - Export results as CSV for documentation and compliance
 - 🎯 **Safe Operation** - Read-only by default, only modifies system on explicit request
 - 🖥️ **System Information** - Shows CPU and OS details relevant for vulnerabilities
 - 🔄 **VBS/HVCI Support** - Checks virtualization-based security features
+- 🛡️ **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
 
 ## 📋 Requirements
 
@@ -120,23 +128,23 @@ Displays comprehensive details about each security check including registry path
 ```
 Automatically configures all missing security mitigations. **System restart required after changes.**
 
-### Interactive Mode - Choose Specific Mitigations
+### 🎯 Interactive Mode - Choose Specific Mitigations
 ```powershell
 .\SideChannel_Check.ps1 -Apply -Interactive
 ```
-Allows you to select which specific mitigations to apply with a user-friendly numbered menu.
+**NEW**: Allows you to select which specific mitigations to apply using a user-friendly numbered menu with impact assessment and detailed descriptions.
 
-### WhatIf Mode - Preview Changes
-```powershell
-.\SideChannel_Check.ps1 -Apply -WhatIf
-```
-Shows what registry changes would be made without actually applying them. Requires `-Interactive` mode.
-
-### Combined Interactive WhatIf
+### 🔍 WhatIf Mode - Preview Changes
 ```powershell
 .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
 ```
-Select specific mitigations and preview changes before applying.
+**NEW**: Shows exactly what registry changes would be made without actually applying them. Must be combined with `-Interactive` mode for security.
+
+### 🎮 Combined Interactive WhatIf (Recommended)
+```powershell
+.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+```
+**Enterprise Workflow**: Select specific mitigations, see detailed registry changes, and apply only after careful review.
 
 ### Export Results
 ```powershell
@@ -151,20 +159,22 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 
 ## 🎯 Interactive Mitigation Selection
 
-**NEW in Version 2.1**: Granular control over which security mitigations to apply.
+**NEW Enterprise Feature**: Granular control over which security mitigations to apply.
+
+### 🎮 Interactive Mode Features:
+- **📋 Smart Selection Interface** - Choose mitigations with numbered menu
+- **🎯 Impact Assessment** - Shows performance impact for each mitigation (Low/Medium/High)
+- **🔍 WhatIf Integration** - Preview registry changes before applying
+- **📖 Clear Descriptions** - Explains what each mitigation protects against
+- **⚡ Smart Defaults** - Automatic type detection and error handling
+- **🛡️ CVE Mapping** - Links mitigations to specific vulnerabilities
+- **🎛️ Flexible Selection** - Individual numbers, ranges, or 'all'
 
 ### Selection Methods:
 - **Individual**: `1,3,5` - Apply specific numbered mitigations
 - **Ranges**: `1-3` - Apply mitigations 1 through 3  
 - **All**: `all` - Apply all available mitigations
 - **Mixed**: `1,3-5,7` - Combination of individual and ranges
-
-### Features:
-- 🎯 **Impact Assessment** - Shows performance impact for each mitigation (Low/Medium/High)
-- 📋 **Clear Descriptions** - Explains what each mitigation protects against
-- 🔍 **WhatIf Integration** - Preview changes before applying
-- ⚡ **Smart Defaults** - REG_DWORD assumed if ValueType not specified
-- 🛡️ **CVE Mapping** - Links mitigations to specific vulnerabilities
 
 ### Example Interactive Session:
 ```
@@ -176,12 +186,38 @@ Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):
 
   [1] SRSO Mitigation (Impact: Low)
       Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)
+      Registry: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel\SpeculativeReturnStackMitigation
+      
   [2] Windows Defender Exploit Guard ASLR (Impact: Medium)
       Address Space Layout Randomization force relocate images
+      Registry: HKLM:\SOFTWARE\Microsoft\Windows Defender\...\ASLR_ForceRelocateImages
+      
   [3] Hardware Security Mitigations (Impact: Variable)
       CPU-level side-channel protections
+      Registry: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel\MitigationOptions
 
 Enter your selection: 1,3
+
+=== WhatIf Preview ===
+The following changes would be made:
+
+[1] SRSO Mitigation
+  Registry Path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel
+  Registry Name: SpeculativeReturnStackMitigation
+  New Value: 1
+  Value Type: DWORD
+
+[3] Hardware Security Mitigations  
+  Registry Path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel
+  Registry Name: MitigationOptions
+  New Value: 2000000000000000
+  Value Type: QWORD
+
+WhatIf Summary:
+Total changes that would be made: 2
+System restart would be required: Yes
+
+To apply these changes, run without -WhatIf switch
 ```
 
 **NEW in Version 2.0**: The `-Detailed` mode now includes a comprehensive **Hardware Security Mitigation Value Matrix** that decodes the cryptic MitigationOptions registry values.
@@ -226,23 +262,92 @@ Enabled: 2 of 25 known flags
 ## 📊 Example Output
 
 ```
+=== Side-Channel Vulnerability Configuration Check ===
+Based on Microsoft KB4073119
+
+Enhanced with additional CVEs from Microsoft's SpeculationControl tool analysis
+
+System Information:
+CPU: Intel(R) Core(TM) i7-10700K CPU @ 3.80GHz
+OS: Microsoft Windows 11 Enterprise Build 22621
+Architecture: 64-bit
+
+Virtualization Environment:
+Running in VM: No
+Hyper-V Status: Enabled
+VBS Status: Running
+HVCI Status: Enforced
+
+Checking Side-Channel Vulnerability Mitigations...
+
 === Side-Channel Vulnerability Mitigation Status ===
 
-Mitigation Name                        Status      Current Value   Expected Value
----------------                        ------      -------------   --------------
-Speculative Store Bypass Disable      [+] Enabled             72               72
-SSBD Feature Mask                     [+] Enabled              3                3
-Branch Target Injection Mitigation    [?] Not Set        Not Set                0
-Hardware Security Mitigations         [?] Not Set        Not Set  2000000000000000
-Intel TSX Disable                     [-] Disabled             0                1
-
-Overall Security Level: 85.7%
-Security Bar:     [########--] 85.7%
+Mitigation Name                          Status         Current Value    Expected Value    Impact
+---------------                          ------         -------------    --------------    ------
+Speculative Store Bypass Disable        [+] Enabled               72                72    Minimal performance impact
+SSBD Feature Mask                       [+] Enabled                3                 3    Works in conjunction with FeatureSettingsOverride
+Branch Target Injection Mitigation      [?] Not Set          Not Set                 0    Required for proper security policy
+Hardware Security Mitigations           [+] Enabled    2305843009213694208  2000000000000000    Hardware-dependent, modern CPUs
+Intel TSX Disable                       [-] Disabled             0                 1    May affect applications that rely on TSX
+BHB Mitigation                          [?] Not Set          Not Set                 1    Minimal performance impact on recent CPUs
+GDS Mitigation                          [?] Not Set          Not Set                 1    Performance impact varies by workload
+SRSO Mitigation                         [?] Not Set          Not Set                 1    Minor performance impact on AMD Zen
+Windows Defender Exploit Guard ASLR     [?] Not Set          Not Set                 1    Improves resistance to memory corruption
+Virtualization Based Security (VBS)     [+] Enabled                1                 1    Requires UEFI, Secure Boot
+Hypervisor-protected Code Integrity     [+] Enabled                1                 1    May cause compatibility issues
 
 Status Legend:
-[+] Enabled  - Mitigation is active and properly configured
+[+] Enabled - Mitigation is active and properly configured
 [-] Disabled - Mitigation is explicitly disabled  
-[?] Not Set  - Registry value not configured (using defaults)
+[?] Not Set - Registry value not configured (using defaults)
+
+=== SECURITY CONFIGURATION SUMMARY ===
+
+Security Status Overview:
+=========================
+[+] ENABLED:       8 / 21 mitigations
+[?] NOT SET:       12 / 21 mitigations
+[-] DISABLED:      1 / 21 mitigations
+
+Overall Security Level: 38.1%
+Security Bar:     [####------] 38.1%
+
+DETAILED SECURITY ANALYSIS
+================================================================================
+
+Virtualization Based Security Detailed Status:
+=================================================
+
+VBS (Virtualization Based Security):
+  Hardware Ready:   [+] Yes
+  Currently Active: [+] Yes
+
+HVCI (Hypervisor-protected Code Integrity):
+  Hardware Ready:   [+] Yes
+  Currently Active: [+] Yes
+
+Security Services Details:
+Running Services: 1, 2
+Configured Services: 1, 2
+
+Active Security Services:
+  - Credential Guard
+  - HVCI (Hypervisor-protected Code Integrity)
+
+HARDWARE SECURITY MITIGATION VALUE MATRIX
+================================================================================
+
+Flag Value          Status    Mitigation Name
+----------          ------    ---------------
+0x0000000000000001  [?]       CFG (Control Flow Guard)
+0x0000000000000100  [+]       High Entropy ASLR  
+0x2000000000000000  [+]       Core Hardware Security Features
+                               --> This is the primary flag for side-channel mitigations!
+
+Current MitigationOptions Value:
+Decimal: 2305843009213694208
+Hex:     0x2000000000000100
+Enabled: 2 of 25 known flags
 ```
 
 ## 🛡️ Checked Security Measures
@@ -324,6 +429,13 @@ Status Legend:
 - **Check application compatibility** - some protections may impact performance
 - **Update CPU microcode** - Modern CVE mitigations require current microcode
 - **Plan system restart** - Changes require reboot
+
+### Interactive Mode Best Practices:
+- **Use WhatIf first** - Always preview changes with `-Interactive -WhatIf`
+- **Start with low-impact mitigations** - Apply hardware-dependent features first
+- **Check CPU compatibility** - Some mitigations are vendor-specific (Intel vs AMD)
+- **Review impact ratings** - Consider performance implications before applying
+- **Apply incrementally** - Test a few mitigations at a time in production
 
 ### Modern CVE Mitigations (2018-2023):
 - **CPU-specific validation** - Intel vs AMD specific mitigations
