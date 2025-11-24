@@ -170,11 +170,25 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 - **🛡️ CVE Mapping** - Links mitigations to specific vulnerabilities
 - **🎛️ Flexible Selection** - Individual numbers, ranges, or 'all'
 
-### Selection Methods:
-- **Individual**: `1,3,5` - Apply specific numbered mitigations
-- **Ranges**: `1-3` - Apply mitigations 1 through 3  
-- **All**: `all` - Apply all available mitigations
-- **Mixed**: `1,3-5,7` - Combination of individual and ranges
+### 🎛️ Selection Methods:
+- **Individual Numbers**: `1,3,5` - Apply specific numbered mitigations (e.g., only mitigation 1, 3, and 5)
+- **Individual with Gaps**: `2,4,7,9` - Apply non-consecutive mitigations
+- **Range Selection**: `1-3` - Apply consecutive mitigations 1 through 3 (equivalent to `1,2,3`)
+- **Range with Gaps**: `1-3,6-8` - Apply multiple ranges (mitigations 1,2,3,6,7,8)
+- **Mixed Selection**: `1,3-5,7` - Combination of individual and ranges (mitigations 1,3,4,5,7)
+- **Apply All**: `all` - Apply all available mitigations at once
+
+### 📋 Selection Examples:
+| Input | Applies Mitigations | Description |
+|-------|-------------------|-------------|
+| `1` | 1 | Single mitigation |
+| `1,3,4` | 1, 3, 4 | Specific individual mitigations |
+| `2,5,7,10` | 2, 5, 7, 10 | Multiple individual mitigations |
+| `1-3` | 1, 2, 3 | Range of consecutive mitigations |
+| `1-3,6` | 1, 2, 3, 6 | Range plus individual |
+| `1,3-5,8` | 1, 3, 4, 5, 8 | Individual, range, and individual |
+| `1-2,4-6,9` | 1, 2, 4, 5, 6, 9 | Multiple ranges plus individual |
+| `all` | All available | Every available mitigation |
 
 ### Example Interactive Session:
 ```
@@ -182,7 +196,7 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 WhatIf Mode: Changes will be previewed but not applied
 
 The following mitigations are not configured and can be enabled:
-Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):
+Use numbers to select (e.g., 1,3,4 or 1-3 or 2,5-7,9 or 'all' for all mitigations):
 
   [1] SRSO Mitigation (Impact: Low)
       Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)
@@ -196,7 +210,11 @@ Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):
       CPU-level side-channel protections
       Registry: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel\MitigationOptions
 
-Enter your selection: 1,3
+  [4] BHB Mitigation (Impact: Low)
+      Branch History Buffer injection mitigation (CVE-2022-0001/0002)
+      Registry: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel\BranchHistoryBufferEnabled
+
+Enter your selection: 1,3,4
 
 === WhatIf Preview ===
 The following changes would be made:
@@ -213,8 +231,14 @@ The following changes would be made:
   New Value: 2000000000000000
   Value Type: QWORD
 
+[4] BHB Mitigation
+  Registry Path: HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel
+  Registry Name: BranchHistoryBufferEnabled
+  New Value: 1
+  Value Type: DWORD
+
 WhatIf Summary:
-Total changes that would be made: 2
+Total changes that would be made: 3
 System restart would be required: Yes
 
 To apply these changes, run without -WhatIf switch
@@ -495,15 +519,28 @@ Enabled: 2 of 25 known flags
 **"Access Denied" errors:**
 - Ensure PowerShell is running as Administrator
 - Check if Windows Defender or security software blocks registry access
+- Verify user has SeBackupPrivilege and SeRestorePrivilege
 
 **"Registry path not found" errors:**
 - Some paths may not exist in all Windows versions
 - The script creates missing registry paths when using `-Apply`
+- Use `-Interactive -WhatIf` to preview which paths will be created
+
+**Interactive mode issues:**
+- If selection input fails, ensure clean input without extra spaces
+- Range selections like "1-3" require no spaces around the dash
+- Use 'all' (lowercase) to select all available mitigations
+
+**WhatIf mode not working:**
+- WhatIf requires `-Interactive` mode for security reasons
+- Ensure both `-Apply -Interactive -WhatIf` switches are used together
+- Some changes may require elevation verification
 
 **Performance degradation after application:**
-- Check which protections were applied
+- Check which protections were applied using detailed mode
 - Consider disabling specific mitigations for application issues
 - Consult application vendor documentation for compatibility
+- Use `-Interactive` mode to apply mitigations incrementally
 
 **Virtualization-specific issues:**
 - VM guests: Ensure host system is up to date
@@ -586,9 +623,10 @@ Contributions are welcome! Please:
 
 ---
 
-**Version:** 2.1  
-**Last Update:** November 2025  
-**PowerShell Compatibility:** 5.1+ (Fully Compatible)  
-**CVE Coverage:** 2017-2023 (Fully compatible with Microsoft SpeculationControl 1.0.19)  
-**Compatibility:** Windows 10/11, Windows Server 2016+  
+**Version:** 2.2  
+**Last Update:** November 2024  
+**PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
+**CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
+**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control  
+**Compatibility:** Windows 10/11, Windows Server 2016/2019/2022  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
