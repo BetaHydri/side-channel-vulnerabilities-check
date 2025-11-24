@@ -88,6 +88,8 @@ $Colors = @{
     Info    = 'Cyan'
     Header  = 'Magenta'
     Gray    = 'Gray'
+    Success = 'Green'
+    Error   = 'Red'
 }
 
 function Write-ColorOutput {
