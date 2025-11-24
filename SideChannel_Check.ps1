@@ -138,7 +138,6 @@ function Set-RegistryValue {
             if (-not $mitigation.Critical -and $Name -match "GatherDataSample|RegisterFileDataSampling|L1TerminalFault|MicroarchitecturalDataSampling") {
                 Write-ColorOutput "   ℹ This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
             }
-        }
         
         # Create the registry path if it doesn't exist
         if (-not (Test-Path $Path)) {
@@ -153,7 +152,7 @@ function Set-RegistryValue {
                         if ($Name -eq "ASLR_ForceRelocateImages") {
                             try {
                                 Set-ProcessMitigation -System -Enable ForceRelocateImages -ErrorAction Stop
-                                Write-ColorOutput "✓ Set Windows Defender ASLR via Set-ProcessMitigation" -Color Good
+                                Write-ColorOutput "[+] Set Windows Defender ASLR via Set-ProcessMitigation" -Color Good
                                 return $true
                             }
                             catch {
@@ -169,7 +168,7 @@ function Set-RegistryValue {
                     try {
                         $result = & cmd.exe /c $regCommand 2>&1
                         if ($LASTEXITCODE -eq 0) {
-                            Write-ColorOutput "✓ Set $Path\$Name = $Value (via reg.exe)" -Color Good
+                            Write-ColorOutput "[+] Set $Path\$Name = $Value (via reg.exe)" -Color Good
                             return $true
                         }
                         else {
@@ -198,7 +197,7 @@ function Set-RegistryValue {
                             }
                             $regKey.SetValue($Name, $Value, $regValue)
                             $regKey.Close()
-                            Write-ColorOutput "✓ Set $Path\$Name = $Value (via Registry API)" -Color Good
+                            Write-ColorOutput "[+] Set $Path\$Name = $Value (via Registry API)" -Color Good
                             return $true
                         }
                     }
@@ -265,16 +264,16 @@ function Set-RegistryValue {
                 # Verify path exists before setting
                 if (Test-Path $Path) {
                     Set-ItemProperty -Path $Path -Name $Name -Value $actualValue -Type $actualType -Force
-                    Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: $actualType)" -Color Good
+                    Write-ColorOutput "[+] Set $Path\$Name = $Value (Type: $actualType)" -Color Good
                     return $true
                 }
                 else {
-                    Write-ColorOutput "✗ Registry path $Path does not exist and could not be created" -Color Bad
+                    Write-ColorOutput "[-] Registry path $Path does not exist and could not be created" -Color Bad
                     return $false
                 }
             }
             catch [System.UnauthorizedAccessException] {
-                Write-ColorOutput "✗ Access denied setting $Path\$Name - Insufficient privileges" -Color Bad
+                Write-ColorOutput "[-] Access denied setting $Path\$Name - Insufficient privileges" -Color Bad
                 return $false
             }
             catch [System.ArgumentException] {
@@ -282,11 +281,11 @@ function Set-RegistryValue {
                 if ($actualType -ne "String") {
                     try {
                         Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type "String" -Force
-                        Write-ColorOutput "✓ Set $Path\$Name = $Value (Type: String fallback)" -Color Good
+                        Write-ColorOutput "[+] Set $Path\$Name = $Value (Type: String fallback)" -Color Good
                         return $true
                     }
                     catch {
-                        Write-ColorOutput "✗ Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                        Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
                         return $false
                     }
                 }
@@ -320,9 +319,9 @@ function Show-ResultsTable {
     $tableData = @()
     foreach ($result in $Results) {
         $status = switch ($result.Status) {
-            "Enabled" { "✓ Enabled" }
-            "Disabled" { "✗ Disabled" }
-            "Not Configured" { "○ Not Set" }
+            "Enabled" { "[+] Enabled" }
+            "Disabled" { "[-] Disabled" }
+            "Not Configured" { "[?] Not Set" }
             default { $result.Status }
         }
         
@@ -350,11 +349,11 @@ function Show-ResultsTable {
     
     # Display color-coded summary
     Write-Host "`nStatus Legend:" -ForegroundColor $Colors['Header']
-    Write-Host "✓ Enabled" -ForegroundColor $Colors['Good'] -NoNewline
+    Write-Host "[+] Enabled" -ForegroundColor $Colors['Good'] -NoNewline
     Write-Host " - Mitigation is active and properly configured"
-    Write-Host "✗ Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
+    Write-Host "[-] Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
     Write-Host " - Mitigation is explicitly disabled"
-    Write-Host "○ Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
+    Write-Host "[?] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
 }
 
@@ -503,9 +502,9 @@ function Test-SideChannelMitigation {
     else {
         # Enhanced console output with clear status indicators
         $statusIndicator = switch ($status) {
-            "Enabled" { "✓ ENABLED" }
-            "Disabled" { "✗ DISABLED" }
-            "Not Configured" { "○ NOT SET" }
+            "Enabled" { "[+] ENABLED" }
+            "Disabled" { "[-] DISABLED" }
+            "Not Configured" { "[?] NOT SET" }
             default { $status }
         }
         
@@ -1124,15 +1123,15 @@ if ($vbsStatus) {
     
     Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($vbsHwReady) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($vbsHwReady) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
     Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray  
-    Write-Host "$(if ($vbsRunning) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($vbsRunning) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
     
     Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciHwReady) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($hvciHwReady) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
     Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciRunning) { '✓ Yes' } else { '✗ No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($hvciRunning) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
     
     # Explanation of the difference
     if (!$vbsHwReady -and $vbsRunning) {
@@ -1161,10 +1160,10 @@ if ($vbsStatus) {
         foreach ($service in $vbsStatus.SecurityServicesRunning) {
             $serviceName = $serviceExplanation[$service.ToString()]
             if ($serviceName) {
-                Write-ColorOutput "  • $serviceName" -Color Good
+                Write-ColorOutput "  - $serviceName" -Color Good
             }
             else {
-                Write-ColorOutput "  • Service ID: $service" -Color Info
+                Write-ColorOutput "  - Service ID: $service" -Color Info
             }
         }
     }
@@ -1173,8 +1172,8 @@ if ($vbsStatus) {
     Write-ColorOutput "`n" + "-"*60 -Color Header
     Write-ColorOutput "VBS/HVCI Status Explanation:" -Color Header
     Write-ColorOutput "-"*60 -Color Header
-    Write-ColorOutput "• 'Hardware Ready' = System meets full hardware requirements" -Color Info
-    Write-ColorOutput "• 'Currently Active' = Feature is actually running right now" -Color Info
+    Write-ColorOutput "- 'Hardware Ready' = System meets full hardware requirements" -Color Info
+    Write-ColorOutput "- 'Currently Active' = Feature is actually running right now" -Color Info
     Write-ColorOutput "`nWhy might Hardware Ready = No but Active = Yes?" -Color Warning
     Write-ColorOutput "1. VBS/HVCI can run in 'compatible mode' without full HW support" -Color Info
     Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
@@ -1257,7 +1256,7 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
         $false 
     }
     
-    $statusIcon = if ($isEnabled) { "✓" } else { "○" }
+    $statusIcon = if ($isEnabled) { "[+]" } else { "[?]" }
     $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
     
     Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
@@ -1307,15 +1306,15 @@ $configuredPercent = [math]::Round(($enabledCount / $totalCount) * 100, 1)
 # Visual status breakdown
 Write-Host "`nSecurity Status Overview:" -ForegroundColor $Colors['Header']
 Write-Host "=========================" -ForegroundColor $Colors['Header']
-Write-Host "✓ ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
+Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
 Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
 Write-Host " / $totalCount mitigations" -ForegroundColor Gray
 
-Write-Host "○ NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host "[?] NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
 Write-Host "$notConfiguredCount" -NoNewline -ForegroundColor $Colors['Warning']
 Write-Host " / $totalCount mitigations" -ForegroundColor Gray
 
-Write-Host "✗ DISABLED:      " -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host "[-] DISABLED:      " -NoNewline -ForegroundColor $Colors['Bad']
 Write-Host "$disabledCount" -NoNewline -ForegroundColor $Colors['Bad']
 Write-Host " / $totalCount mitigations" -ForegroundColor Gray
 
@@ -1375,7 +1374,7 @@ else {
     if ($notConfigured.Count -gt 0) {
         Write-ColorOutput "The following mitigations should be configured:" -Color Warning
         foreach ($item in $notConfigured) {
-            Write-ColorOutput "• $($item.Name): $($item.Recommendation)" -Color Warning
+            Write-ColorOutput "- $($item.Name): $($item.Recommendation)" -Color Warning
         }
         
         Write-ColorOutput "`nTo apply these configurations automatically, run:" -Color Info
@@ -1419,12 +1418,12 @@ else {
         # Additional guidance for modern CVE mitigations
         $hasModernCVEs = $notConfigured | Where-Object { $_.Name -match "BHB|GDS|SRSO|RFDS|MDS|L1TF" }
         if ($hasModernCVEs) {
-            Write-ColorOutput "`n💡 Advanced CVE Mitigations Notice:" -Color Header
-            Write-ColorOutput "• These mitigations target recent vulnerabilities (2018-2023)" -Color Info
-            Write-ColorOutput "• Some mitigations require specific CPU microcode updates" -Color Info
-            Write-ColorOutput "• CPU vendor compatibility varies (Intel vs AMD specific)" -Color Info
-            Write-ColorOutput "• Consider testing in non-production environments first" -Color Warning
-            Write-ColorOutput "• Performance impact varies by CPU generation and workload" -Color Info
+            Write-ColorOutput "`nAdvanced CVE Mitigations Notice:" -Color Header
+            Write-ColorOutput "- These mitigations target recent vulnerabilities (2018-2023)" -Color Info
+            Write-ColorOutput "- Some mitigations require specific CPU microcode updates" -Color Info
+            Write-ColorOutput "- CPU vendor compatibility varies (Intel vs AMD specific)" -Color Info
+            Write-ColorOutput "- Consider testing in non-production environments first" -Color Warning
+            Write-ColorOutput "- Performance impact varies by CPU generation and workload" -Color Info
         }
     }
     else {
@@ -1437,40 +1436,40 @@ Write-ColorOutput "`n=== Virtualization Security Recommendations ===" -Color Hea
 
 if ($virtInfo.IsVirtualMachine) {
     Write-ColorOutput "Running in Virtual Machine - Guest Recommendations:" -Color Info
-    Write-ColorOutput "• Ensure hypervisor host has latest microcode updates" -Color Warning
-    Write-ColorOutput "• Verify hypervisor has side-channel mitigations enabled" -Color Warning
-    Write-ColorOutput "• Keep guest OS and drivers updated" -Color Warning
+    Write-ColorOutput "- Ensure hypervisor host has latest microcode updates" -Color Warning
+    Write-ColorOutput "- Verify hypervisor has side-channel mitigations enabled" -Color Warning
+    Write-ColorOutput "- Keep guest OS and drivers updated" -Color Warning
     
     switch ($virtInfo.HypervisorVendor) {
         "Microsoft" {
             Write-ColorOutput "`nHyper-V Guest Specific:" -Color Header
-            Write-ColorOutput "• Host should use Core Scheduler (auto-enabled in newer Windows versions)" -Color Info
-            Write-ColorOutput "• Enable Enhanced Session Mode for better security" -Color Info
-            Write-ColorOutput "• Ensure host has VBS/HVCI enabled" -Color Warning
+            Write-ColorOutput "- Host should use Core Scheduler (auto-enabled in newer Windows versions)" -Color Info
+            Write-ColorOutput "- Enable Enhanced Session Mode for better security" -Color Info
+            Write-ColorOutput "- Ensure host has VBS/HVCI enabled" -Color Warning
         }
         "VMware" {
             Write-ColorOutput "`nVMware Guest Specific:" -Color Header
-            Write-ColorOutput "• ESXi host should be 6.7 U2+ with Side-Channel Aware Scheduler" -Color Warning
-            Write-ColorOutput "• VM hardware version should be 14+ for latest security features" -Color Warning
-            Write-ColorOutput "• Enable VMware Tools for additional security features" -Color Info
+            Write-ColorOutput "- ESXi host should be 6.7 U2+ with Side-Channel Aware Scheduler" -Color Warning
+            Write-ColorOutput "- VM hardware version should be 14+ for latest security features" -Color Warning
+            Write-ColorOutput "- Enable VMware Tools for additional security features" -Color Info
         }
         "QEMU/KVM" {
             Write-ColorOutput "`nKVM Guest Specific:" -Color Header
-            Write-ColorOutput "• Host kernel should support spec-ctrl (4.15+)" -Color Warning
-            Write-ColorOutput "• Use CPU flags: +spec-ctrl,+ibpb,+ssbd" -Color Warning
-            Write-ColorOutput "• Enable SLAT (Intel EPT/AMD RVI) on host" -Color Warning
+            Write-ColorOutput "- Host kernel should support spec-ctrl (4.15+)" -Color Warning
+            Write-ColorOutput "- Use CPU flags: `+spec-ctrl,`+ibpb,`+ssbd" -Color Warning
+            Write-ColorOutput "- Enable SLAT (Intel EPT/AMD RVI) on host" -Color Warning
         }
         default {
             Write-ColorOutput "`nGeneral VM Recommendations:" -Color Header
-            Write-ColorOutput "• Contact hypervisor vendor for side-channel mitigation guidance" -Color Warning
-            Write-ColorOutput "• Verify hardware virtualization extensions are properly exposed" -Color Info
+            Write-ColorOutput "- Contact hypervisor vendor for side-channel mitigation guidance" -Color Warning
+            Write-ColorOutput "- Verify hardware virtualization extensions are properly exposed" -Color Info
         }
     }
 }
 else {
     Write-ColorOutput "Running on Physical Hardware - Host Recommendations:" -Color Info
-    Write-ColorOutput "• Apply CPU microcode updates from manufacturer" -Color Warning
-    Write-ColorOutput "• Enable all available CPU security features in BIOS/UEFI" -Color Warning
+    Write-ColorOutput "- Apply CPU microcode updates from manufacturer" -Color Warning
+    Write-ColorOutput "- Enable all available CPU security features in BIOS/UEFI" -Color Warning
     
     if ($virtInfo.HyperVStatus -eq "Enabled") {
         Write-ColorOutput "`nHyper-V Host Specific:" -Color Header
@@ -1478,38 +1477,38 @@ else {
         # OS version-aware Core Scheduler recommendation
         $osBuildNumber = [int](Get-ItemProperty "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
         if ($osBuildNumber -lt 20348) {
-            Write-ColorOutput "• Enable Core Scheduler (required for this OS): bcdedit /set hypervisorschedulertype core" -Color Warning
+            Write-ColorOutput "- Enable Core Scheduler (required for this OS): bcdedit /set hypervisorschedulertype core" -Color Warning
             Write-ColorOutput "  └─ Prevents SMT-based side-channel attacks between VMs" -Color Info
         }
         else {
-            Write-ColorOutput "• Core Scheduler: ✓ Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
+            Write-ColorOutput "- Core Scheduler: ✓ Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
         }
         
-        Write-ColorOutput "• Configure VM isolation policies" -Color Info
-        Write-ColorOutput "• Use Generation 2 VMs for enhanced security" -Color Info
-        Write-ColorOutput "• Enable Secure Boot for VMs when possible" -Color Info
-        Write-ColorOutput "• Consider disabling SMT if security > performance" -Color Warning
+        Write-ColorOutput "- Configure VM isolation policies" -Color Info
+        Write-ColorOutput "- Use Generation 2 VMs for enhanced security" -Color Info
+        Write-ColorOutput "- Enable Secure Boot for VMs when possible" -Color Info
+        Write-ColorOutput "- Consider disabling SMT if security > performance" -Color Warning
     }
     
     Write-ColorOutput "`nGeneral Host Security:" -Color Header
-    Write-ColorOutput "• Enable VBS/HVCI if hardware supports it" -Color Warning
-    Write-ColorOutput "• Use UEFI Secure Boot" -Color Warning
-    Write-ColorOutput "• Enable TPM 2.0 if available" -Color Info
-    Write-ColorOutput "• Configure proper VM resource isolation" -Color Warning
+    Write-ColorOutput "- Enable VBS/HVCI if hardware supports it" -Color Warning
+    Write-ColorOutput "- Use UEFI Secure Boot" -Color Warning
+    Write-ColorOutput "- Enable TPM 2.0 if available" -Color Info
+    Write-ColorOutput "- Configure proper VM resource isolation" -Color Warning
 }
 
 Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ===" -Color Header
 Write-ColorOutput "Required CPU Features:" -Color Info
-Write-ColorOutput "• Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color Warning
-Write-ColorOutput "• Hardware support for SMEP/SMAP" -Color Warning
-Write-ColorOutput "• CPU microcode with Spectre/Meltdown mitigations" -Color Warning
-Write-ColorOutput "• For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color Warning
+Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color Warning
+Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Warning
+Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
+Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color Warning
 
 Write-ColorOutput "`nFirmware Requirements:" -Color Info
-Write-ColorOutput "• UEFI firmware (not legacy BIOS)" -Color Warning
-Write-ColorOutput "• Secure Boot capability" -Color Warning
-Write-ColorOutput "• TPM 2.0 (for Credential Guard and other VBS features)" -Color Warning
-Write-ColorOutput "• Latest firmware updates from manufacturer" -Color Warning
+Write-ColorOutput "- UEFI firmware (not legacy BIOS)" -Color Warning
+Write-ColorOutput "- Secure Boot capability" -Color Warning
+Write-ColorOutput "- TPM 2.0 (for Credential Guard and other VBS features)" -Color Warning
+Write-ColorOutput "- Latest firmware updates from manufacturer" -Color Warning
 
 # Export results if requested
 if ($ExportPath) {

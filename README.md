@@ -52,9 +52,15 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 ## 📋 Requirements
 
 - **Windows**: Windows 10/11 or Windows Server 2016+
-- **PowerShell**: Version 5.1 or higher
+- **PowerShell**: Version 5.1 or higher (**PowerShell 7+ recommended**)
 - **Privileges**: Administrator rights required
 - **Architecture**: x64 systems (Intel/AMD processors)
+
+### ⚠️ PowerShell 5.1 Compatibility Note:
+- **Hardware Mitigation Matrix** feature is optimized for **PowerShell 7+**
+- **PowerShell 5.1** (Windows Server default): Core functionality works, but some Unicode characters may display differently
+- **Recommendation**: Use PowerShell 7 for best experience and full feature support
+- **Windows Server**: Consider installing PowerShell 7 alongside PowerShell 5.1
 
 ## 🔄 Kompatibilität mit Microsoft Tools
 
