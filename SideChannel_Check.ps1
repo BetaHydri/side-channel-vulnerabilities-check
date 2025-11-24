@@ -138,8 +138,9 @@ function Set-RegistryValue {
             if (-not $mitigation.Critical -and $Name -match "GatherDataSample|RegisterFileDataSampling|L1TerminalFault|MicroarchitecturalDataSampling") {
                 Write-ColorOutput "   INFO: This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
             }
+        }
         
-            # Create the registry path if it doesn't exist
+        # Create the registry path if it doesn't exist
             if (-not (Test-Path $Path)) {
                 if ($isWindowsDefenderPath) {
                     # Special handling for Windows Defender paths
