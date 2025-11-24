@@ -12,10 +12,12 @@ try {
         $rawValue = $mitValue.MitigationOptions
         Write-Host "    Raw Value Type: $($rawValue.GetType().Name)" -ForegroundColor Cyan
         Write-Host "    Raw Value: $rawValue" -ForegroundColor Cyan
-    } else {
+    }
+    else {
         Write-Host "[?] MitigationOptions not set (default behavior)" -ForegroundColor Yellow
     }
-} catch {
+}
+catch {
     Write-Host "[-] Registry read failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
@@ -30,9 +32,10 @@ try {
     $hasAslrFlag = ($testValue -band $aslrFlag) -eq $aslrFlag
     
     Write-Host "[+] Bit operations working correctly" -ForegroundColor Green
-    Write-Host "    Core Security Features: $(if($hasCoreFlag){'[+] Enabled'}else{'[?] Not Set'})" -ForegroundColor $(if($hasCoreFlag){'Green'}else{'Yellow'})
-    Write-Host "    High Entropy ASLR: $(if($hasAslrFlag){'[+] Enabled'}else{'[?] Not Set'})" -ForegroundColor $(if($hasAslrFlag){'Green'}else{'Yellow'})
-} catch {
+    Write-Host "    Core Security Features: $(if($hasCoreFlag){'[+] Enabled'}else{'[?] Not Set'})" -ForegroundColor $(if ($hasCoreFlag) { 'Green' }else { 'Yellow' })
+    Write-Host "    High Entropy ASLR: $(if($hasAslrFlag){'[+] Enabled'}else{'[?] Not Set'})" -ForegroundColor $(if ($hasAslrFlag) { 'Green' }else { 'Yellow' })
+}
+catch {
     Write-Host "[-] Bit operations failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
@@ -42,7 +45,8 @@ try {
     $testNumber = [uint64]2305843009213694208
     $hexString = "0x{0:X}" -f $testNumber
     Write-Host "[+] Hex formatting working: $hexString" -ForegroundColor Green
-} catch {
+}
+catch {
     Write-Host "[-] String formatting failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 
@@ -59,7 +63,8 @@ try {
         $flagHex = "0x{0:X16}" -f $flag.Flag
         Write-Host "    $flagHex : $($flag.Name)" -ForegroundColor Cyan
     }
-} catch {
+}
+catch {
     Write-Host "[-] Array processing failed: $($_.Exception.Message)" -ForegroundColor Red
 }
 

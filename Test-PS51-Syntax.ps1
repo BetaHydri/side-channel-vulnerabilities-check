@@ -19,7 +19,8 @@ if ($errors.Count -eq 0) {
         Write-Host "Error: $($_.Exception.Message)" -ForegroundColor Yellow
     }
     
-} else {
+}
+else {
     Write-Host "[-] Syntax Check: FAILED ($($errors.Count) errors)" -ForegroundColor Red
     Write-Host "`nFirst 5 errors:" -ForegroundColor Yellow
     $errors | Select-Object -First 5 | ForEach-Object {
