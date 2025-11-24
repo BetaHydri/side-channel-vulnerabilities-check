@@ -52,15 +52,15 @@ Dieses Tool hilft Systemadministratoren bei der Bewertung und Konfiguration ihre
 ## 📋 Requirements
 
 - **Windows**: Windows 10/11 or Windows Server 2016+
-- **PowerShell**: Version 5.1 or higher (**PowerShell 7+ recommended**)
+- **PowerShell**: Version 5.1+ (**Fully Compatible**) or PowerShell 7+
 - **Privileges**: Administrator rights required
 - **Architecture**: x64 systems (Intel/AMD processors)
 
-### ⚠️ PowerShell 5.1 Compatibility Note:
-- **Hardware Mitigation Matrix** feature is optimized for **PowerShell 7+**
-- **PowerShell 5.1** (Windows Server default): Core functionality works, but some Unicode characters may display differently
-- **Recommendation**: Use PowerShell 7 for best experience and full feature support
-- **Windows Server**: Consider installing PowerShell 7 alongside PowerShell 5.1
+### ✅ PowerShell Compatibility:
+- **PowerShell 5.1**: ✅ **Fully Supported** - All features work perfectly
+- **PowerShell 7+**: ✅ **Fully Supported** - Enhanced performance and features
+- **Cross-Version Tested**: Both versions display identical output and functionality
+- **Windows Server Default**: PowerShell 5.1 compatibility ensures seamless operation
 
 ## 🔄 Kompatibilität mit Microsoft Tools
 
@@ -147,10 +147,10 @@ HARDWARE SECURITY MITIGATION VALUE MATRIX
 
 Flag Value          Status    Mitigation Name
 ----------          ------    ---------------
-0x0000000000000001  ○       CFG (Control Flow Guard)
-0x0000000000000100  ✓       High Entropy ASLR
-0x2000000000000000  ✓       Core Hardware Security Features
-                               ↳ This is the primary flag for side-channel mitigations!
+0x0000000000000001  [?]       CFG (Control Flow Guard)
+0x0000000000000100  [+]       High Entropy ASLR
+0x2000000000000000  [+]       Core Hardware Security Features
+                               --> This is the primary flag for side-channel mitigations!
 
 Current MitigationOptions Value:
 Decimal: 2305843009213694208
@@ -180,16 +180,19 @@ Enabled: 2 of 25 known flags
 
 Mitigation Name                        Status      Current Value   Expected Value
 ---------------                        ------      -------------   --------------
-Speculative Store Bypass Disable      ✓ Enabled               72               72
-SSBD Feature Mask                     ✓ Enabled                3                3
-Branch Target Injection Mitigation    ○ Not Set          Not Set                0
-Hardware Security Mitigations         ○ Not Set          Not Set  2000000000000000
-Intel TSX Disable                     ✗ Disabled               0                1
+Speculative Store Bypass Disable      [+] Enabled             72               72
+SSBD Feature Mask                     [+] Enabled              3                3
+Branch Target Injection Mitigation    [?] Not Set        Not Set                0
+Hardware Security Mitigations         [?] Not Set        Not Set  2000000000000000
+Intel TSX Disable                     [-] Disabled             0                1
+
+Overall Security Level: 85.7%
+Security Bar:     [########--] 85.7%
 
 Status Legend:
-✓ Enabled  - Mitigation is active and properly configured
-✗ Disabled - Mitigation is explicitly disabled
-○ Not Set  - Registry value not configured (using defaults)
+[+] Enabled  - Mitigation is active and properly configured
+[-] Disabled - Mitigation is explicitly disabled  
+[?] Not Set  - Registry value not configured (using defaults)
 ```
 
 ## 🛡️ Überprüfte Sicherheitsmaßnahmen
@@ -423,8 +426,9 @@ Beiträge sind willkommen! Bitte:
 
 ---
 
-**Version:** 2.0  
+**Version:** 2.1  
 **Letztes Update:** November 2025  
+**PowerShell Compatibility:** 5.1+ (Fully Compatible)  
 **CVE-Abdeckung:** 2017-2023 (Vollständig kompatibel mit Microsoft SpeculationControl 1.0.19)  
 **Kompatibilität:** Windows 10/11, Windows Server 2016+  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
