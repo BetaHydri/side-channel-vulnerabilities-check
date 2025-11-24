@@ -1328,8 +1328,8 @@ $securityBar = ""
 $filledBlocks = [math]::Floor($configuredPercent / 10)
 $emptyBlocks = 10 - $filledBlocks
 
-for ($i = 0; $i -lt $filledBlocks; $i++) { $securityBar += "?" }
-for ($i = 0; $i -lt $emptyBlocks; $i++) { $securityBar += "?" }
+for ($i = 0; $i -lt $filledBlocks; $i++) { $securityBar += "#" }
+for ($i = 0; $i -lt $emptyBlocks; $i++) { $securityBar += "-" }
 
 Write-Host "Security Bar:     [" -NoNewline -ForegroundColor Gray
 Write-Host "$securityBar" -NoNewline -ForegroundColor $Colors[$levelColor]
