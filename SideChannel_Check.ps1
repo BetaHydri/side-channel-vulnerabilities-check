@@ -1434,6 +1434,10 @@ else {
 
 # Virtualization-Specific Recommendations
 Write-ColorOutput "`n=== Virtualization Security Recommendations ===" -Color Header
+Write-ColorOutput "`nStatus Symbols:" -Color Header
+Write-ColorOutput "[+] Enabled/Recommended - Feature is active or recommended configuration" -Color Good
+Write-ColorOutput "[-] Disabled/Not Recommended - Feature is disabled or not recommended" -Color Bad
+Write-ColorOutput "[?] Unknown/Variable - Status depends on configuration or hardware" -Color Warning
 
 if ($virtInfo.IsVirtualMachine) {
     Write-ColorOutput "Running in Virtual Machine - Guest Recommendations:" -Color Info
