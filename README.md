@@ -146,6 +146,8 @@ Status Legend:
 
 ## 🛡️ Überprüfte Sicherheitsmaßnahmen
 
+### Klassische Side-Channel Mitigationen:
+
 | Schutzmaßnahme | Beschreibung | Registry-Pfad | Auswirkung |
 |----------------|--------------|---------------|------------|
 | **Speculative Store Bypass Disable (SSBD)** | Schutz vor Spectre Variante 4 | `HKLM:\SYSTEM\...\Memory Management` | Minimal |
@@ -154,9 +156,26 @@ Status Legend:
 | **Enhanced IBRS** | Intel Hardware-Mitigation | `HKLM:\SYSTEM\...\Memory Management` | Niedrig |
 | **Intel TSX Disable** | Verhindert TSX-basierte Angriffe | `HKLM:\SYSTEM\...\kernel` | Anwendungsabhängig |
 | **Hardware Mitigations** | CPU-Level-Schutz | `HKLM:\SYSTEM\...\kernel` | Hardware-abhängig |
+
+### Moderne CVE-Mitigationen (2018-2023):
+
+| CVE | Mitigation | Ziel-CPUs | Beschreibung |
+|-----|------------|-----------|-------------|
+| **CVE-2018-3620** | L1TF Mitigation | Intel (Virtualisierung) | L1 Terminal Fault Schutz |
+| **CVE-2022-0001/0002** | BHB Mitigation | Intel/AMD (Modern) | Branch History Buffer |
+| **CVE-2022-40982** | GDS Mitigation | Intel (Server/Datacenter) | Gather Data Sample |
+| **CVE-2023-20569** | SRSO Mitigation | AMD Zen | Speculative Return Stack Overflow |
+| **CVE-2023-28746** | RFDS Mitigation | Intel (Modern) | Register File Data Sampling |
+| **MDS** | MDS Mitigation | Intel (Affected) | Microarchitectural Data Sampling |
+
+### Windows-Sicherheitsfeatures:
+
+| Schutzmaßnahme | Beschreibung | Registry-Pfad | Auswirkung |
+|----------------|--------------|---------------|------------|
 | **VBS (Virtualization Based Security)** | Hardware-basierte Sicherheit | `HKLM:\SYSTEM\...\DeviceGuard` | Erfordert UEFI/TPM |
 | **HVCI (Hypervisor Code Integrity)** | Hypervisor-geschützte Code-Integrität | `HKLM:\SYSTEM\...\HypervisorEnforcedCodeIntegrity` | Treiber-Kompatibilität |
 | **Credential Guard** | Schutz vor Credential-Diebstahl | `HKLM:\SYSTEM\...\Lsa` | VBS erforderlich |
+| **Windows Defender ASLR** | Address Space Layout Randomization | Windows Defender Exploit Guard | Anwendungskompatibilität |
 
 ## 🖥️ Virtualisierungs-spezifische Prüfungen
 
@@ -285,13 +304,25 @@ Um spezifische Schutzmaßnahmen manuell zurückzusetzen, löschen Sie die Regist
 
 ## 📚 Referenzen
 
+### Offizielle Microsoft-Dokumentation:
 - [Microsoft KB4073119](https://support.microsoft.com/en-us/topic/kb4073119-windows-client-guidance-for-it-pros-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-35820a8a-ae13-1299-88cc-357f104f5b11) - Offizielle Microsoft-Anleitung
+- [Microsoft SpeculationControl PowerShell Module](https://www.powershellgallery.com/packages/SpeculationControl) - Offizielles Microsoft Assessment Tool
+- [Microsoft VBS Documentation](https://docs.microsoft.com/en-us/windows/security/threat-protection/device-guard/introduction-to-device-guard-virtualization-based-security-and-windows-defender-application-control) - Virtualization Based Security
+- [Hyper-V Security Guide](https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security) - Hyper-V Sicherheitsleitfaden
+
+### Klassische CVE-Referenzen:
 - [CVE-2017-5753](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5753) - Spectre Variante 1
 - [CVE-2017-5715](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5715) - Spectre Variante 2  
 - [CVE-2017-5754](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2017-5754) - Meltdown
 - [CVE-2018-3639](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-3639) - Speculative Store Bypass
-- [Microsoft VBS Documentation](https://docs.microsoft.com/en-us/windows/security/threat-protection/device-guard/introduction-to-device-guard-virtualization-based-security-and-windows-defender-application-control) - Virtualization Based Security
-- [Hyper-V Security Guide](https://docs.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security) - Hyper-V Sicherheitsleitfaden
+
+### Moderne CVE-Referenzen (2018-2023):
+- [CVE-2018-3620](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2018-3620) - L1 Terminal Fault (L1TF)
+- [CVE-2022-0001](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0001) - Branch History Buffer (BHB) - Variant 1
+- [CVE-2022-0002](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-0002) - Branch History Buffer (BHB) - Variant 2
+- [CVE-2022-40982](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2022-40982) - Gather Data Sample (GDS)
+- [CVE-2023-20569](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-20569) - Speculative Return Stack Overflow (SRSO)
+- [CVE-2023-28746](https://cve.mitre.org/cgi-bin/cvename.cgi?name=CVE-2023-28746) - Register File Data Sampling (RFDS)
 
 ## 🆘 Support
 
@@ -342,7 +373,10 @@ Beiträge sind willkommen! Bitte:
 
 ---
 
-**Version:** 1.0  
+---
+
+**Version:** 2.0  
 **Letztes Update:** November 2025  
+**CVE-Abdeckung:** 2017-2023 (Vollständig kompatibel mit Microsoft SpeculationControl 1.0.19)  
 **Kompatibilität:** Windows 10/11, Windows Server 2016+  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
