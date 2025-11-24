@@ -347,8 +347,8 @@ function Show-ResultsTable {
         # Format current value for display
         $currentValueDisplay = $result.CurrentValue
         if ($result.CurrentValue -is [uint64] -and $result.CurrentValue -gt 0xFFFFFFFF) {
-            # For large QWORD values, show both hex and decimal
-            $currentValueDisplay = "0x{0:X} ({1})" -f $result.CurrentValue, $result.CurrentValue
+            # For large QWORD values, show only hex
+            $currentValueDisplay = "0x{0:X}" -f $result.CurrentValue
         }
         elseif ($result.CurrentValue -eq "Not Set" -or $null -eq $result.CurrentValue) {
             $currentValueDisplay = "Not Set"
@@ -1289,8 +1289,6 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
 
 if ($currentMitigationValue) {
     Write-ColorOutput "`nCurrent MitigationOptions Value:" -Color Header
-    Write-Host "Decimal: " -NoNewline -ForegroundColor Gray
-    Write-Host "$currentMitigationValue" -ForegroundColor White
     Write-Host "Hex:     " -NoNewline -ForegroundColor Gray  
     Write-Host ("0x{0:X}" -f $currentMitigationValue) -ForegroundColor White
     

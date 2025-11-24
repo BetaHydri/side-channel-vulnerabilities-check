@@ -263,13 +263,12 @@ Flag Value          Status    Mitigation Name
                                --> This is the primary flag for side-channel mitigations!
 
 Current MitigationOptions Value:
-Decimal: 2305843009213694208
 Hex:     0x2000000000000100
 Enabled: 2 of 25 known flags
 ```
 
 ### Benefits for Administrators:
-- **🔍 Decode Hex Values**: Understand what `2305843009213694208` means
+- **🔍 Decode Hex Values**: Understand what `0x2000000000000100` means
 - **🛡️ Security Audit**: Clear overview of active hardware mitigations
 - **📋 Compliance**: Easy verification of specific security flags
 - **🔧 Troubleshooting**: Identification of missing security configurations
@@ -311,7 +310,7 @@ Mitigation Name                          Status         Current Value    Expecte
 Speculative Store Bypass Disable        [+] Enabled               72                72    Minimal performance impact
 SSBD Feature Mask                       [+] Enabled                3                 3    Works in conjunction with FeatureSettingsOverride
 Branch Target Injection Mitigation      [?] Not Set          Not Set                 0    Required for proper security policy
-Hardware Security Mitigations           [+] Enabled    2305843009213694208  2000000000000000    Hardware-dependent, modern CPUs
+Hardware Security Mitigations           [+] Enabled    0x2000000000000100  0x2000000000000000    Hardware-dependent, modern CPUs
 Intel TSX Disable                       [-] Disabled             0                 1    May affect applications that rely on TSX
 BHB Mitigation                          [?] Not Set          Not Set                 1    Minimal performance impact on recent CPUs
 GDS Mitigation                          [?] Not Set          Not Set                 1    Performance impact varies by workload
@@ -369,7 +368,6 @@ Flag Value          Status    Mitigation Name
                                --> This is the primary flag for side-channel mitigations!
 
 Current MitigationOptions Value:
-Decimal: 2305843009213694208
 Hex:     0x2000000000000100
 Enabled: 2 of 25 known flags
 ```
