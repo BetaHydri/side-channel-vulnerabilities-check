@@ -162,6 +162,21 @@ param(
 # Initialize results array
 $Results = @()
 
+# PowerShell version compatibility detection
+$PSVersion = $PSVersionTable.PSVersion.Major
+$UseEmojis = $false  # Simplified approach for maximum compatibility
+
+# Define simple, consistent category markers
+$Emojis = @{
+    Shield = "[SW]"     # Software Mitigations
+    Lock = "[SF]"       # Security Features  
+    Wrench = "[HW]"     # Hardware Prerequisites
+    Gear = "[OT]"       # Other Mitigations
+    Chart = "[>>]"      # Summary/Progress
+    Clipboard = "[--]"  # Status Legend
+    Target = "[>>]"     # Category Descriptions
+}
+
 # Color coding for output
 $Colors = @{
     Good    = 'Green'
@@ -470,24 +485,25 @@ function Show-ResultsTable {
             }
             
             Write-Host "Category Score: " -NoNewline
-            Write-Host ("$enabled/$total enabled (" + $percentage + "%)") -ForegroundColor $summaryColor
+            $categoryText = "$enabled/$total enabled (" + [string]$percentage + "%)"
+            Write-Host $categoryText -ForegroundColor $summaryColor
         }
     }
     
     # Display results by category
-    Get-CategorizedResults -Results $Results -CategoryNames $softwareMitigations -CategoryTitle "SOFTWARE MITIGATIONS" -CategoryEmoji "🛡️"
-    Get-CategorizedResults -Results $Results -CategoryNames $securityFeatures -CategoryTitle "SECURITY FEATURES" -CategoryEmoji "🔐"
-    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji "🔧"
+    Get-CategorizedResults -Results $Results -CategoryNames $softwareMitigations -CategoryTitle "SOFTWARE MITIGATIONS" -CategoryEmoji $Emojis.Shield
+    Get-CategorizedResults -Results $Results -CategoryNames $securityFeatures -CategoryTitle "SECURITY FEATURES" -CategoryEmoji $Emojis.Lock
+    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji $Emojis.Wrench
     
     # Display any uncategorized results
     $allCategorized = $softwareMitigations + $securityFeatures + $hardwarePrerequisites
     $uncategorized = $Results | Where-Object { $_.Name -notin $allCategorized }
     if ($uncategorized.Count -gt 0) {
-        Get-CategorizedResults -Results $uncategorized -CategoryNames ($uncategorized | Select-Object -ExpandProperty Name) -CategoryTitle "OTHER MITIGATIONS" -CategoryEmoji "⚙️"
+        Get-CategorizedResults -Results $uncategorized -CategoryNames ($uncategorized | Select-Object -ExpandProperty Name) -CategoryTitle "OTHER MITIGATIONS" -CategoryEmoji $Emojis.Gear
     }
     
     # Overall summary
-    Write-ColorOutput "`n📊 OVERALL SECURITY SUMMARY" -Color Header
+    Write-ColorOutput ("`n" + $Emojis.Chart + " OVERALL SECURITY SUMMARY") -Color Header
     Write-ColorOutput ("=" * 60) -Color Header
     
     $totalEnabled = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
@@ -501,7 +517,8 @@ function Show-ResultsTable {
     }
     
     Write-Host "Overall Protection Level: " -NoNewline
-    Write-Host ("$totalEnabled/$totalCount mitigations enabled (" + $overallPercentage + "%)") -ForegroundColor $overallColor
+    $overallText = "$totalEnabled/$totalCount mitigations enabled (" + [string]$overallPercentage + "%)"
+    Write-Host $overallText -ForegroundColor $overallColor
     
     # Create visual progress bar (PowerShell 5.1 compatible)
     $filledBlocks = [math]::Floor($overallPercentage / 10)
@@ -513,7 +530,7 @@ function Show-ResultsTable {
     Write-Host $progressBar -ForegroundColor $overallColor
     
     # Display color-coded status legend
-    Write-ColorOutput "`n📋 STATUS LEGEND" -Color Header
+    Write-ColorOutput ("`n" + $Emojis.Clipboard + " STATUS LEGEND") -Color Header
     Write-Host "[+] Enabled" -ForegroundColor $Colors['Good'] -NoNewline
     Write-Host " - Mitigation is active and properly configured"
     Write-Host "[-] Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
@@ -521,10 +538,10 @@ function Show-ResultsTable {
     Write-Host "[-] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
     
-    Write-ColorOutput "`n🎯 CATEGORY DESCRIPTIONS" -Color Header
-    Write-ColorOutput "🛡️  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities" -Color Info
-    Write-ColorOutput "🔐 SECURITY FEATURES: Advanced Windows security technologies" -Color Info
-    Write-ColorOutput "🔧 HARDWARE PREREQUISITES: Required hardware security capabilities" -Color Info
+    Write-ColorOutput ("`n" + $Emojis.Target + " CATEGORY DESCRIPTIONS") -Color Header
+    Write-ColorOutput ($Emojis.Shield + "  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities") -Color Info
+    Write-ColorOutput ($Emojis.Lock + " SECURITY FEATURES: Advanced Windows security technologies") -Color Info
+    Write-ColorOutput ($Emojis.Wrench + " HARDWARE PREREQUISITES: Required hardware security capabilities") -Color Info
 }
 
 function Get-RegistryValue {
@@ -1781,8 +1798,13 @@ function Invoke-MitigationRevert {
     }
     
     # Show current security score
-    Write-ColorOutput ("Current Security Score: " + $beforeScore.Percentage + "%") -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-    Write-ColorOutput ("Security Bar: " + $beforeScore.BarDisplay + " " + $beforeScore.Percentage + "%`n") -Color Info
+    $beforeScoreNum = $beforeScore.Percentage
+    $beforeScoreText = 'Current Security Score: ' + [string]$beforeScoreNum + ' of 100'
+    Write-ColorOutput $beforeScoreText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+    $barDisplay = $beforeScore.BarDisplay
+    $barPercent = $beforeScore.Percentage
+    $securityBarText = 'Security Bar: ' + [string]$barDisplay + ' ' + [string]$barPercent + ' of 100' + "`n"
+    Write-ColorOutput $securityBarText -Color Info
     
     $successCount = 0
     $errorCount = 0
@@ -1878,9 +1900,17 @@ function Invoke-MitigationRevert {
             $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
             
             Write-ColorOutput "`nSecurity Impact Assessment:" -Color Header
-            Write-ColorOutput ("  Before Revert:  " + $beforeScore.Percentage + "% " + $beforeScore.BarDisplay) -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput ("  After Revert:   " + $afterScore.Percentage + "% " + $afterScore.BarDisplay) -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput ("  Score Change:   -" + [math]::Round($scoreDifference, 1) + "% (Security Reduced)") -Color Error
+            $beforePercent = $beforeScore.Percentage
+            $beforeBar = $beforeScore.BarDisplay
+            $beforeRevertText = '  Before Revert:  ' + [string]$beforePercent + ' of 100 ' + [string]$beforeBar
+            Write-ColorOutput $beforeRevertText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            $afterPercent = $afterScore.Percentage
+            $afterBar = $afterScore.BarDisplay
+            $afterRevertText = '  After Revert:   ' + [string]$afterPercent + ' of 100 ' + [string]$afterBar
+            Write-ColorOutput $afterRevertText -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            $scoreDiff = [math]::Round($scoreDifference, 1)
+            $scoreChangeText = '  Score Change:   -' + [string]$scoreDiff + ' of 100 (Security Reduced)'
+            Write-ColorOutput $scoreChangeText -Color Error
         }
     }
     
@@ -1908,9 +1938,17 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "  System restart would be required: Yes" -Color Warning
         Write-ColorOutput "" -Color Info
         Write-ColorOutput "Security Score Impact:" -Color Header
-        Write-ColorOutput ("  Current Score:   " + $beforeScore.Percentage + "% " + $beforeScore.BarDisplay) -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-        Write-ColorOutput ("  After Revert:    " + $projectedScore.Percentage + "% " + $projectedScore.BarDisplay) -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-        Write-ColorOutput ("  Score Change:    -" + [math]::Round($scoreDifference, 1) + "% (Security Reduction)") -Color Error
+        $currentPercent = $beforeScore.Percentage
+        $currentBar = $beforeScore.BarDisplay
+        $currentScoreText = '  Current Score:   ' + [string]$currentPercent + ' of 100 ' + [string]$currentBar
+        Write-ColorOutput $currentScoreText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        $projectedPercent = $projectedScore.Percentage
+        $projectedBar = $projectedScore.BarDisplay
+        $projectedScoreText = '  After Revert:    ' + [string]$projectedPercent + ' of 100 ' + [string]$projectedBar
+        Write-ColorOutput $projectedScoreText -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        $projectedDiff = [math]::Round($scoreDifference, 1)
+        $projectedChangeText = '  Score Change:    -' + [string]$projectedDiff + ' of 100 (Security Reduction)'
+        Write-ColorOutput $projectedChangeText -Color Error
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
     }
 }
@@ -2707,7 +2745,7 @@ $configuredPercent = $mitigationPercent
 Write-Host "`nSecurity Status Overview:" -ForegroundColor $Colors['Header']
 Write-Host "=========================" -ForegroundColor $Colors['Header']
 
-Write-Host "`n🛡️  SOFTWARE MITIGATIONS (Primary Score):" -ForegroundColor $Colors['Header']
+Write-Host ("`n" + $Emojis.Shield + "  SOFTWARE MITIGATIONS (Primary Score):") -ForegroundColor $Colors['Header']
 Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
 Write-Host "$enabledMitigations" -NoNewline -ForegroundColor $Colors['Good']
 Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
@@ -2721,14 +2759,14 @@ Write-Host "$disabledMitigations" -NoNewline -ForegroundColor $Colors['Bad']
 Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
 
 if ($totalFeatures -gt 0) {
-    Write-Host "`n🔐 SECURITY FEATURES:" -ForegroundColor $Colors['Header'] 
+    Write-Host ("`n" + $Emojis.Lock + " SECURITY FEATURES:") -ForegroundColor $Colors['Header'] 
     Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
     Write-Host "$enabledFeatures" -NoNewline -ForegroundColor $Colors['Good']
     Write-Host " / $totalFeatures features" -ForegroundColor Gray
 }
 
 if ($totalHardware -gt 0) {
-    Write-Host "`n🔧 HARDWARE PREREQUISITES:" -ForegroundColor $Colors['Header']
+    Write-Host ("`n" + $Emojis.Wrench + " HARDWARE PREREQUISITES:") -ForegroundColor $Colors['Header']
     Write-Host "[+] READY:         " -NoNewline -ForegroundColor $Colors['Good']
     Write-Host "$readyHardware" -NoNewline -ForegroundColor $Colors['Good']
     Write-Host " / $totalHardware components" -ForegroundColor Gray

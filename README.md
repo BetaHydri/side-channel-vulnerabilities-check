@@ -125,11 +125,15 @@ This provides **more accurate and meaningful security assessments** by focusing 
 - **Architecture**: x64 systems (Intel/AMD processors)
 
 ### ✅ PowerShell Compatibility:
-- **PowerShell 5.1**: ✅ **Fully Supported** - All features work perfectly, including ASCII progress bars
-- **PowerShell 7+**: ✅ **Fully Supported** - Enhanced performance and features
-- **Cross-Version Tested**: Both versions display identical categorized output and functionality
-- **Windows Server Default**: PowerShell 5.1 compatibility ensures seamless operation
-- **Visual Elements**: ASCII-based progress bars (`[=======---]`) compatible with all console environments
+- **PowerShell 5.1**: ✅ **Fully Supported** - Enterprise standard with complete feature parity
+- **PowerShell 7+**: ✅ **Fully Supported** - Modern cross-platform with enhanced performance  
+- **Cross-Version Maintenance**: Simplified approach using text-based category markers for maximum compatibility
+- **Visual Categories**: Clean categorization using `[SW]`, `[SF]`, `[HW]`, `[OT]` markers instead of emojis
+- **ASCII Progress Bars**: Universal compatibility (`[########--] 82.6%`) across all console environments
+- **Zero Maintenance Overhead**: Single codebase works reliably across all PowerShell versions
+
+#### 🔧 Technical Design Decision
+*Originally implemented with emojis for visual enhancement, we simplified to text-based markers to eliminate cross-version parsing complexity. This approach prioritizes reliability and maintainability over visual aesthetics, ensuring consistent operation across enterprise environments with mixed PowerShell deployments.*
 
 ## 🔄 Compatibility with Microsoft Tools
 
