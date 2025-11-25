@@ -103,8 +103,20 @@
 
 param(
     # Assessment Parameters (can be combined freely)
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
     [switch]$Detailed,
     
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
     [ValidateScript({
             if (-not (Test-Path (Split-Path $_ -Parent) -PathType Container)) {
                 throw "Export directory does not exist: $(Split-Path $_ -Parent)"
@@ -117,6 +129,12 @@ param(
     [string]$ExportPath,
     
     # VMware Security Guide (can be combined with assessment parameters)
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
     [switch]$ShowVMwareHostSecurity,
     
     # Modification Parameters - Apply Operations
@@ -2933,11 +2951,11 @@ Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
 # TPM Status
 Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
-$tmpColor = if ($tmpResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tmpResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
-Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tmpColor
-
-# CPU Virtualization Status
+                $tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
+                $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+                Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
+                
+                # CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
 $vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "`[+`]" } elseif ($vtxResult.Status -match "Available|Unknown") { "`[?`]" } else { "`[-`]" }
 $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
