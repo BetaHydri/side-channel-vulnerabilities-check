@@ -464,7 +464,7 @@ Exports the security assessment along with VMware-specific recommendations for c
 - **📖 Clear Descriptions** - Explains what each mitigation protects against
 - **⚡ Smart Defaults** - Automatic type detection and error handling
 - **🛡️ CVE Mapping** - Links mitigations to specific vulnerabilities
-- **🎛️ Flexible Selection** - Individual numbers, ranges, or 'all'
+- **🎛️ Flexible Selection** - Individual numbers, ranges, 'all', or '0' for none
 - **📍 Accurate Registry Paths** - Properly formatted registry paths without formatting errors
 
 ### 🎛️ Selection Methods:
@@ -474,10 +474,12 @@ Exports the security assessment along with VMware-specific recommendations for c
 - **Range with Gaps**: `1-3,6-8` - Apply multiple ranges (mitigations 1,2,3,6,7,8)
 - **Mixed Selection**: `1,3-5,7` - Combination of individual and ranges (mitigations 1,3,4,5,7)
 - **Apply All**: `all` - Apply all available mitigations at once
+- **Apply None**: `0` - Apply no mitigations and exit (skip all changes)
 
 ### 📋 Selection Examples:
 | Input | Applies Mitigations | Description |
 |-------|-------------------|-------------|
+| `0` | None | Apply no mitigations and exit |
 | `1` | 1 | Single mitigation |
 | `1,3,4` | 1, 3, 4 | Specific individual mitigations |
 | `2,5,7,10` | 2, 5, 7, 10 | Multiple individual mitigations |
@@ -494,6 +496,7 @@ WhatIf Mode: Changes will be previewed but not applied
 
 The following mitigations are not configured and can be enabled:
 Use numbers to select (e.g., 1,3,4 or 1-3 or 2,5-7,9 or 'all' for all mitigations):
+Enter 0 to apply no mitigations and exit:
 
   [1] SRSO Mitigation (Impact: Low)
       Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)
@@ -580,6 +583,7 @@ To apply these changes, run without -WhatIf switch
 
 Available mitigations to revert:
 Use numbers to select (e.g., 1,3 or 1-2 or 'all'):
+Enter 0 to revert no mitigations and exit:
 
   [1] Intel TSX Disable (Impact: Application-dependent)
       Re-enable Intel TSX (Transactional Synchronization Extensions)

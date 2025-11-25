@@ -2669,7 +2669,8 @@ function Select-Mitigations {
     Write-ColorOutput "Note: Only CPU-compatible mitigations are shown." -Color Info
     
     Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
-    Write-ColorOutput "Use numbers to select (for example: 1,3,5 or 1-3 or all for all mitigations):`n" -Color Info
+    Write-ColorOutput "Use numbers to select (for example: 1,3,5 or 1-3 or all for all mitigations):" -Color Info
+    Write-ColorOutput "Enter 0 to apply no mitigations and exit:`n" -Color Info
     
     # Display available mitigations with numbers
     $index = 1
@@ -2709,12 +2710,17 @@ function Select-Mitigations {
     }
     
     Write-Host ""
-    $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, or 'all')"
+    $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, or 'all', or 0 for none)"
     
     # Parse selection
     $selectedItems = @()
     
-    if ($selection -eq 'all') {
+    if ($selection -eq '0') {
+        # User selected 0 - apply no mitigations
+        Write-ColorOutput "`nNo mitigations selected. Exiting without applying any changes." -Color Info
+        return @()
+    }
+    elseif ($selection -eq 'all') {
         $selectedItems = $AvailableMitigations
     }
     else {
@@ -3011,7 +3017,8 @@ if ($Revert) {
             }
             
             Write-ColorOutput "Available mitigations to revert:" -Color Info
-            Write-ColorOutput "Use numbers to select (e.g., 1,3,4 or 1-3 or all for all mitigations):`n" -Color Info
+            Write-ColorOutput "Use numbers to select (e.g., 1,3,4 or 1-3 or all for all mitigations):" -Color Info
+            Write-ColorOutput "Enter 0 to revert no mitigations and exit:`n" -Color Info
             
             for ($i = 0; $i -lt $revertableMitigations.Count; $i++) {
                 $mitigation = $revertableMitigations[$i]
@@ -3022,10 +3029,15 @@ if ($Revert) {
                 Write-ColorOutput "" -Color Info
             }
             
-            $selection = Read-Host "Enter your selection"
+            $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, 'all', or 0 for none)"
             
             if ([string]::IsNullOrWhiteSpace($selection)) {
                 Write-ColorOutput "No selection made. Exiting revert mode." -Color Warning
+                return
+            }
+            
+            if ($selection -eq '0') {
+                Write-ColorOutput "No mitigations selected for revert. Exiting without making any changes." -Color Info
                 return
             }
             
