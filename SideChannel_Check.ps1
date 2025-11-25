@@ -2583,8 +2583,8 @@ $totalFeatures = $securityFeatures.Count
 
 # Count hardware prerequisites (informational)
 $readyHardware = ($hardwarePrerequisites | Where-Object { 
-    $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" 
-}).Count
+        $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" 
+    }).Count
 $totalHardware = $hardwarePrerequisites.Count
 
 # Show breakdown
