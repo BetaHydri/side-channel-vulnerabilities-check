@@ -1609,6 +1609,14 @@ function Invoke-MitigationRevert {
             Write-ColorOutput "`n⚠️  IMPORTANT: System restart required for changes to take effect!" -Color Error
             Write-ColorOutput "Your system now has REDUCED security protection." -Color Error
             Write-ColorOutput "Monitor system performance and re-enable mitigations if possible." -Color Warning
+            
+            # Prompt for restart (same logic as Apply mode)
+            $restart = Read-Host "`nWould you like to restart now? (y/N)"
+            if ($restart -eq 'y' -or $restart -eq 'Y') {
+                Write-ColorOutput "Restarting system in 10 seconds... Press Ctrl+C to cancel." -Color Warning
+                Start-Sleep -Seconds 10
+                Restart-Computer -Force
+            }
         }
     }
 }
