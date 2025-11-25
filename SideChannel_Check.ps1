@@ -46,46 +46,98 @@
     
 .EXAMPLE
     .\SideChannel_Check.ps1
+    Basic security assessment
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -Detailed
+    Detailed security assessment with registry paths
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+    Assessment with VMware ESXi host security guide
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity
+    Detailed assessment with VMware guidance
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply
+    Apply all recommended mitigations automatically
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -Apply -Interactive
-    
-.EXAMPLE
-    .\SideChannel_Check.ps1 -Apply -WhatIf
+    Interactive mitigation selection and application
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+    Preview changes in interactive mode without applying them
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -ExportPath "C:\temp\SideChannelReport.csv"
+    Export assessment results to CSV file
 
 .EXAMPLE
-    .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+    .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\temp\DetailedReport.csv"
+    Detailed assessment with CSV export
 
 .EXAMPLE
     .\SideChannel_Check.ps1 -Revert -Interactive
+    Interactively revert specific mitigations
     
 .EXAMPLE
     .\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+    Preview what would be reverted without making changes
     
 .NOTES
     Author: Jan Tiedemann
-    Version: 2.5
+    Version: 2.7
     Requires: PowerShell 5.1+ and Administrator privileges
     Based on: Microsoft KB4073119
     GitHub: https://github.com/BetaHydri/side-channel-vulnerabilities-check
+    
+    PARAMETER SETS:
+    - Assessment: Default, Detailed, VMware guide, Export combinations
+    - Modification: Apply (automatic), ApplyInteractive (manual), Revert (interactive only)
+    - Logical constraints: Interactive and WhatIf require Apply or Revert operations
 #>
 
 param(
+    # Assessment Parameters (can be combined freely)
     [switch]$Detailed,
+    
+    [ValidateScript({
+        if (-not (Test-Path (Split-Path $_ -Parent) -PathType Container)) {
+            throw "Export directory does not exist: $(Split-Path $_ -Parent)"
+        }
+        if ($_ -notmatch '\.(csv|txt)$') {
+            throw "Export file must have .csv or .txt extension"
+        }
+        return $true
+    })]
     [string]$ExportPath,
-    [switch]$Apply,
-    [switch]$WhatIf,
-    [switch]$Interactive,
+    
+    # VMware Security Guide (can be combined with assessment parameters)
     [switch]$ShowVMwareHostSecurity,
+    
+    # Modification Parameters - Apply Operations
+    [Parameter(ParameterSetName = 'Apply', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [switch]$Apply,
+    
+    [Parameter(ParameterSetName = 'ApplyInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
+    [switch]$Interactive,
+    
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
+    [switch]$WhatIf,
+    
+    # Revert Operations (must use Interactive)
+    [Parameter(ParameterSetName = 'RevertInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
     [switch]$Revert
 )
 
@@ -1566,19 +1618,7 @@ Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Co
 Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
 Write-ColorOutput "Enhanced with additional CVEs from Microsoft's SpeculationControl tool analysis`n" -Color Warning
 
-# Parameter validation
-if ($Apply -and $Revert) {
-    Write-ColorOutput "ERROR: Cannot use -Apply and -Revert parameters together." -Color Bad
-    Write-ColorOutput "Use -Apply to enable mitigations or -Revert to remove them, but not both." -Color Warning
-    exit 1
-}
-
-if ($Revert -and -not $Interactive) {
-    Write-ColorOutput "ERROR: Revert mode requires -Interactive for safety." -Color Bad
-    Write-ColorOutput "Use: .\SideChannel_Check.ps1 -Revert -Interactive" -Color Warning
-    exit 1
-}
-
+# Parameter validation (simplified with ParameterSets)
 Write-ColorOutput "NOTE: For official Microsoft assessment, also consider running:" -Color Info
 Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
 
@@ -2354,12 +2394,6 @@ function Select-Mitigations {
 
 # Apply configurations if requested
 if ($Apply) {
-    # Validate parameter combinations
-    if ($WhatIf -and -not $Interactive) {
-        Write-ColorOutput "`nWhatIf mode requires Interactive mode. Adding -Interactive automatically." -Color Warning
-        $Interactive = $true
-    }
-    
     Write-ColorOutput "`n=== Configuration Application ===" -Color Header
     $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" -and $_.CanBeEnabled }
     
@@ -2506,12 +2540,6 @@ else {
 
 # Handle Revert functionality
 if ($Revert) {
-    # Validate parameter combinations
-    if ($WhatIf -and -not $Interactive) {
-        Write-ColorOutput "`nWhatIf mode requires Interactive mode for revert operations. Adding -Interactive automatically." -Color Warning
-        $Interactive = $true
-    }
-    
     Write-ColorOutput "`n=== Mitigation Revert Mode ===" -Color Header
     Write-ColorOutput "Scanning for revertable side-channel mitigations..." -Color Info
     

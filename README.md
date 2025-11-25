@@ -202,7 +202,7 @@ Automatically configures all missing security mitigations. **System restart requ
 ```powershell
 .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
 ```
-**NEW**: Shows exactly what registry changes would be made without actually applying them. Must be combined with `-Interactive` mode for security.
+**NEW**: Shows exactly what registry changes would be made without actually applying them. Must be combined with both `-Apply` and `-Interactive` for security.
 
 ### 🎮 **Combined Interactive WhatIf** (Enterprise Standard)
 ```powershell
