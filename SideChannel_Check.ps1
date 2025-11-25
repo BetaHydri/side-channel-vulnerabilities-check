@@ -1398,10 +1398,11 @@ function Get-CurrentSecurityResults {
     <#
     .SYNOPSIS
     Re-runs all security checks to get current state for scoring.
+    This function includes ALL the same checks as the main script to ensure accurate scoring.
     #>
     $currentResults = @()
     
-    # Re-run the same checks as in main script
+    # Core side-channel mitigations (same as main script)
     $currentResults += Test-SideChannelMitigation -Name "Speculative Store Bypass Disable" `
         -Description "Mitigates Speculative Store Bypass (Variant 4) attacks" `
         -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
@@ -1418,7 +1419,22 @@ function Get-CurrentSecurityResults {
         -Recommendation "Set FeatureSettingsOverrideMask to 3" `
         -Impact "Works in conjunction with FeatureSettingsOverride"
 
-    # Add other key checks for scoring (abbreviated for performance)
+    $currentResults += Test-SideChannelMitigation -Name "Branch Target Injection Mitigation" `
+        -Description "Mitigates Branch Target Injection (Variant 2) by disabling page combining" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DisablePageCombining" `
+        -ExpectedValue 0 `
+        -Recommendation "Keep page combining disabled for Spectre V2 protection" `
+        -Impact "Minimal performance impact on most modern systems"
+
+    $currentResults += Test-SideChannelMitigation -Name "Kernel VA Shadow (Meltdown Protection)" `
+        -Description "Kernel Virtual Address Shadowing mitigates Meltdown attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "EnableKernelVaShadow" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable to protect against Meltdown (CVE-2017-5754)" `
+        -Impact "Moderate performance impact, but critical for security"
+
     $currentResults += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
         -Description "CPU-level hardware security mitigations" `
         -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
@@ -1426,6 +1442,22 @@ function Get-CurrentSecurityResults {
         -ExpectedValue "2000000000000000" `
         -Recommendation "Enable hardware-level CPU security mitigations" `
         -Impact "Hardware-dependent, modern CPUs have better performance"
+
+    $currentResults += Test-SideChannelMitigation -Name "Exception Chain Validation" `
+        -Description "Validates exception chain integrity" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnableCetUserShadowStack" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable for enhanced exception handling security" `
+        -Impact "Requires CPU support for CET (Intel Tiger Lake+)"
+
+    $currentResults += Test-SideChannelMitigation -Name "Supervisor Mode Access Prevention" `
+        -Description "SMAP prevents kernel access to user pages" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnableSmapUserShadowStack" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SMAP for kernel protection" `
+        -Impact "Requires CPU support, minimal performance impact"
 
     $currentResults += Test-SideChannelMitigation -Name "Intel TSX Disable" `
         -Description "Disables Intel TSX to prevent TSX-based attacks" `
@@ -1435,22 +1467,175 @@ function Get-CurrentSecurityResults {
         -Recommendation "Disable Intel TSX for security" `
         -Impact "May affect applications that rely on TSX, but improves security"
 
-    # Add key CVE mitigations for scoring
+    $currentResults += Test-SideChannelMitigation -Name "Enhanced IBRS" `
+        -Description "Enhanced Indirect Branch Restricted Speculation" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnabledIBRS" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable Enhanced IBRS if CPU supports it" `
+        -Impact "Modern feature with lower performance impact than legacy IBRS"
+
+    # CVE-specific mitigations  
     $currentResults += Test-SideChannelMitigation -Name "L1TF Mitigation" `
         -Description "L1 Terminal Fault protection (CVE-2018-3620/3646)" `
         -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
         -RegistryName "L1TFMitigationLevel" `
         -ExpectedValue 1 `
         -Recommendation "Enable L1TF protection" `
-        -Impact "High performance impact in virtualized environments"
+        -Impact "*** PERFORMANCE IMPACT WARNING *** High impact in virtualized environments"
 
     $currentResults += Test-SideChannelMitigation -Name "MDS Mitigation" `
-        -Description "Microarchitectural Data Sampling protection" `
+        -Description "Microarchitectural Data Sampling protection (CVE-2018-11091/12126/12127/12130)" `
         -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
         -RegistryName "MDSMitigationLevel" `
         -ExpectedValue 1 `
         -Recommendation "Enable MDS protection" `
-        -Impact "Moderate performance impact on Intel CPUs"
+        -Impact "*** PERFORMANCE IMPACT WARNING *** Moderate performance impact on Intel CPUs"
+
+    $currentResults += Test-SideChannelMitigation -Name "CVE-2019-11135 Mitigation" `
+        -Description "Windows Kernel Information Disclosure protection (CVE-2019-11135)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "TSXAsyncAbortLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable CVE-2019-11135 protection" `
+        -Impact "Minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "SBDR/SBDS Mitigation" `
+        -Description "Shared Buffer Data Read/Sampling protection (CVE-2022-21123/21125)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "SBDRMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SBDR/SBDS protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "SRBDS Update Mitigation" `
+        -Description "Special Register Buffer Data Sampling protection (CVE-2022-21127)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "SRBDSMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SRBDS protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "DRPW Mitigation" `
+        -Description "Data Register Partial Write protection (CVE-2022-21166)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DRPWMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable DRPW protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    # Hardware and virtualization features (simplified checks for scoring)
+    try {
+        $hwInfo = Get-HardwareRequirements
+        
+        # UEFI Secure Boot
+        $currentResults += [PSCustomObject]@{
+            Name           = "UEFI Secure Boot"
+            Description    = "Hardware-verified boot process"
+            Status         = if ($hwInfo.SecureBootEnabled) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $hwInfo.SecureBootStatus
+            ExpectedValue  = "Enabled"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "SecureBoot"
+            Recommendation = "Enable Secure Boot in UEFI firmware settings"
+            Impact         = "Protects boot process from tampering"
+            CanBeEnabled   = $hwInfo.SecureBootCapable
+        }
+
+        # TPM 2.0
+        $currentResults += [PSCustomObject]@{
+            Name           = "TPM 2.0"
+            Description    = "Trusted Platform Module for cryptographic operations"
+            Status         = if ($hwInfo.TPMPresent -and $hwInfo.TPMVersion -match "2\.0") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $hwInfo.TPMVersion
+            ExpectedValue  = "2.0"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "TPM"
+            Recommendation = "Ensure TPM 2.0 is enabled in firmware"
+            Impact         = "Required for advanced Windows security features"
+            CanBeEnabled   = $true
+        }
+
+        # VBS and HVCI (from virtualization info)
+        $virtInfo = Get-VirtualizationInfo
+        
+        $currentResults += [PSCustomObject]@{
+            Name           = "Virtualization Based Security (VBS)"
+            Description    = "Hardware-isolated Windows security subsystem"
+            Status         = if ($virtInfo.VBSStatus -eq "Running") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $virtInfo.VBSStatus
+            ExpectedValue  = "Running"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "VBS"
+            Recommendation = "Enable VBS in Windows Features"
+            Impact         = "Provides hardware isolation for security features"
+            CanBeEnabled   = $hwInfo.IsUEFI -and $hwInfo.TPMPresent
+        }
+
+        $currentResults += [PSCustomObject]@{
+            Name           = "Hypervisor-protected Code Integrity (HVCI)"
+            Description    = "Hardware-enforced code integrity"
+            Status         = if ($virtInfo.HVCIStatus -eq "Enforced") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $virtInfo.HVCIStatus
+            ExpectedValue  = "Enforced"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "HVCI"
+            Recommendation = "Enable Device Guard and HVCI"
+            Impact         = "Prevents kernel code injection attacks"
+            CanBeEnabled   = $virtInfo.VBSStatus -ne "Not Available"
+        }
+
+        # Windows Defender Exploit Guard ASLR
+        $aslrValue = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
+        $currentResults += [PSCustomObject]@{
+            Name           = "Windows Defender Exploit Guard ASLR"
+            Description    = "Address Space Layout Randomization enforcement"
+            Status         = if ($aslrValue -eq 1) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = if ($null -ne $aslrValue) { $aslrValue } else { "Not Set" }
+            ExpectedValue  = 1
+            RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
+            RegistryName   = "ASLR_ForceRelocateImages"
+            Recommendation = "Enable Windows Defender Exploit Guard ASLR"
+            Impact         = "Hardens memory layout randomization"
+            CanBeEnabled   = $true
+        }
+
+        # Nested Virtualization Check
+        try {
+            $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+            $nestedEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+            $currentResults += [PSCustomObject]@{
+                Name           = "Nested Virtualization Security"
+                Description    = "Virtualization extensions in virtual machines"
+                Status         = if ($nestedEnabled) { "Enabled" } else { "Not Configured" }
+                CurrentValue   = if ($nestedEnabled) { "Exposed" } else { "Not Exposed" }
+                ExpectedValue  = "Exposed (with security considerations)"
+                RegistryPath   = "Hyper-V Feature"
+                RegistryName   = "ExposeVirtualizationExtensions"
+                Recommendation = "Configure nested virtualization securely if needed"
+                Impact         = "Enables VMs to run hypervisors, requires careful security setup"
+                CanBeEnabled   = $virtInfo.HyperVStatus -eq "Enabled"
+            }
+        }
+        catch {
+            # No Hyper-V or VMs - add placeholder for consistent counting
+            $currentResults += [PSCustomObject]@{
+                Name           = "Nested Virtualization Security"
+                Description    = "Virtualization extensions in virtual machines"
+                Status         = "Not Configured"
+                CurrentValue   = "Hyper-V not available"
+                ExpectedValue  = "Proper configuration if needed"
+                RegistryPath   = "Hyper-V Feature"
+                RegistryName   = "ExposeVirtualizationExtensions"
+                Recommendation = "Install Hyper-V if nested virtualization is required"
+                Impact         = "N/A - Hyper-V not installed"
+                CanBeEnabled   = $false
+            }
+        }
+    }
+    catch {
+        Write-Warning "Error getting hardware info for scoring: $($_.Exception.Message)"
+    }
 
     return $currentResults
 }
@@ -2025,7 +2210,7 @@ $Results += [PSCustomObject]@{
 $Results += [PSCustomObject]@{
     Name           = "IOMMU/VT-d Support"
     Description    = "Input/Output Memory Management Unit for secure DMA isolation"
-    Status         = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "Enabled and Active" } elseif ($hwRequirements.IOMMUSupport -match "Available") { "Hardware Available" } else { "Unknown - Check BIOS/UEFI" }
+    Status         = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "Enabled" } elseif ($hwRequirements.IOMMUSupport -match "Available") { "Not Configured" } else { "Not Configured" }
     CurrentValue   = $hwRequirements.IOMMUSupport
     ExpectedValue  = "Enabled and Active"
     RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
@@ -2089,7 +2274,7 @@ if ($virtInfo.IsVirtualMachine) {
         $Results += [PSCustomObject]@{
             Name           = "VMware Tools Security Features"
             Description    = "VMware Tools with side-channel mitigations"
-            Status         = if ($vmToolsVersion) { "Installed" } else { "Not Installed" }
+            Status         = if ($vmToolsVersion) { "Enabled" } else { "Not Configured" }
             CurrentValue   = if ($vmToolsVersion) { "Present" } else { "Missing" }
             ExpectedValue  = "Latest Version"
             RegistryPath   = "N/A"
@@ -2147,7 +2332,7 @@ else {
         $Results += [PSCustomObject]@{
             Name           = "Nested Virtualization Security"
             Description    = "Security considerations for nested hypervisors"
-            Status         = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
+            Status         = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Not Configured" }
             CurrentValue   = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
             ExpectedValue  = "Carefully configured"
             RegistryPath   = "N/A"
