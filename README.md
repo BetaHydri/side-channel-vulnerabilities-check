@@ -56,6 +56,7 @@ This tool helps system administrators assess and configure their Windows systems
 - 🔄 **VBS/HVCI Support** - Checks virtualization-based security features
 - 🛡️ **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
 - 🏢 **VMware Host Security** - **NEW**: Comprehensive ESXi security configuration guide
+- 🔄 **Mitigation Revert** - **NEW**: Safely remove individual mitigations causing performance issues
 
 ## 📋 Requirements
 
@@ -164,6 +165,18 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 ```
 **For VMware Administrators**: Displays comprehensive ESXi host security configuration guide with specific commands and settings for protecting VMs against side-channel attacks.
 
+### 🔄 Revert Individual Mitigations
+```powershell
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+**NEW**: Safely remove specific side-channel mitigations that may be causing performance issues. Always use interactive mode for safety.
+
+### 🔍 Preview Revert Changes
+```powershell
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+```
+**Recommended Workflow**: Preview which mitigations would be reverted and their security implications before making changes.
+
 ## 🎯 Interactive Mitigation Selection
 
 **NEW Enterprise Feature**: Granular control over which security mitigations to apply.
@@ -249,6 +262,71 @@ Total changes that would be made: 3
 System restart would be required: Yes
 
 To apply these changes, run without -WhatIf switch
+```
+
+## 🔄 Mitigation Revert Functionality
+
+**NEW Enterprise Feature**: Safely remove individual side-channel mitigations when they cause performance issues.
+
+### 🛡️ Revert Mode Features:
+- **🔒 Interactive Safety** - Requires interactive mode for safety confirmation
+- **⚠️ Security Warnings** - Clear warnings about security implications of each revert
+- **🔍 WhatIf Integration** - Preview what would be reverted before making changes
+- **📊 Impact Assessment** - Shows security risk level for each mitigation removal
+- **🎯 Selective Revert** - Choose specific mitigations to remove, not all-or-nothing
+- **📋 Current Value Tracking** - Shows current and target values for transparency
+
+### 🚨 Important Revert Considerations:
+- **Security Risk**: Reverting mitigations reduces your system's security posture
+- **Performance vs Security**: Only revert when specific mitigations cause measurable performance issues
+- **Testing Required**: Always test revert impact in non-production environments first
+- **Monitoring**: Monitor system security and performance after reverting mitigations
+- **Re-enable When Possible**: Consider re-enabling mitigations when performance allows
+
+### 🎛️ Revertable Mitigations:
+
+| Mitigation | Security Risk | Typical Reason to Revert |
+|------------|---------------|---------------------------|
+| **Intel TSX Disable** | Medium | Application compatibility issues |
+| **Hardware Security Mitigations** | High | Overall system performance impact |
+| **L1TF Mitigation** | High | Virtualization performance issues |
+| **BHB/GDS/SRSO Mitigations** | Medium | CPU-specific performance impact |
+| **Speculative Store Bypass** | Medium | Application-specific performance |
+| **Windows Defender ASLR** | Medium | Legacy application compatibility |
+
+### 📋 Example Revert Session:
+```
+=== Mitigation Revert Mode ===
+⚠️  WARNING: Reverting mitigations will REDUCE your system's security!
+
+Available mitigations to revert:
+Use numbers to select (e.g., 1,3 or 1-2 or 'all'):
+
+  [1] Intel TSX Disable (Impact: Application-dependent)
+      Re-enable Intel TSX (Transactional Synchronization Extensions)
+      Security Risk: Medium - May expose TSX-related vulnerabilities
+      Registry: HKLM:\SYSTEM\...\kernel\DisableTsx
+
+  [2] Hardware Security Mitigations (Impact: Variable)
+      Reset CPU-level security mitigations to default
+      Security Risk: High - Removes multiple CPU security features
+      Registry: HKLM:\SYSTEM\...\kernel\MitigationOptions
+
+Enter your selection: 1
+
+⚠️  Are you sure you want to REMOVE these security protections? (yes/no): yes
+
+=== Mitigation Revert Operation ===
+Processing: Intel TSX Disable
+  ✓ Reverted: Intel TSX Disable = 0
+
+Revert Summary:
+  Successfully reverted: 1
+  Failed: 0
+
+⚠️  IMPORTANT: System restart required for changes to take effect!
+Your system now has REDUCED security protection.
+Monitor system performance and re-enable mitigations if possible.
 ```
 
 **NEW in Version 2.0**: The `-Detailed` mode now includes a comprehensive **Hardware Security Mitigation Value Matrix** that decodes the cryptic MitigationOptions registry values.
@@ -657,6 +735,9 @@ vmware-toolbox-cmd -v
 
 # Export for compliance documentation
 .\SideChannel_Check.ps1 -ExportPath "C:\Reports\HostSecurityReport.csv"
+
+# Revert specific mitigations causing performance issues
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
 ```
 
 ## 🔍 Troubleshooting
@@ -688,6 +769,13 @@ vmware-toolbox-cmd -v
 - Consider disabling specific mitigations for application issues
 - Consult application vendor documentation for compatibility
 - Use `-Interactive` mode to apply mitigations incrementally
+- **Use `-Revert -Interactive -WhatIf` to safely remove problematic mitigations**
+
+**Revert mode issues:**
+- Revert mode requires `-Interactive` for safety - this is intentional
+- Use `-WhatIf` to preview what would be reverted before making changes  
+- Some mitigations cannot be reverted if they're OS/hardware enforced
+- Always restart system after reverting mitigations for changes to take effect
 
 **Virtualization-specific issues:**
 - VM guests: Ensure host system is up to date
@@ -695,7 +783,16 @@ vmware-toolbox-cmd -v
 - Nested VMs: Verify ExposeVirtualizationExtensions settings
 
 ### Reverting Changes:
-To manually reset specific protections, delete the registry values or set them to their original values. Always test in controlled environment.
+Individual mitigations can now be safely reverted using the new revert functionality:
+```powershell
+# Preview which mitigations can be reverted
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+
+# Safely revert specific mitigations
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+
+**Legacy manual revert**: To manually reset specific protections, delete the registry values or set them to their original values. Always test in controlled environment.
 
 ## 📚 References
 
@@ -770,10 +867,10 @@ Contributions are welcome! Please:
 
 ---
 
-**Version:** 2.2  
+**Version:** 2.3  
 **Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
 **CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
-**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control  
+**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert  
 **Compatibility:** Windows 10/11, Windows Server 2016/2019/2022/2025  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
