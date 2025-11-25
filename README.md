@@ -47,6 +47,7 @@ This tool helps system administrators assess and configure their Windows systems
 
 ### 🔍 Advanced Analysis
 - **Hardware Mitigation Matrix** - Decode complex registry values in human-readable format
+- **Hardware Requirements Detection** - **NEW**: Automatically detects and displays UEFI, Secure Boot, TPM 2.0, CPU virtualization, and IOMMU status
 - **OS Version Intelligence** - Automatic adaptation to Windows capabilities
 - **CSV Export** - Professional reporting for compliance and documentation
 - **Detailed Diagnostics** - Comprehensive security assessment with recommendations
@@ -78,7 +79,8 @@ This tool helps system administrators assess and configure their Windows systems
 - **Performance Recovery** - Targeted approach to resolve application compatibility issues
 
 ### 🔍 **Advanced Analysis & Reporting**
-- **Comprehensive Security Assessment** - Checks 21+ critical security mitigations including modern CVEs (2018-2023)
+- **Comprehensive Security Assessment** - Checks 27+ critical security mitigations including modern CVEs (2018-2023)
+- **Hardware Requirements Detection** - **NEW**: Automatically detects UEFI, Secure Boot, TPM 2.0, VT-x/AMD-V, and IOMMU status
 - **Hardware Mitigation Matrix** - Decodes complex MitigationOptions registry values in human-readable format
 - **OS Version Intelligence** - Automatic adaptation to Windows capabilities with intelligent Core Scheduler detection (Build 20348+)
 - **Professional CSV Export** - Enterprise reporting for documentation and compliance
@@ -217,7 +219,31 @@ Automatically configures all missing security mitigations. **System restart requ
 .\SideChannel_Check.ps1
 ```
 
-### 🎯 **Granular Security Management**
+### 📊 **Hardware Requirements Assessment** - **INTELLIGENT DETECTION**
+
+The tool now automatically detects and properly color-codes hardware security requirements:
+
+**Real-Time Hardware Detection:**
+- **🟢 UEFI Firmware**: Detects UEFI vs Legacy BIOS automatically
+- **🟢 Secure Boot**: Shows actual enablement status with registry detection
+- **🟢 TPM 2.0**: Queries hardware directly via WMI/CIM for real TPM status
+- **🟡 CPU Virtualization**: Detects VT-x/AMD-V availability and configuration
+- **🟢 IOMMU/VT-d**: Identifies DMA isolation capabilities
+
+**Smart Status Display:**
+```
+=== Hardware Prerequisites for Side-Channel Protection ===
+Hardware Security Assessment:
+- UEFI Firmware: [+] Present
+- Secure Boot: [+] Enabled  
+- TPM 2.0: [+] TPM 2.0 Present
+- CPU Virtualization (VT-x/AMD-V): [-] Not Detected - Enable in BIOS/UEFI
+- IOMMU/VT-d Support: [+] Available (Hyper-V)
+```
+
+**No More Guesswork**: Instead of generic warnings, see **actual hardware status** with actionable guidance.
+
+## 🎯 **Granular Security Management**
 ```powershell
 # Apply only low-impact mitigations first
 .\SideChannel_Check.ps1 -Apply -Interactive
@@ -563,6 +589,11 @@ L1TF Mitigation                         [+] Enabled                1            
 MDS Mitigation                          [+] Enabled                1                 1    Moderate performance impact on Intel CPUs
 Windows Defender Exploit Guard ASLR     [?] Not Set          Not Set                 1    Improves resistance to memory corruption
 Virtualization Based Security (VBS)     [+] Enabled                1                 1    Requires UEFI, Secure Boot
+UEFI Firmware (not Legacy BIOS)         [+] Enabled             UEFI              UEFI    Required for Secure Boot, VBS
+Secure Boot                             [+] Enabled          Enabled           Enabled    Essential for VBS and prevents boot malware  
+TPM 2.0 (Trusted Platform Module)       [+] Enabled  Present (Version: 2.0)      TPM 2.0    Required for Credential Guard, BitLocker
+CPU Virtualization Support (VT-x/AMD-V) [-] Not Detected   Not Available        Enabled    Essential for Hyper-V, VBS
+IOMMU/VT-d Support                      [+] Available   Available (Hyper-V)    Available    Provides DMA isolation for VBS
 Hypervisor-protected Code Integrity     [+] Enabled                1                 1    May cause compatibility issues
 Credential Guard                        [+] Enabled                1                 1    Requires VBS and may affect applications
 Hyper-V Core Scheduler                  [+] Enabled         OS Default             Built-in No action needed - already optimized
@@ -593,12 +624,12 @@ Status Legend:
 
 Security Status Overview:
 =========================
-[+] ENABLED:       20 / 22 mitigations
-[?] NOT SET:       2 / 22 mitigations
-[-] DISABLED:      0 / 22 mitigations
+[+] ENABLED:       23 / 27 mitigations
+[?] NOT SET:       2 / 27 mitigations
+[-] DISABLED:      2 / 27 mitigations
 
-Overall Security Level: 90.9%
-Security Bar:     [#########-] 90.9%
+Overall Security Level: 85.2%
+Security Bar:     [########--] 85.2%
 
 DETAILED SECURITY ANALYSIS
 ================================================================================
@@ -660,6 +691,16 @@ Enabled: 2 of 25 known flags
 | **CVE-2023-20569** | SRSO Mitigation | AMD Zen | Speculative Return Stack Overflow |
 | **CVE-2023-28746** | RFDS Mitigation | Intel (Modern) | Register File Data Sampling |
 | **MDS** | MDS Mitigation | Intel (Affected) | Microarchitectural Data Sampling |
+
+### Hardware Requirements & Platform Security:
+
+| Protection Measure | Description | Detection Method | Status Display |
+|----------------|--------------|-----------------|----------------|
+| **UEFI Firmware** | Modern firmware interface vs Legacy BIOS | Registry Detection | 🟢 **[+] Present** or 🔴 **[-] Legacy BIOS** |
+| **Secure Boot** | Boot integrity protection | Registry + PowerShell | 🟢 **[+] Enabled** or 🟡 **[?] Available** |
+| **TPM 2.0** | Trusted Platform Module hardware | WMI + CIM Queries | 🟢 **[+] TPM 2.0 Present** or 🔴 **[-] Missing** |
+| **CPU Virtualization (VT-x/AMD-V)** | Hardware virtualization extensions | CPU Feature Detection | 🟢 **[+] Available** or 🔴 **[-] Not Detected** |
+| **IOMMU/VT-d Support** | DMA isolation capabilities | Service + Registry Detection | 🟢 **[+] Available** or 🟡 **[?] Unknown** |
 
 ### Windows Security Features:
 

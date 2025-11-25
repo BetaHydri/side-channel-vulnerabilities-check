@@ -586,6 +586,142 @@ function Get-WindowsVersion {
     }
 }
 
+function Get-HardwareRequirements {
+    <#
+    .SYNOPSIS
+        Checks hardware requirements for security features like VBS, Secure Boot, TPM, UEFI
+    .DESCRIPTION
+        Detects and returns status of hardware security requirements
+    #>
+    
+    $hwInfo = @{
+        IsUEFI = $false
+        SecureBootEnabled = $false
+        SecureBootCapable = $false
+        TPMPresent = $false
+        TPMVersion = "Not Available"
+        IOMMUSupport = "Unknown"
+        VTxSupport = $false
+        SecureBootStatus = "Not Available"
+    }
+    
+    try {
+        # Check for UEFI vs Legacy BIOS
+        $firmwareType = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+        if ($firmwareType -or (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control" -Name "PEFirmwareType" -ErrorAction SilentlyContinue)) {
+            $hwInfo.IsUEFI = $true
+        }
+        
+        # Check Secure Boot status
+        try {
+            $secureBootState = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+            if ($secureBootState) {
+                $hwInfo.SecureBootEnabled = $secureBootState.UEFISecureBootEnabled -eq 1
+                $hwInfo.SecureBootCapable = $true
+                $hwInfo.SecureBootStatus = if ($hwInfo.SecureBootEnabled) { "Enabled" } else { "Available but Disabled" }
+            }
+            else {
+                # Alternative check using PowerShell cmdlet if available
+                try {
+                    $secureBootUEFI = Get-SecureBootUEFI -ErrorAction SilentlyContinue
+                    if ($secureBootUEFI) {
+                        $hwInfo.SecureBootCapable = $true
+                        $hwInfo.SecureBootStatus = "Capable (check UEFI settings)"
+                    }
+                }
+                catch {
+                    $hwInfo.SecureBootStatus = "Not Available"
+                }
+            }
+        }
+        catch {
+            $hwInfo.SecureBootStatus = "Detection Failed"
+        }
+        
+        # Check TPM
+        try {
+            $tpm = Get-CimInstance -Namespace "Root\cimv2\Security\MicrosoftTpm" -ClassName "Win32_Tpm" -ErrorAction SilentlyContinue
+            if ($tpm) {
+                $hwInfo.TPMPresent = $true
+                $hwInfo.TPMVersion = "$($tpm.SpecVersion)"
+            }
+            else {
+                # Alternative TPM check
+                try {
+                    $tpmWmi = Get-WmiObject -Namespace "Root\cimv2\Security\MicrosoftTpm" -Class "Win32_Tpm" -ErrorAction SilentlyContinue
+                    if ($tpmWmi) {
+                        $hwInfo.TPMPresent = $true
+                        $hwInfo.TPMVersion = "Available"
+                    }
+                }
+                catch {
+                    # Try PowerShell TPM module
+                    try {
+                        $tpmInfo = Get-TPM -ErrorAction SilentlyContinue
+                        if ($tpmInfo) {
+                            $hwInfo.TPMPresent = $tpmInfo.TmpPresent
+                            $hwInfo.TPMVersion = if ($tmpInfo.TmpPresent) { "2.0" } else { "Not Available" }
+                        }
+                    }
+                    catch {
+                        $hwInfo.TPMVersion = "Detection Failed"
+                    }
+                }
+            }
+        }
+        catch {
+            $hwInfo.TPMVersion = "Detection Failed"
+        }
+        
+        # Check CPU Virtualization Support
+        try {
+            $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+            if ($cpu.VirtualizationFirmwareEnabled -eq $true) {
+                $hwInfo.VTxSupport = $true
+            }
+            else {
+                # Check CPU features for VT-x/AMD-V
+                $cpuFeatures = Get-WmiObject -Class Win32_Processor | Select-Object -First 1
+                if ($cpuFeatures.Name -match "Intel" -and $cpuFeatures.Description -match "VT-x|Virtualization") {
+                    $hwInfo.VTxSupport = $true
+                }
+                elseif ($cpuFeatures.Name -match "AMD" -and $cpuFeatures.Description -match "AMD-V|SVM") {
+                    $hwInfo.VTxSupport = $true
+                }
+            }
+        }
+        catch {
+            $hwInfo.VTxSupport = $false
+        }
+        
+        # Check IOMMU/VT-d support (basic detection)
+        try {
+            $vtdRegistry = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\iommu" -ErrorAction SilentlyContinue
+            if ($vtdRegistry) {
+                $hwInfo.IOMMUSupport = "Available"
+            }
+            else {
+                # Check for Hyper-V IOMMU indicators
+                $hvIommu = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -ErrorAction SilentlyContinue
+                if ($hvIommu) {
+                    $hwInfo.IOMMUSupport = "Available (Hyper-V)"
+                }
+                else {
+                    $hwInfo.IOMMUSupport = "Unknown"
+                }
+            }
+        }
+        catch {
+            $hwInfo.IOMMUSupport = "Detection Failed"
+        }
+    }
+    catch {
+        Write-Verbose "Error checking hardware requirements: $($_.Exception.Message)"
+    }
+    
+    return $hwInfo
+}
+
 function Get-VirtualizationInfo {
     $virtualizationInfo = @{
         IsVirtualMachine            = $false
@@ -1619,6 +1755,79 @@ $Results += [PSCustomObject]@{
     CanBeEnabled   = $true
 }
 
+# Get hardware requirements info
+$hwRequirements = Get-HardwareRequirements
+
+# 1a. UEFI Firmware Check
+$Results += [PSCustomObject]@{
+    Name           = "UEFI Firmware (not Legacy BIOS)"
+    Description    = "Modern firmware interface required for advanced security features"
+    Status         = if ($hwRequirements.IsUEFI) { "Enabled" } else { "Legacy BIOS Detected" }
+    CurrentValue   = if ($hwRequirements.IsUEFI) { "UEFI" } else { "Legacy BIOS" }
+    ExpectedValue  = "UEFI"
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control"
+    RegistryName   = "PEFirmwareType"
+    Recommendation = "Upgrade to UEFI firmware for modern security features"
+    Impact         = "Required for Secure Boot, VBS, and other security features"
+    CanBeEnabled   = $false
+}
+
+# 1b. Secure Boot Check
+$Results += [PSCustomObject]@{
+    Name           = "Secure Boot"
+    Description    = "Prevents unauthorized bootloaders and ensures boot integrity"
+    Status         = if ($hwRequirements.SecureBootEnabled) { "Enabled" } elseif ($hwRequirements.SecureBootCapable) { "Available but Disabled" } else { "Not Available" }
+    CurrentValue   = $hwRequirements.SecureBootStatus
+    ExpectedValue  = "Enabled"
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
+    RegistryName   = "UEFISecureBootEnabled"
+    Recommendation = if ($hwRequirements.SecureBootCapable) { "Enable Secure Boot in UEFI firmware settings" } else { "Upgrade firmware to support Secure Boot" }
+    Impact         = "Essential for VBS and prevents boot-level malware"
+    CanBeEnabled   = $hwRequirements.SecureBootCapable
+}
+
+# 1c. TPM 2.0 Check
+$Results += [PSCustomObject]@{
+    Name           = "TPM 2.0 (Trusted Platform Module)"
+    Description    = "Hardware security chip for cryptographic operations and key storage"
+    Status         = if ($hwRequirements.TPMPresent -and $hwRequirements.TPMVersion -match "2\.0") { "Enabled" } elseif ($hwRequirements.TPMPresent) { "TPM Present (Version: $($hwRequirements.TPMVersion))" } else { "Not Available" }
+    CurrentValue   = if ($hwRequirements.TPMPresent) { "Present (Version: $($hwRequirements.TPMVersion))" } else { "Not Detected" }
+    ExpectedValue  = "TPM 2.0"
+    RegistryPath   = "WMI Query"
+    RegistryName   = "Win32_Tpm"
+    Recommendation = if ($hwRequirements.TPMPresent) { "Ensure TPM 2.0 is enabled and functioning" } else { "Install or enable TPM 2.0 hardware" }
+    Impact         = "Required for Credential Guard, BitLocker, and VBS features"
+    CanBeEnabled   = $hwRequirements.TPMPresent
+}
+
+# 1d. CPU Virtualization Support Check
+$Results += [PSCustomObject]@{
+    Name           = "CPU Virtualization Support (VT-x/AMD-V)"
+    Description    = "Hardware virtualization extensions required for hypervisor-based security"
+    Status         = if ($hwRequirements.VTxSupport) { "Enabled" } else { "Not Detected" }
+    CurrentValue   = if ($hwRequirements.VTxSupport) { "Available" } else { "Not Available" }
+    ExpectedValue  = "Enabled"
+    RegistryPath   = "Hardware Feature"
+    RegistryName   = "CPU Virtualization Extensions"
+    Recommendation = if ($hwRequirements.VTxSupport) { "CPU virtualization is available" } else { "Enable VT-x (Intel) or AMD-V (AMD) in BIOS/UEFI" }
+    Impact         = "Essential for Hyper-V, VBS, and virtualization-based security"
+    CanBeEnabled   = $true
+}
+
+# 1e. IOMMU/VT-d Support Check
+$Results += [PSCustomObject]@{
+    Name           = "IOMMU/VT-d Support"
+    Description    = "Input/Output Memory Management Unit for secure DMA isolation"
+    Status         = if ($hwRequirements.IOMMUSupport -match "Available") { "Available" } else { "Unknown" }
+    CurrentValue   = $hwRequirements.IOMMUSupport
+    ExpectedValue  = "Available"
+    RegistryPath   = "Hardware Feature"
+    RegistryName   = "IOMMU Support"
+    Recommendation = "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection"
+    Impact         = "Provides DMA isolation and enhanced security for VBS"
+    CanBeEnabled   = $true
+}
+
 # 2. Hypervisor-protected Code Integrity (HVCI)
 $hvciEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled"
 $Results += [PSCustomObject]@{
@@ -2389,17 +2598,69 @@ else {
 }
 
 Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ===" -Color Header
-Write-ColorOutput "Required CPU Features:" -Color Info
-Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color Warning
-Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Warning
-Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
-Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color Warning
 
-Write-ColorOutput "`nFirmware Requirements:" -Color Info
-Write-ColorOutput "- UEFI firmware (not legacy BIOS)" -Color Warning
-Write-ColorOutput "- Secure Boot capability" -Color Warning
-Write-ColorOutput "- TPM 2.0 (for Credential Guard and other VBS features)" -Color Warning
-Write-ColorOutput "- Latest firmware updates from manufacturer" -Color Warning
+# Get current hardware status
+$hwStatus = Get-HardwareRequirements
+
+Write-ColorOutput "Hardware Security Assessment:" -Color Info
+
+# UEFI Status
+Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
+if ($hwStatus.IsUEFI) {
+    Write-Host "[+] Present" -ForegroundColor $Colors['Good']
+} else {
+    Write-Host "[-] Legacy BIOS Detected - Upgrade Required" -ForegroundColor $Colors['Bad']
+}
+
+# Secure Boot Status
+Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
+if ($hwStatus.SecureBootEnabled) {
+    Write-Host "[+] Enabled" -ForegroundColor $Colors['Good']
+} elseif ($hwStatus.SecureBootCapable) {
+    Write-Host "[?] Available but Disabled - Enable in UEFI" -ForegroundColor $Colors['Warning']
+} else {
+    Write-Host "[-] Not Available - Firmware Upgrade Required" -ForegroundColor $Colors['Bad']
+}
+
+# TPM Status
+Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
+if ($hwStatus.TPMPresent) {
+    if ($hwStatus.TPMVersion -match "2\.0") {
+        Write-Host "[+] TPM 2.0 Present" -ForegroundColor $Colors['Good']
+    } else {
+        Write-Host "[?] TPM Present ($($hwStatus.TPMVersion)) - Verify version" -ForegroundColor $Colors['Warning']
+    }
+} else {
+    Write-Host "[-] Not Detected - Enable or Install TPM" -ForegroundColor $Colors['Bad']
+}
+
+# CPU Virtualization Status
+Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
+if ($hwStatus.VTxSupport) {
+    Write-Host "[+] Available" -ForegroundColor $Colors['Good']
+} else {
+    Write-Host "[-] Not Detected - Enable in BIOS/UEFI" -ForegroundColor $Colors['Bad']
+}
+
+# IOMMU Status
+Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
+if ($hwStatus.IOMMUSupport -match "Available") {
+    Write-Host "[+] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Good']
+} else {
+    Write-Host "[?] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Warning']
+}
+
+Write-ColorOutput "`nRequired CPU Features:" -Color Info
+Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
+Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Info
+Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
+Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color $(if ($hwStatus.TPMPresent -and $hwStatus.SecureBootEnabled -and $hwStatus.IsUEFI) { 'Good' } else { 'Warning' })
+
+Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
+Write-ColorOutput "- UEFI firmware (not legacy BIOS): $(if ($hwStatus.IsUEFI) { '[+] Met' } else { '[-] Not Met' })" -Color $(if ($hwStatus.IsUEFI) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- Secure Boot capability: $(if ($hwStatus.SecureBootCapable) { '[+] Available' } else { '[-] Not Available' })" -Color $(if ($hwStatus.SecureBootCapable) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- TPM 2.0: $(if ($hwStatus.TPMPresent) { '[+] Present' } else { '[-] Missing' })" -Color $(if ($hwStatus.TPMPresent) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- Latest firmware updates: [?] Check with manufacturer" -Color Warning
 
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
