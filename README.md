@@ -157,24 +157,34 @@ Get-SpeculationControlSettings             # Hardware-level analysis
 
 | Command | Purpose | Use Case |
 |---------|---------|----------|
-| `.\SideChannel_Check.ps1` | **Basic Assessment** | Quick security status overview |
-| `.\SideChannel_Check.ps1 -Detailed` | **Comprehensive Analysis** | Full security audit with registry paths |
+| `.\SideChannel_Check.ps1` | **Basic Security Assessment** | Full security analysis and assessment |
+| `.\SideChannel_Check.ps1 -Detailed` | **Comprehensive Analysis** | Full security audit with registry paths and detailed explanations |
 | `.\SideChannel_Check.ps1 -Apply -Interactive` | **Selective Configuration** | Choose specific mitigations to apply |
 | `.\SideChannel_Check.ps1 -Revert -Interactive` | **Safe Mitigation Removal** | Remove problematic mitigations |
 | `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity` | **VMware Security Guide** | ESXi host security configuration |
 | `.\SideChannel_Check.ps1 -ExportPath "report.csv"` | **Compliance Reporting** | Export results for documentation |
 
+### 📊 **Parameter Comparison:**
+
+| Parameter | Output Level | Content Differences |
+|-----------|-------------|-------------------|
+| **None (default)** | **Complete Assessment** | Full security analysis, detailed mitigations table, VBS analysis, hardware matrix, recommendations |
+| `-Detailed` | **Extended Analysis** | Same as default + detailed registry paths and additional explanations |
+| `-ShowVMwareHostSecurity` | **VMware Focus** | Default assessment + comprehensive ESXi host configuration guide |
+
 ### Basic Security Assessment
 ```powershell
 .\SideChannel_Check.ps1
 ```
-Shows a formatted table with current mitigation status.
+**Default behavior**: Shows a complete security assessment including all mitigations, VBS analysis, hardware mitigation matrix, and recommendations.
+
+**Note**: There is no `-QuickCheck` parameter. The default command provides the full assessment.
 
 ### Detailed Information
 ```powershell
 .\SideChannel_Check.ps1 -Detailed
 ```
-Displays comprehensive details about each security check including registry paths and recommendations.
+Displays comprehensive details about each security check including registry paths and additional explanations beyond the default output.
 
 ### Apply Security Configurations
 ```powershell
@@ -217,7 +227,7 @@ Automatically configures all missing security mitigations. **System restart requ
 .\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "C:\Reports\VMware_Security_Complete.csv"
 
 # 5. Verify configuration after ESXi host changes
-.\SideChannel_Check.ps1 -QuickCheck
+.\SideChannel_Check.ps1
 ```
 
 ### 📋 **Standard Enterprise Deployment**
@@ -406,7 +416,7 @@ Exports the security assessment along with VMware-specific recommendations for c
 .\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "VMware_Complete_Report.csv"
 
 # 3. Pre-deployment security verification
-.\SideChannel_Check.ps1 -QuickCheck
+.\SideChannel_Check.ps1
 .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
 ```
 
@@ -641,7 +651,7 @@ Enabled: 2 of 25 known flags
 | `.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity` | **Complete Assessment** | Windows guest + ESXi host analysis |
 | `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity -ExportPath "report.csv"` | **Documentation** | Export VMware security guide for compliance |
 | `.\SideChannel_Check.ps1 -Apply -Interactive` | **Guest Hardening** | Apply Windows mitigations inside VM |
-| `.\SideChannel_Check.ps1 -QuickCheck` | **Post-Change Verification** | Verify security after ESXi changes |
+| `.\SideChannel_Check.ps1` | **Post-Change Verification** | Verify security after ESXi changes |
 
 ### 🎯 **VMware-Specific Usage Scenarios**
 
@@ -701,7 +711,7 @@ Enabled: 2 of 25 known flags
 $VMs = Get-VM | Where {$_.PowerState -eq "PoweredOn"}
 foreach ($VM in $VMs) {
     # Connect to VM and run security check
-    Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1 -QuickCheck" -GuestUser $cred
+    Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1" -GuestUser $cred
 }
 ```
 
@@ -1207,7 +1217,7 @@ vmware-toolbox-cmd -v
 
 ```powershell
 # Regular security assessment scheduled task
-$TaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-File C:\Tools\SideChannel_Check.ps1 -QuickCheck -ExportPath C:\Reports\Daily_Security_Check.csv"
+$TaskAction = New-ScheduledTaskAction -Execute "PowerShell.exe" -Argument "-File C:\Tools\SideChannel_Check.ps1 -ExportPath C:\Reports\Daily_Security_Check.csv"
 $TaskTrigger = New-ScheduledTaskTrigger -Daily -At "2:00AM"
 Register-ScheduledTask -Action $TaskAction -Trigger $TaskTrigger -TaskName "VM Security Assessment"
 ```
@@ -1238,7 +1248,7 @@ Register-ScheduledTask -Action $TaskAction -Trigger $TaskTrigger -TaskName "VM S
 ```powershell
 # Use PowerCLI for fleet-wide assessment
 foreach ($VM in Get-VM) {
-    Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1 -QuickCheck"
+    Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1"
 }
 ```
 
@@ -1270,7 +1280,7 @@ esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIn
 .\SideChannel_Check.ps1 -Apply -Interactive
 
 # Step 4: Verify complete security posture
-.\SideChannel_Check.ps1 -QuickCheck
+.\SideChannel_Check.ps1
 ```
 
 #### **👥 Administrator Role Responsibilities:**
@@ -1366,7 +1376,7 @@ foreach ($VM in $VMs) {
     Write-Host "Assessing VM: $($VM.Name)"
     
     $ScriptPath = "C:\Tools\SideChannel_Check.ps1"
-    $Result = Invoke-VMScript -VM $VM -ScriptText "& '$ScriptPath' -QuickCheck" -GuestUser $GuestCred
+    $Result = Invoke-VMScript -VM $VM -ScriptText "& '$ScriptPath'" -GuestUser $GuestCred
     
     # Export results
     $Result.ScriptOutput | Out-File "Reports\$($VM.Name)_Security.txt"
@@ -1418,7 +1428,7 @@ Invoke-VMScript -VM $NewVM -ScriptText $SecurityScript -GuestUser $GuestCred
 .\SideChannel_Check.ps1 -ExportPath "VDI_Master_Security_Report.csv"
 
 # Sysprep preparation with security validation
-.\SideChannel_Check.ps1 -QuickCheck
+.\SideChannel_Check.ps1
 ```
 
 ## 🔍 Troubleshooting
