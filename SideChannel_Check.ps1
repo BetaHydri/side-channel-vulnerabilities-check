@@ -2331,8 +2331,12 @@ function Select-Mitigations {
         Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied" -Color Warning
     }
     
+    # Display CPU compatibility info
+    Write-ColorOutput "`nCPU Detected: $($cpuInfo.Manufacturer) - $($cpuInfo.Name)" -Color Info
+    Write-ColorOutput "Note: Only CPU-compatible mitigations are shown." -Color Info
+    
     Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
-    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):`n" -Color Info
+    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or `'all`' for all mitigations):`n" -Color Info
     
     # Display available mitigations with numbers
     $index = 1
@@ -2400,10 +2404,77 @@ function Select-Mitigations {
     return $selectedItems
 }
 
+function Filter-CPUSpecificMitigations {
+    <#
+    .SYNOPSIS
+    Filters mitigations based on CPU manufacturer compatibility.
+    
+    .DESCRIPTION
+    Removes CPU-specific mitigations that don't apply to the current CPU manufacturer,
+    preventing unnecessary or incompatible mitigations from being applied.
+    #>
+    param(
+        [array]$Mitigations,
+        [string]$CPUManufacturer
+    )
+    
+    # Define CPU-specific mitigation mappings
+    $intelSpecificMitigations = @(
+        "GDS Mitigation",
+        "RFDS Mitigation", 
+        "L1TF Mitigation",
+        "MDS Mitigation",
+        "Intel TSX Disable"
+    )
+    
+    $amdSpecificMitigations = @(
+        "SRSO Mitigation"
+    )
+    
+    $filteredMitigations = @()
+    $skippedCount = 0
+    
+    foreach ($mitigation in $Mitigations) {
+        $shouldInclude = $true
+        $reason = ""
+        
+        # Skip Intel-specific mitigations on non-Intel CPUs
+        if ($mitigation.Name -in $intelSpecificMitigations -and $CPUManufacturer -ne "GenuineIntel") {
+            $shouldInclude = $false
+            $reason = "Intel-specific mitigation on non-Intel CPU"
+        }
+        # Skip AMD-specific mitigations on non-AMD CPUs
+        elseif ($mitigation.Name -in $amdSpecificMitigations -and $CPUManufacturer -ne "AuthenticAMD") {
+            $shouldInclude = $false
+            $reason = "AMD-specific mitigation on non-AMD CPU"
+        }
+        
+        if ($shouldInclude) {
+            $filteredMitigations += $mitigation
+        }
+        else {
+            $skippedCount++
+            Write-ColorOutput "  [SKIPPED] $($mitigation.Name) - $reason" -Color Info
+        }
+    }
+    
+    if ($skippedCount -gt 0) {
+        Write-ColorOutput "`nFiltered out $skippedCount CPU-incompatible mitigation(s) for $CPUManufacturer CPU." -Color Info
+    }
+    
+    return $filteredMitigations
+}
+
 # Apply configurations if requested
 if ($Apply) {
     Write-ColorOutput "`n=== Configuration Application ===" -Color Header
     $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" -and $_.CanBeEnabled }
+    
+    # Filter CPU-specific mitigations
+    if ($notConfigured.Count -gt 0) {
+        Write-ColorOutput "Filtering mitigations for CPU compatibility..." -Color Info
+        $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
+    }
     
     if ($notConfigured.Count -gt 0) {
         
@@ -2484,6 +2555,12 @@ else {
     # Recommendations when not applying
     Write-ColorOutput "`n=== Recommendations ===" -Color Header
     $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" }
+    
+    # Filter CPU-specific mitigations in recommendations too
+    if ($notConfigured.Count -gt 0) {
+        $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
+    }
+    
     if ($notConfigured.Count -gt 0) {
         Write-ColorOutput "The following mitigations should be configured:" -Color Warning
         foreach ($item in $notConfigured) {
@@ -2496,6 +2573,7 @@ else {
         Write-ColorOutput ".\SideChannel_Check.ps1 -Apply -Interactive" -Color Good
         
         Write-ColorOutput "`nOr manually use these registry commands:" -Color Info
+        Write-ColorOutput "(Filtered for $($cpuInfo.Manufacturer) CPU compatibility)" -Color Info
         foreach ($item in $notConfigured | Where-Object { $_.CanBeEnabled }) {
             # Special handling for different registry value types
             $regType = "REG_DWORD"
