@@ -1990,6 +1990,32 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "VMware nested virtualization changes require direct ESXi host access." -Color Warning
         Write-ColorOutput "Contact your VMware infrastructure administrator to apply changes." -Color Info
     }
+    
+    # Prompt for reboot if any mitigations were successfully reverted
+    if ($successCount -gt 0 -and -not $WhatIf) {
+        Write-ColorOutput "`n" -Color Info
+        $rebootChoice = Read-Host "Would you like to restart your computer now to ensure changes take effect? (Y/N)"
+        if ($rebootChoice -match '^[Yy]') {
+            Write-ColorOutput "Initiating system restart in 10 seconds..." -Color Warning
+            Write-ColorOutput "Press Ctrl+C to cancel the restart." -Color Info
+            Start-Sleep -Seconds 3
+            Write-ColorOutput "Restarting in 7 seconds..." -Color Warning
+            Start-Sleep -Seconds 3
+            Write-ColorOutput "Restarting in 4 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 3 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 2 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 1 second..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting now..." -Color Error
+            Restart-Computer -Force
+        }
+        else {
+            Write-ColorOutput "Remember to restart your computer manually to ensure all changes take effect." -Color Warning
+        }
+    }
 }
 
 # Main execution
@@ -3174,11 +3200,27 @@ if ($Apply) {
             
             if ($successCount -gt 0) {
                 Write-ColorOutput "`n[!] IMPORTANT: A system restart is required for changes to take effect." -Color Warning
-                $restart = Read-Host "Would you like to restart now? (y/N)"
-                if ($restart -eq 'y' -or $restart -eq 'Y') {
-                    Write-ColorOutput "Restarting system in 10 seconds... Press Ctrl+C to cancel." -Color Warning
-                    Start-Sleep -Seconds 10
+                Write-ColorOutput "`n" -Color Info
+                $rebootChoice = Read-Host "Would you like to restart your computer now to ensure changes take effect? (Y/N)"
+                if ($rebootChoice -match '^[Yy]') {
+                    Write-ColorOutput "Initiating system restart in 10 seconds..." -Color Warning
+                    Write-ColorOutput "Press Ctrl+C to cancel the restart." -Color Info
+                    Start-Sleep -Seconds 3
+                    Write-ColorOutput "Restarting in 7 seconds..." -Color Warning
+                    Start-Sleep -Seconds 3
+                    Write-ColorOutput "Restarting in 4 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 3 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 2 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 1 second..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting now..." -Color Error
                     Restart-Computer -Force
+                }
+                else {
+                    Write-ColorOutput "Remember to restart your computer manually to ensure all changes take effect." -Color Warning
                 }
             }
         }
