@@ -473,7 +473,3 @@ foreach ($VM in $VMs) {
 **Compatibility:** Windows 10/11, Server 2016+  
 **PowerShell:** 5.1+ (fully compatible)  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
-
----
-
-> 📖 **For detailed documentation**, see `README_DETAILED.md`
