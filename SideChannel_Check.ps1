@@ -165,10 +165,12 @@ function Write-ColorOutput {
     # Handle missing colors gracefully
     if ($Colors.ContainsKey($Color)) {
         Write-Host $Message -ForegroundColor $Colors[$Color]
-    } elseif ($Color -in @('Black','DarkBlue','DarkGreen','DarkCyan','DarkRed','DarkMagenta','DarkYellow','Gray','DarkGray','Blue','Green','Cyan','Red','Magenta','Yellow','White')) {
+    }
+    elseif ($Color -in @('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Blue', 'Green', 'Cyan', 'Red', 'Magenta', 'Yellow', 'White')) {
         # Direct color name
         Write-Host $Message -ForegroundColor $Color
-    } else {
+    }
+    else {
         # Fallback to white if color not found
         Write-Host $Message -ForegroundColor White
     }
@@ -1957,11 +1959,11 @@ $Results += [PSCustomObject]@{
 $Results += [PSCustomObject]@{
     Name           = "IOMMU/VT-d Support"
     Description    = "Input/Output Memory Management Unit for secure DMA isolation"
-    Status         = if ($hwRequirements.IOMMUSupport -match "Available") { "Available" } else { "Unknown" }
+    Status         = if ($hwRequirements.IOMMUSupport -match "Available") { "Hardware Feature Available" } else { "Unknown - Check BIOS/UEFI" }
     CurrentValue   = $hwRequirements.IOMMUSupport
-    ExpectedValue  = "Available"
-    RegistryPath   = "Hardware Feature"
-    RegistryName   = "IOMMU Support"
+    ExpectedValue  = "Enabled in BIOS/UEFI"
+    RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
+    RegistryName   = "Intel VT-d / AMD IOMMU"
     Recommendation = "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection"
     Impact         = "Provides DMA isolation and enhanced security for VBS"
     CanBeEnabled   = $false
