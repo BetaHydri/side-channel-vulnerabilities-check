@@ -51,6 +51,7 @@ This tool helps system administrators assess and configure their Windows systems
 - **OS Version Intelligence** - Automatic adaptation to Windows capabilities
 - **CSV Export** - Professional reporting for compliance and documentation
 - **Detailed Diagnostics** - Comprehensive security assessment with recommendations
+- **VMware Security Guide** - **NEW**: Complete ESXi host security configuration guide with `-ShowVMwareHostSecurity`
 
 ## 🖥️ Virtualization Support
 
@@ -61,6 +62,7 @@ This tool helps system administrators assess and configure their Windows systems
 - ✅ **Host Recommendations** - Security guidance for virtualization hosts
 - ✅ **Guest Recommendations** - VM-specific security configuration
 - ✅ **Hardware Requirements** - Detailed requirements for secure virtualization
+- ✅ **VMware ESXi Integration** - Complete host security guide with `-ShowVMwareHostSecurity` switch
 
 ## 🚀 Enterprise Features
 
@@ -628,6 +630,90 @@ Enabled: 2 of 25 known flags
 - **CET** (Intel Control-flow Enforcement Technology) - Hardware-assisted CFI
 - **Core Hardware Security Features** - Essential CPU security mitigations
 - **25+ additional flags** - Complete list in detailed output
+
+## 🏢 VMware Security Management - Complete Command Reference
+
+### 📋 **VMware Command Matrix**
+
+| Command | Primary Use | VMware Benefit |
+|---------|------------|----------------|
+| `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity` | **ESXi Configuration Guide** | Ready-to-use ESXi security commands |
+| `.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity` | **Complete Assessment** | Windows guest + ESXi host analysis |
+| `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity -ExportPath "report.csv"` | **Documentation** | Export VMware security guide for compliance |
+| `.\SideChannel_Check.ps1 -Apply -Interactive` | **Guest Hardening** | Apply Windows mitigations inside VM |
+| `.\SideChannel_Check.ps1 -QuickCheck` | **Post-Change Verification** | Verify security after ESXi changes |
+
+### 🎯 **VMware-Specific Usage Scenarios**
+
+#### **Scenario 1: New VM Deployment**
+```powershell
+# Step 1: Check baseline security
+.\SideChannel_Check.ps1
+
+# Step 2: Get ESXi host requirements
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# Step 3: Apply guest-level protections
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# Step 4: Document final configuration
+.\SideChannel_Check.ps1 -Detailed -ExportPath "VM_Security_Baseline.csv"
+```
+
+#### **Scenario 2: Security Audit Preparation**
+```powershell
+# Generate comprehensive VMware security report
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "Audit_$(Get-Date -Format 'yyyy-MM-dd_HH-mm').csv"
+```
+
+#### **Scenario 3: Performance Troubleshooting**
+```powershell
+# Check current mitigations affecting performance
+.\SideChannel_Check.ps1 -Detailed
+
+# Get ESXi-level performance optimization guidance
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# Preview mitigation removal impact
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+
+# Apply selective revert if needed
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+
+#### **Scenario 4: Maintenance Window Planning**
+```powershell
+# Before maintenance: Document current state
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "Pre_Maintenance_$(Get-Date -Format 'yyyy-MM-dd').csv"
+
+# During maintenance: Get configuration commands
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# After maintenance: Verify changes
+.\SideChannel_Check.ps1 -QuickCheck
+```
+
+### 🔧 **Integration with VMware Tools**
+
+#### **vSphere PowerCLI Integration**
+```powershell
+# Run security check across multiple VMs
+$VMs = Get-VM | Where {$_.PowerState -eq "PoweredOn"}
+foreach ($VM in $VMs) {
+    # Connect to VM and run security check
+    Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1 -QuickCheck" -GuestUser $cred
+}
+```
+
+#### **Automated Security Reporting**
+```powershell
+# Generate security reports for VM fleet
+$Date = Get-Date -Format "yyyy-MM-dd"
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "VMware_Security_Report_$Date.csv"
+
+# Copy to vCenter server for centralized reporting
+Copy-Item "VMware_Security_Report_$Date.csv" "\\vcenter\reports\"
+```
 
 ## 🎨 Interpreting Terminal Output
 
