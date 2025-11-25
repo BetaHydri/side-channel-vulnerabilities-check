@@ -887,15 +887,15 @@ function Get-RevertableMitigations {
     $ssbd = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "FeatureSettingsOverride"
     if ($ssbd -ne $null -and $ssbd -ne 0) {
         $revertableMitigations += @{
-            Name           = "Speculative Store Bypass Disable"
-            Description    = "Revert Spectre Variant 4 protection (CVE-2018-3639)"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-            RegistryName   = "FeatureSettingsOverride"
-            CurrentValue   = $ssbd
-            RevertValue    = 0
-            Impact         = "Low"
-            CanBeReverted  = $true
-            SecurityRisk   = "Medium - Exposes system to Spectre Variant 4 attacks"
+            Name          = "Speculative Store Bypass Disable"
+            Description   = "Revert Spectre Variant 4 protection (CVE-2018-3639)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "FeatureSettingsOverride"
+            CurrentValue  = $ssbd
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Exposes system to Spectre Variant 4 attacks"
         }
     }
     
@@ -903,15 +903,15 @@ function Get-RevertableMitigations {
     $ssbdMask = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "FeatureSettingsOverrideMask"
     if ($ssbdMask -ne $null -and $ssbdMask -ne 0) {
         $revertableMitigations += @{
-            Name           = "SSBD Feature Mask"
-            Description    = "Revert SSBD feature override mask"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-            RegistryName   = "FeatureSettingsOverrideMask"
-            CurrentValue   = $ssbdMask
-            RevertValue    = 0
-            Impact         = "Low"
-            CanBeReverted  = $true
-            SecurityRisk   = "Low - Works in conjunction with FeatureSettingsOverride"
+            Name          = "SSBD Feature Mask"
+            Description   = "Revert SSBD feature override mask"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "FeatureSettingsOverrideMask"
+            CurrentValue  = $ssbdMask
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Low - Works in conjunction with FeatureSettingsOverride"
         }
     }
     
@@ -919,15 +919,15 @@ function Get-RevertableMitigations {
     $bti = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisablePageCombining"
     if ($bti -ne $null -and $bti -eq 0) {
         $revertableMitigations += @{
-            Name           = "Branch Target Injection Mitigation"
-            Description    = "Re-enable page combining (removes Spectre V2 protection)"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-            RegistryName   = "DisablePageCombining"
-            CurrentValue   = $bti
-            RevertValue    = 1
-            Impact         = "Low"
-            CanBeReverted  = $true
-            SecurityRisk   = "High - Removes critical Spectre V2 protection"
+            Name          = "Branch Target Injection Mitigation"
+            Description   = "Re-enable page combining (removes Spectre V2 protection)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "DisablePageCombining"
+            CurrentValue  = $bti
+            RevertValue   = 1
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Removes critical Spectre V2 protection"
         }
     }
     
@@ -935,15 +935,15 @@ function Get-RevertableMitigations {
     $kvas = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "EnableKernelVaShadow"
     if ($kvas -ne $null -and $kvas -eq 1) {
         $revertableMitigations += @{
-            Name           = "Kernel VA Shadow (Meltdown Protection)"
-            Description    = "Disable Meltdown protection (CVE-2017-5754)"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
-            RegistryName   = "EnableKernelVaShadow"
-            CurrentValue   = $kvas
-            RevertValue    = 0
-            Impact         = "Medium"
-            CanBeReverted  = $true
-            SecurityRisk   = "Critical - Removes Meltdown protection"
+            Name          = "Kernel VA Shadow (Meltdown Protection)"
+            Description   = "Disable Meltdown protection (CVE-2017-5754)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "EnableKernelVaShadow"
+            CurrentValue  = $kvas
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Critical - Removes Meltdown protection"
         }
     }
     
@@ -951,15 +951,15 @@ function Get-RevertableMitigations {
     $hwMit = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "MitigationOptions"
     if ($hwMit -ne $null -and $hwMit -ne 0) {
         $revertableMitigations += @{
-            Name           = "Hardware Security Mitigations"
-            Description    = "Reset CPU-level security mitigations to default"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-            RegistryName   = "MitigationOptions"
-            CurrentValue   = "0x$('{0:X16}' -f $hwMit)"
-            RevertValue    = "Remove registry value"
-            Impact         = "Variable"
-            CanBeReverted  = $true
-            SecurityRisk   = "High - Removes multiple CPU security features"
+            Name          = "Hardware Security Mitigations"
+            Description   = "Reset CPU-level security mitigations to default"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "MitigationOptions"
+            CurrentValue  = "0x$('{0:X16}' -f $hwMit)"
+            RevertValue   = "Remove registry value"
+            Impact        = "Variable"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Removes multiple CPU security features"
         }
     }
     
@@ -967,15 +967,15 @@ function Get-RevertableMitigations {
     $tsx = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisableTsx"
     if ($tsx -ne $null -and $tsx -eq 1) {
         $revertableMitigations += @{
-            Name           = "Intel TSX Disable"
-            Description    = "Re-enable Intel TSX (Transactional Synchronization Extensions)"
-            RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-            RegistryName   = "DisableTsx"
-            CurrentValue   = $tsx
-            RevertValue    = 0
-            Impact         = "Application-dependent"
-            CanBeReverted  = $true
-            SecurityRisk   = "Medium - May expose TSX-related vulnerabilities"
+            Name          = "Intel TSX Disable"
+            Description   = "Re-enable Intel TSX (Transactional Synchronization Extensions)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "DisableTsx"
+            CurrentValue  = $tsx
+            RevertValue   = 0
+            Impact        = "Application-dependent"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - May expose TSX-related vulnerabilities"
         }
     }
     
@@ -993,15 +993,15 @@ function Get-RevertableMitigations {
         $value = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name $cve.RegName
         if ($value -ne $null -and $value -eq 1) {
             $revertableMitigations += @{
-                Name           = $cve.Name
-                Description    = "Disable $($cve.CVE) mitigation"
-                RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-                RegistryName   = $cve.RegName
-                CurrentValue   = $value
-                RevertValue    = 0
-                Impact         = "Low-Medium"
-                CanBeReverted  = $true
-                SecurityRisk   = "Medium - Removes protection against $($cve.CVE)"
+                Name          = $cve.Name
+                Description   = "Disable $($cve.CVE) mitigation"
+                RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+                RegistryName  = $cve.RegName
+                CurrentValue  = $value
+                RevertValue   = 0
+                Impact        = "Low-Medium"
+                CanBeReverted = $true
+                SecurityRisk  = "Medium - Removes protection against $($cve.CVE)"
             }
         }
     }
@@ -1010,15 +1010,15 @@ function Get-RevertableMitigations {
     $aslr = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
     if ($aslr -ne $null -and $aslr -eq 1) {
         $revertableMitigations += @{
-            Name           = "Windows Defender Exploit Guard ASLR"
-            Description    = "Disable forced ASLR image relocation"
-            RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
-            RegistryName   = "ASLR_ForceRelocateImages"
-            CurrentValue   = $aslr
-            RevertValue    = 0
-            Impact         = "Low"
-            CanBeReverted  = $true
-            SecurityRisk   = "Medium - Reduces memory layout randomization"
+            Name          = "Windows Defender Exploit Guard ASLR"
+            Description   = "Disable forced ASLR image relocation"
+            RegistryPath  = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
+            RegistryName  = "ASLR_ForceRelocateImages"
+            CurrentValue  = $aslr
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Reduces memory layout randomization"
         }
     }
     
@@ -1048,7 +1048,8 @@ function Invoke-MitigationRevert {
     
     if ($WhatIf) {
         Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied`n" -Color Warning
-    } else {
+    }
+    else {
         Write-ColorOutput "WARNING: This will REMOVE security protections from your system!" -Color Error
         Write-ColorOutput "Only proceed if you understand the security implications.`n" -Color Error
     }
@@ -1067,7 +1068,8 @@ function Invoke-MitigationRevert {
             Write-ColorOutput "    New Value: $($mitigation.RevertValue)" -Color Warning
             Write-ColorOutput "    Security Risk: $($mitigation.SecurityRisk)" -Color Error
             Write-ColorOutput "" -Color Info
-        } else {
+        }
+        else {
             try {
                 if ($mitigation.RevertValue -eq "Remove registry value") {
                     # Remove the registry value entirely
@@ -1075,7 +1077,8 @@ function Invoke-MitigationRevert {
                         Remove-ItemProperty -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -ErrorAction SilentlyContinue
                         Write-ColorOutput "  ✓ Registry value removed: $($mitigation.RegistryName)" -Color Good
                     }
-                } else {
+                }
+                else {
                     # Set to revert value
                     Set-RegistryValue -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -Value $mitigation.RevertValue -Type "DWORD"
                     Write-ColorOutput "  ✓ Reverted: $($mitigation.Name) = $($mitigation.RevertValue)" -Color Good
@@ -1094,7 +1097,8 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "  Mitigations that would be reverted: $($SelectedMitigations.Count)" -Color Warning
         Write-ColorOutput "  System restart would be required: Yes" -Color Warning
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
-    } else {
+    }
+    else {
         Write-ColorOutput "`nRevert Summary:" -Color Header
         Write-ColorOutput "  Successfully reverted: $successCount" -Color Good
         Write-ColorOutput "  Failed: $errorCount" -Color Bad
@@ -2025,7 +2029,8 @@ if ($Revert) {
             $selectedIndices = @()
             if ($selection.ToLower() -eq 'all') {
                 $selectedIndices = 0..($revertableMitigations.Count - 1)
-            } else {
+            }
+            else {
                 foreach ($part in $selection.Split(',')) {
                     if ($part.Contains('-')) {
                         $range = $part.Split('-')
@@ -2034,7 +2039,8 @@ if ($Revert) {
                             $end = [int]$range[1].Trim() - 1
                             $selectedIndices += $start..$end
                         }
-                    } else {
+                    }
+                    else {
                         $selectedIndices += [int]$part.Trim() - 1
                     }
                 }
@@ -2059,14 +2065,17 @@ if ($Revert) {
                 }
                 
                 Invoke-MitigationRevert -SelectedMitigations $selectedMitigations -WhatIf:$WhatIf
-            } else {
+            }
+            else {
                 Write-ColorOutput "No valid mitigations selected." -Color Warning
             }
-        } else {
+        }
+        else {
             Write-ColorOutput "Non-interactive revert mode is not supported for security reasons." -Color Error
             Write-ColorOutput "Use -Interactive switch to manually select mitigations to revert." -Color Warning
         }
-    } else {
+    }
+    else {
         Write-ColorOutput "No revertable mitigations found." -Color Info
         Write-ColorOutput "Either no mitigations are currently enabled, or they cannot be safely reverted." -Color Info
     }
