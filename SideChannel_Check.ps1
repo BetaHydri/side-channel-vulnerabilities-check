@@ -3471,7 +3471,7 @@ Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ==="
 $hwStatus = Get-HardwareRequirements
 
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
-Write-ColorOutput "(Symbols: [+] Enabled/Good, [-] Needs Verification, [-] Disabled/Missing)" -Color Info
+Write-ColorOutput "(Symbols: [+] Enabled/Good, [?] Needs Verification, [-] Disabled/Missing)" -Color Info
 
 # Get updated hardware status from our Results array for consistency
 $uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
