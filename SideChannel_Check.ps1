@@ -1550,12 +1550,12 @@ function Invoke-MitigationRevert {
                     # Handle nested virtualization through Hyper-V PowerShell commands
                     foreach ($vmName in $mitigation.VMNames) {
                         Set-VMProcessor -VMName $vmName -ExposeVirtualizationExtensions $false -ErrorAction Stop
-                        Write-ColorOutput "  ✓ Disabled nested virtualization for VM: $vmName" -Color Good
+                        Write-ColorOutput "  + Disabled nested virtualization for VM: $vmName" -Color Good
                     }
                 }
                 elseif ($mitigation.RegistryPath -eq "VMware ESXi") {
                     # Handle VMware guidance
-                    Write-ColorOutput "  ⚠️ VMware Configuration Required:" -Color Warning
+                    Write-ColorOutput "  ! VMware Configuration Required:" -Color Warning
                     Write-ColorOutput "    This change requires ESXi host access" -Color Warning
                     Write-ColorOutput "    Commands to run on ESXi host:" -Color Info
                     foreach ($cmd in $mitigation.ESXiCommands) {
@@ -1566,26 +1566,50 @@ function Invoke-MitigationRevert {
                             Write-ColorOutput "    $cmd" -Color Warning
                         }
                     }
-                    Write-ColorOutput "  ⚠️ Cannot execute automatically from Windows guest" -Color Error
+                    Write-ColorOutput "  ! Cannot execute automatically from Windows guest" -Color Error
                 }
                 elseif ($mitigation.RevertValue -eq "Remove registry value") {
                     # Remove the registry value entirely
                     if (Test-Path $mitigation.RegistryPath) {
                         Remove-ItemProperty -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -ErrorAction SilentlyContinue
-                        Write-ColorOutput "  ✓ Registry value removed: $($mitigation.RegistryName)" -Color Good
+                        Write-ColorOutput "  + Registry value removed: $($mitigation.RegistryName)" -Color Good
                     }
                 }
                 else {
                     # Set to revert value
                     Set-RegistryValue -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -Value $mitigation.RevertValue -Type "DWORD"
-                    Write-ColorOutput "  ✓ Reverted: $($mitigation.Name) = $($mitigation.RevertValue)" -Color Good
+                    Write-ColorOutput "  + Reverted: $($mitigation.Name) = $($mitigation.RevertValue)" -Color Good
                 }
                 $successCount++
             }
             catch {
-                Write-ColorOutput "  ✗ Failed to revert $($mitigation.Name): $($_.Exception.Message)" -Color Bad
+                Write-ColorOutput "  - Failed to revert $($mitigation.Name): $($_.Exception.Message)" -Color Bad
                 $errorCount++
             }
+        }
+    }
+    
+    Write-ColorOutput "`nRevert Results:" -Color Header
+    Write-ColorOutput "Successfully reverted: $successCount/$($selectedMitigations.Count)" -Color Good
+    
+    if ($errorCount -gt 0) {
+        Write-ColorOutput "Errors encountered: $errorCount" -Color Bad
+    }
+    
+    if ($successCount -gt 0) {
+        Write-ColorOutput "`n[!] IMPORTANT: A system restart may be required for changes to take effect." -Color Warning
+        
+        if (-not $WhatIf) {
+            # Calculate security score after revert (for actual revert operations)
+            Write-ColorOutput "`nRecalculating security score..." -Color Info
+            $afterResults = Get-CurrentSecurityResults
+            $afterScore = Calculate-SecurityScore -Results $afterResults
+            $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
+            
+            Write-ColorOutput "`nSecurity Impact Assessment:" -Color Header
+            Write-ColorOutput "  Before Revert:  $($beforeScore.Percentage)% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput "  After Revert:   $($afterScore.Percentage)% $($afterScore.BarDisplay)" -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput "  Score Change:   -$([math]::Round($scoreDifference, 1))% (Security Reduced)" -Color Error
         }
     }
     
@@ -1617,37 +1641,6 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "  After Revert:    $($projectedScore.Percentage)% $($projectedScore.BarDisplay)" -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
         Write-ColorOutput "  Score Change:    -$([math]::Round($scoreDifference, 1))% (Security Reduction)" -Color Error
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
-    }
-    else {
-        Write-ColorOutput "`nRevert Summary:" -Color Header
-        Write-ColorOutput "  Successfully reverted: $successCount" -Color Good
-        Write-ColorOutput "  Failed: $errorCount" -Color Bad
-        
-        # Calculate security score after revert (for actual revert operations)
-        if ($successCount -gt 0) {
-            Write-ColorOutput "`nRecalculating security score..." -Color Info
-            $afterResults = Get-CurrentSecurityResults
-            $afterScore = Calculate-SecurityScore -Results $afterResults
-            $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
-            
-            Write-ColorOutput "" -Color Info
-            Write-ColorOutput "Security Score Impact:" -Color Header
-            Write-ColorOutput "  Before Revert:  $($beforeScore.Percentage)% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput "  After Revert:   $($afterScore.Percentage)% $($afterScore.BarDisplay)" -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput "  Score Change:   -$([math]::Round($scoreDifference, 1))% (Security Reduction)" -Color Error
-            
-            Write-ColorOutput "`n⚠️  IMPORTANT: System restart required for changes to take effect!" -Color Error
-            Write-ColorOutput "Your system now has REDUCED security protection." -Color Error
-            Write-ColorOutput "Monitor system performance and re-enable mitigations if possible." -Color Warning
-            
-            # Prompt for restart (same logic as Apply mode)
-            $restart = Read-Host "`nWould you like to restart now? (y/N)"
-            if ($restart -eq 'y' -or $restart -eq 'Y') {
-                Write-ColorOutput "Restarting system in 10 seconds... Press Ctrl+C to cancel." -Color Warning
-                Start-Sleep -Seconds 10
-                Restart-Computer -Force
-            }
-        }
     }
 }
 
@@ -2239,15 +2232,23 @@ if ($vbsStatus) {
     
     Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($vbsHwReady) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
-    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray  
-    Write-Host "$(if ($vbsRunning) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    $vbsHwReadyText = if ($vbsHwReady) { "+ Yes" } else { "- No" }
+    $vbsHwReadyColor = if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $vbsHwReadyText -ForegroundColor $vbsHwReadyColor
+    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+    $vbsRunningText = if ($vbsRunning) { "+ Yes" } else { "- No" }
+    $vbsRunningColor = if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $vbsRunningText -ForegroundColor $vbsRunningColor
     
     Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciHwReady) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    $hvciHwReadyText = if ($hvciHwReady) { "+ Yes" } else { "- No" }
+    $hvciHwReadyColor = if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $hvciHwReadyText -ForegroundColor $hvciHwReadyColor
     Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciRunning) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    $hvciRunningText = if ($hvciRunning) { "+ Yes" } else { "- No" }
+    $hvciRunningColor = if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $hvciRunningText -ForegroundColor $hvciRunningColor
     
     # Explanation of the difference
     if (!$vbsHwReady -and $vbsRunning) {
@@ -2372,7 +2373,7 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
         $false 
     }
     
-    $statusIcon = if ($isEnabled) { "`[+`]" } else { "`[?`]" }
+    $statusIcon = if ($isEnabled) { "+" } else { "?" }
     $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
     
     Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
@@ -2466,7 +2467,7 @@ function Select-Mitigations {
     Write-ColorOutput "Note: Only CPU-compatible mitigations are shown." -Color Info
     
     Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
-    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):`n" -Color Info
+    Write-ColorOutput "Use numbers to select (for example: 1,3,5 or 1-3 or all for all mitigations):`n" -Color Info
     
     # Display available mitigations with numbers
     $index = 1
@@ -2765,7 +2766,7 @@ if ($Revert) {
         Write-ColorOutput "`nFound $($revertableMitigations.Count) revertable mitigation(s):" -Color Warning
         
         if ($Interactive) {
-            Write-ColorOutput "`n⚠️  WARNING: Reverting mitigations will REDUCE your system's security!" -Color Error
+            Write-ColorOutput "`n!  WARNING: Reverting mitigations will REDUCE your system's security!" -Color Error
             Write-ColorOutput "Only proceed if specific mitigations are causing performance issues." -Color Error
             Write-ColorOutput "Always test in non-production environments first.`n" -Color Error
             
@@ -2774,7 +2775,7 @@ if ($Revert) {
             }
             
             Write-ColorOutput "Available mitigations to revert:" -Color Info
-            Write-ColorOutput "Use numbers to select (e.g., 1,3,4 or 1-3 or 'all' for all mitigations):`n" -Color Info
+            Write-ColorOutput "Use numbers to select (e.g., 1,3,4 or 1-3 or all for all mitigations):`n" -Color Info
             
             for ($i = 0; $i -lt $revertableMitigations.Count; $i++) {
                 $mitigation = $revertableMitigations[$i]
@@ -2824,7 +2825,7 @@ if ($Revert) {
                 Write-ColorOutput "`nSelected $($selectedMitigations.Count) mitigation(s) for revert." -Color Warning
                 
                 if (-not $WhatIf) {
-                    $confirm = Read-Host "`n⚠️  Are you sure you want to REMOVE these security protections? (yes/no)"
+                    $confirm = Read-Host "`n!  Are you sure you want to REMOVE these security protections? (yes/no)"
                     if ($confirm.ToLower() -ne 'yes') {
                         Write-ColorOutput "Revert operation cancelled." -Color Info
                         return
@@ -2939,13 +2940,13 @@ $iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
 
 # UEFI Status
 Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
-$uefiStatusIcon = if ($uefiResult.Status -match "Active") { "`[+`]" } else { "`[-`]" }
+$uefiStatusIcon = if ($uefiResult.Status -match "Active") { "+" } else { "-" }
 $uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
 Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
 
 # Secure Boot Status
 Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
-$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "`[+`]" } elseif ($secureBootResult.Status -match "Available|Unknown") { "`[?`]" } else { "`[-`]" }
+$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "+" } elseif ($secureBootResult.Status -match "Available|Unknown") { "?" } else { "-" }
 $sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
@@ -2957,13 +2958,13 @@ Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
                 
                 # CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
-$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "`[+`]" } elseif ($vtxResult.Status -match "Available|Unknown") { "`[?`]" } else { "`[-`]" }
+$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "+" } elseif ($vtxResult.Status -match "Available|Unknown") { "?" } else { "-" }
 $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
 # IOMMU Status
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "`[+`]" } else { "`[?`]" }
+$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "+" } else { "?" }
 $iommuColor = if ($iommuResult.Status -match "Enabled and Active") { $Colors['Good'] } else { $Colors['Warning'] }
 Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
 
@@ -2980,31 +2981,31 @@ Write-ColorOutput "===========================" -Color Header
 $actionItems = @()
 
 if (!$hwStatus.IsUEFI) {
-    $actionItems += "• CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
+    $actionItems += "- CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
 }
 
 if ($hwStatus.IsUEFI -and !$hwStatus.SecureBootEnabled) {
-    $actionItems += "• Access UEFI firmware settings and enable Secure Boot"
+    $actionItems += "- Access UEFI firmware settings and enable Secure Boot"
 }
 
 if (!$hwStatus.TPMPresent) {
-    $actionItems += "• Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
+    $actionItems += "- Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
 }
 elseif ($hwStatus.TPMVersion -notmatch "2\.0") {
-    $actionItems += "• Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
+    $actionItems += "- Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
 }
 
 if (!$hwStatus.VTxSupport) {
-    $actionItems += "• Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
+    $actionItems += "- Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
 }
 
 if ($hwStatus.IOMMUSupport -notmatch "Available.*Hyper-V") {
-    $actionItems += "• Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
+    $actionItems += "- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
 }
 
 # Always include firmware update recommendation
-$actionItems += "• Update system firmware/BIOS to latest version for security fixes"
-$actionItems += "• Update CPU microcode through Windows Update or vendor tools"
+$actionItems += "- Update system firmware/BIOS to latest version for security fixes"
+$actionItems += "- Update CPU microcode through Windows Update or vendor tools"
 
 if ($actionItems.Count -gt 0) {
     Write-ColorOutput "`nRequired Actions for Optimal Security:" -Color Warning
@@ -3017,16 +3018,22 @@ else {
 }
 
 Write-ColorOutput "`nManual Verification Steps:" -Color Info
-Write-ColorOutput "• Boot into UEFI/BIOS setup to verify settings" -Color Info
-Write-ColorOutput "• Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
-Write-ColorOutput "• Use 'tpm.msc' to verify TPM status and version" -Color Info
-Write-ColorOutput "• Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
+Write-ColorOutput "- Boot into UEFI/BIOS setup to verify settings" -Color Info
+Write-ColorOutput "- Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
+Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color Info
+Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
 
 Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
-Write-ColorOutput "- UEFI firmware (not legacy BIOS): $(if ($hwStatus.IsUEFI) { '`[+`] Met' } else { '`[-`] Not Met' })" -Color $(if ($hwStatus.IsUEFI) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- Secure Boot capability: $(if ($hwStatus.SecureBootCapable) { '`[+`] Available' } else { '`[-`] Not Available' })" -Color $(if ($hwStatus.SecureBootCapable) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- TPM 2.0: $(if ($hwStatus.TPMPresent) { '`[+`] Present' } else { '`[-`] Missing' })" -Color $(if ($hwStatus.TPMPresent) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- Latest firmware updates: `[?`] Check with manufacturer" -Color Warning
+$uefiStatusText = if ($hwStatus.IsUEFI) { "+ Met" } else { "- Not Met" }
+$uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
+Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
+$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "+ Available" } else { "- Not Available" }
+$secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
+Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
+$tpmStatusText = if ($hwStatus.TPMPresent) { "[+] Present" } else { "[-] Missing" }
+$tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
+Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
+Write-ColorOutput "- Latest firmware updates: ? Check with manufacturer" -Color Warning
 
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
@@ -3045,5 +3052,7 @@ if ($ExportPath) {
 }
 
 Write-ColorOutput "`nSide-channel vulnerability check completed." -Color Header
+
+
 
 
