@@ -444,7 +444,7 @@ function Show-ResultsTable {
         $status = switch ($result.Status) {
             "Enabled" { "[+] Enabled" }
             "Disabled" { "[-] Disabled" }
-            "Not Configured" { "[?] Not Set" }
+            "Not Configured" { "[-] Not Set" }
             default { $result.Status }
         }
         
@@ -476,7 +476,7 @@ function Show-ResultsTable {
     Write-Host " - Mitigation is active and properly configured"
     Write-Host "[-] Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
     Write-Host " - Mitigation is explicitly disabled"
-    Write-Host "[?] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
+    Write-Host "[-] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
 }
 
@@ -627,7 +627,7 @@ function Test-SideChannelMitigation {
         $statusIndicator = switch ($status) {
             "Enabled" { "[+] ENABLED" }
             "Disabled" { "[-] DISABLED" }
-            "Not Configured" { "[?] NOT SET" }
+            "Not Configured" { "[-] NOT SET" }
             default { $status }
         }
         
@@ -2373,7 +2373,7 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
         $false 
     }
     
-    $statusIcon = if ($isEnabled) { "+" } else { "?" }
+    $statusIcon = if ($isEnabled) { "+" } else { "-" }
     $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
     
     Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
@@ -2425,7 +2425,7 @@ Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
 Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
 Write-Host " / $totalCount mitigations" -ForegroundColor Gray
 
-Write-Host "[?] NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host "[-] NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
 Write-Host "$notConfiguredCount" -NoNewline -ForegroundColor $Colors['Warning']
 Write-Host " / $totalCount mitigations" -ForegroundColor Gray
 
@@ -2854,7 +2854,7 @@ Write-ColorOutput "`n=== Virtualization Security Recommendations ===" -Color Hea
 Write-ColorOutput "`nStatus Symbols:" -Color Header
 Write-ColorOutput "[+] Enabled/Recommended - Feature is active or recommended configuration" -Color Good
 Write-ColorOutput "[-] Disabled/Not Recommended - Feature is disabled or not recommended" -Color Bad
-Write-ColorOutput "[?] Unknown/Variable - Status depends on configuration or hardware" -Color Warning
+Write-ColorOutput "[-] Unknown/Variable - Status depends on configuration or hardware" -Color Warning
 
 if ($virtInfo.IsVirtualMachine) {
     Write-ColorOutput "Running in Virtual Machine - Guest Recommendations:" -Color Info
@@ -2929,7 +2929,7 @@ Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ==="
 $hwStatus = Get-HardwareRequirements
 
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
-Write-ColorOutput "(Symbols: [+] Enabled/Good, [?] Needs Verification, [-] Disabled/Missing)" -Color Info
+Write-ColorOutput "(Symbols: [+] Enabled/Good, [-] Needs Verification, [-] Disabled/Missing)" -Color Info
 
 # Get updated hardware status from our Results array for consistency
 $uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
@@ -2946,25 +2946,25 @@ Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
 
 # Secure Boot Status
 Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
-$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "+" } elseif ($secureBootResult.Status -match "Available|Unknown") { "?" } else { "-" }
+$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "+" } elseif ($secureBootResult.Status -match "Available|Unknown") { "-" } else { "-" }
 $sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
 # TPM Status
 Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
+$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[-]" } else { "[-]" }
 $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
                 
 # CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
-$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "+" } elseif ($vtxResult.Status -match "Available|Unknown") { "?" } else { "-" }
+$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "+" } elseif ($vtxResult.Status -match "Available|Unknown") { "-" } else { "-" }
 $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
 # IOMMU Status
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "+" } else { "?" }
+$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "+" } else { "-" }
 $iommuColor = if ($iommuResult.Status -match "Enabled and Active") { $Colors['Good'] } else { $Colors['Warning'] }
 Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
 
@@ -3052,6 +3052,7 @@ if ($ExportPath) {
 }
 
 Write-ColorOutput "`nSide-channel vulnerability check completed." -Color Header
+
 
 
 
