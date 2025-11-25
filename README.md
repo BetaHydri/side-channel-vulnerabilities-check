@@ -1,234 +1,306 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A comprehensive PowerShell tool for **checking, applying, and reverting** Windows side-channel vulnerability mitigations with **intelligent security categorization**, **VMware ESXi integration**, and **enterprise-grade interactive features**.
+A comprehensive PowerShell tool for **checking, applying, and reverting** Windows side-channel vulnerability mitigations with **VMware ESXi integration** and **enterprise revert capabilities**.
 
-## 🔒 Overview
+## 🎯 What This Tool Does
 
-This tool provides **complete side-channel vulnerability management** for Windows environments, including **interactive mitigation selection**, **safe revert functionality**, and **comprehensive VMware ESXi security integration**. Features intelligent security categorization with accurate scoring and professional-grade reporting capabilities.
+- **Checks** your system for side-channel vulnerability protections (Spectre, Meltdown, L1TF, MDS, etc.)
+- **Applies** missing security mitigations with interactive selection
+- **Reverts** problematic mitigations causing performance issues
+- **Provides VMware ESXi** host security configuration guidance
+- **Exports results** to CSV for compliance reporting
 
-### 🎯 **Key Features:**
-- **🛡️ Intelligent Security Assessment**: Categorized scoring system with software mitigations, security features, and hardware prerequisites
-- **🎮 Interactive Apply Mode**: Granular control over which mitigations to apply with performance impact assessment
-- **🔄 Enterprise Revert System**: Safely remove specific mitigations causing performance issues
-- **🏢 VMware ESXi Integration**: Complete security guide for VMware environments with ESXi host configuration
-- **📊 Professional Reporting**: CSV export with compliance documentation capabilities
-- **⚠️ Performance Impact Warnings**: Clear guidance on L1TF/MDS mitigations that may require SMT disable
+## 🚀 Quick Start
 
-### 🛡️ Classic Vulnerabilities (2017-2018):
-- **Spectre** (Variants 1, 2, and 4) - CVE-2017-5753, CVE-2017-5715
-- **Meltdown** attacks - CVE-2017-5754
-- **Intel TSX** vulnerabilities
-- **Branch Target Injection** (BTI)
-- **Speculative Store Bypass** (SSB) - CVE-2018-3639
-
-### 🆕 Modern CVEs (2018-2023):
-- **L1TF** (L1 Terminal Fault) - CVE-2018-3620, CVE-2018-3646
-- **MDS** (Microarchitectural Data Sampling) - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
-- **CVE-2019-11135** (Windows Kernel Information Disclosure)
-- **SBDR/SBDS** (Shared Buffer Data) - CVE-2022-21123, CVE-2022-21125
-- **SRBDS** (Special Register Buffer) - CVE-2022-21127
-- **DRPW** (Device Register Partial Write) - CVE-2022-21166
-
-⚠️ **PERFORMANCE IMPACT WARNING**: L1TF and MDS mitigations may require disabling hyperthreading/SMT on older systems
-
-### 🎯 Enterprise Features:
-- **🎯 Intelligent Security Categorization** - Separate scoring for software mitigations vs hardware readiness
-- **🎮 Interactive Mode** - Choose specific mitigations with user-friendly interface
-- **🔍 WhatIf Preview** - See changes before applying them
-- **🎯 Granular Control** - Select individual, ranges, or all mitigations
-- **🔄 Intelligent Revert** - Safely remove specific problematic mitigations
-- **⚠️ Performance Impact Warnings** - Clear warnings about L1TF/MDS performance impacts
-- **🖥️ PowerShell 5.1 Compatibility** - Works seamlessly on Windows Server default installations
-- **🏢 KB4073119 + Extended CVE Support** - Core documented mitigations plus performance-critical CVEs
-
-## 🏢 Enterprise Features
-
-**Advanced Security Management**: Professional-grade features for enterprise environments:
-
-### 🎮 Interactive Apply Mode
-- **Granular Control** - Select specific mitigations to apply using numbered interface
-- **Impact Assessment** - Shows performance impact for each mitigation (Low/Medium/High)
-- **Smart Selection** - Individual numbers, ranges (1-3), or 'all' options
-- **CVE Mapping** - Links mitigations to specific vulnerabilities
-- **Safe Operation** - Preview changes before applying with WhatIf integration
-
-### 🔄 Intelligent Revert System
-- **Selective Revert** - Remove specific mitigations causing performance issues
-- **Security Risk Assessment** - Clear warnings about security implications
-- **WhatIf Preview** - See what would be reverted before making changes
-- **Interactive Safety** - Requires confirmation for each revert operation
-- **Performance Recovery** - Targeted removal of problematic mitigations
-
-### 🔍 Advanced Analysis
-- **Hardware Mitigation Matrix** - Decode complex registry values in human-readable format
-- **Hardware Requirements Detection** - **NEW**: Automatically detects and displays UEFI, Secure Boot, TPM 2.0, CPU virtualization, and IOMMU status
-- **OS Version Intelligence** - Automatic adaptation to Windows capabilities
-- **CSV Export** - Professional reporting for compliance and documentation
-- **Detailed Diagnostics** - Comprehensive security assessment with recommendations
-- **VMware Security Guide** - **NEW**: Complete ESXi host security configuration guide with `-ShowVMwareHostSecurity`
-
-## 🖥️ Virtualization Support
-
-**Enhanced support for virtualized environments:**
-
-- ✅ **VM Detection** - Automatic identification of host/guest systems
-- ✅ **Hypervisor-specific Checks** - Special checks for Hyper-V, VMware, KVM
-- ✅ **Host Recommendations** - Security guidance for virtualization hosts
-- ✅ **Guest Recommendations** - VM-specific security configuration
-- ✅ **Hardware Requirements** - Detailed requirements for secure virtualization
-- ✅ **VMware ESXi Integration** - Complete host security guide with `-ShowVMwareHostSecurity` switch
-
-## 🚀 Enterprise Features
-
-### 🎮 **Interactive Apply System** - **FLAGSHIP FEATURE**
-- **Smart Selection Interface** - Choose specific mitigations with numbered menu (1,3,5 or 1-3 or 'all')
-- **Impact Assessment** - Performance impact ratings (Low/Medium/High) for informed decisions
-- **WhatIf Integration** - Preview all registry changes before applying
-- **CVE Mapping** - Clear links between mitigations and specific vulnerabilities
-- **Granular Control** - Apply individual, ranges, or all mitigations with precision
-
-### 🔄 **Intelligent Revert System** - **ENTERPRISE EXCLUSIVE**
-- **Selective Mitigation Removal** - Safely remove specific mitigations causing performance issues
-- **Security Risk Warnings** - Clear assessment of security implications for each revert
-- **Interactive Safety Mode** - Requires confirmation with detailed impact analysis
-- **WhatIf Preview** - See exactly what would be reverted before making changes
-- **Performance Recovery** - Targeted approach to resolve application compatibility issues
-
-### 🔍 **Advanced Analysis & Reporting**
-- **Comprehensive Security Assessment** - Checks 27+ critical security mitigations including modern CVEs (2018-2023)
-- **Hardware Requirements Detection** - **NEW**: Automatically detects UEFI, Secure Boot, TPM 2.0, VT-x/AMD-V, and IOMMU status
-- **Hardware Mitigation Matrix** - Decodes complex MitigationOptions registry values in human-readable format
-- **OS Version Intelligence** - Automatic adaptation to Windows capabilities with intelligent Core Scheduler detection (Build 20348+)
-- **Professional CSV Export** - Enterprise reporting for documentation and compliance
-- **Virtualization-Aware** - Detects VM/host environment with specific recommendations
-
-### 🛡️ **Security & Compatibility**
-- **Extended CVE Support** - Based on Microsoft's SpeculationControl tool analysis (2017-2023)
-- **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
-- **Safe Operation** - Read-only by default, only modifies system on explicit request
-- **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
-- **VBS/HVCI Support** - Comprehensive virtualization-based security features
-- **VMware Host Security** - Complete ESXi security configuration guide
-
-## 📋 Requirements
-
-- **Windows**: Windows 10/11 or Windows Server 2016+
-- **PowerShell**: Version 5.1+ (**Fully Compatible**) or PowerShell 7+
-- **Privileges**: Administrator rights required
-- **Architecture**: x64 systems (Intel/AMD processors)
-
-### ✅ PowerShell Compatibility:
-- **PowerShell 5.1**: ✅ **Fully Supported** - Enterprise standard with complete feature parity
-- **PowerShell 7+**: ✅ **Fully Supported** - Modern cross-platform with enhanced performance  
-- **Cross-Version Maintenance**: Simplified approach using text-based category markers for maximum compatibility
-- **Visual Categories**: Clean categorization using `[SW]`, `[SF]`, `[HW]`, `[OT]` markers instead of emojis
-- **ASCII Progress Bars**: Universal compatibility (`[########--] 82.6%`) across all console environments
-- **Zero Maintenance Overhead**: Single codebase works reliably across all PowerShell versions
-
-#### 🔧 Technical Design Decision
-*Originally implemented with emojis for visual enhancement, we simplified to text-based markers to eliminate cross-version parsing complexity. This approach prioritizes reliability and maintainability over visual aesthetics, ensuring consistent operation across enterprise environments with mixed PowerShell deployments.*
-
-## 🔄 Compatibility with Microsoft Tools
-
-This tool has been **extended based on Microsoft's official SpeculationControl module analysis**:
-
+### Basic Security Check
 ```powershell
-# For comprehensive assessment use both tools:
-.\SideChannel_Check.ps1                    # This extended enterprise tool
-Install-Module SpeculationControl          # Microsoft's official assessment
-Get-SpeculationControlSettings             # Hardware-level analysis
+# Download and run basic assessment
+.\SideChannel_Check.ps1
 ```
 
-### Tool Comparison:
+### Apply Security Mitigations
+```powershell
+# Interactive selection (recommended)
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# Preview changes first
+.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+```
+
+### Remove Problematic Mitigations
+```powershell
+# Safe revert with preview
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+
+# Revert specific mitigations
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+
+## 🖥️ Execution Order for Virtualized Environments
+
+### **Step 1: Secure the Hypervisor Host FIRST** 🏗️
+
+**For VMware ESXi:**
+```powershell
+# Get ESXi configuration commands
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+```
+
+**Apply on ESXi host (SSH/console):**
+```bash
+# Enable Side-Channel Aware Scheduler
+esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true
+esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIntraVM -i true
+
+# Enable L1TF protection
+esxcli system settings advanced set -o /VMkernel/Boot/mitigateL1TF -i true
+```
+
+**For Hyper-V Host:**
+```powershell
+# Run on Hyper-V host
+.\SideChannel_Check.ps1 -Apply -Interactive
+```
+
+### **Step 2: Secure Guest VMs SECOND** 🖥️
+
+**Run inside each Windows VM:**
+```powershell
+# 1. Check current status
+.\SideChannel_Check.ps1
+
+# 2. Apply guest-level mitigations
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# 3. Export compliance report
+.\SideChannel_Check.ps1 -ExportPath "VM_Security_Report.csv"
+```
+
+### **Step 3: Performance Optimization (If Needed)** ⚡
+
+```powershell
+# If performance issues occur, selectively revert:
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+
+## 📊 Sample Output
+
+### Basic Security Assessment
+```
+=== Side-Channel Vulnerability Configuration Check ===
+
+System Information:
+CPU: Intel(R) Core(TM) i7-11370H @ 3.30GHz
+OS: Microsoft Windows 11 Enterprise Build 26200
+Running in VM: No
+Hyper-V Status: Enabled
+
+🛡️ SOFTWARE MITIGATIONS
+====================================
+Speculative Store Bypass Disable    [+] Enabled
+Branch Target Injection              [+] Enabled  
+Kernel VA Shadow (Meltdown)         [+] Enabled
+Intel TSX Disable                   [+] Enabled
+L1TF Mitigation                     [-] Not Set
+MDS Mitigation                      [-] Not Set
+
+Category Score: 10/12 enabled (83.3%)
+
+🔐 SECURITY FEATURES
+====================================
+Hardware Security Mitigations      [+] Enabled
+VBS (Virtualization Security)      [+] Enabled
+HVCI (Code Integrity)              [+] Enabled
+Credential Guard                   [+] Enabled
+
+Category Score: 4/5 enabled (80%)
+
+Overall Security Score: 87%
+Security Level: [########--] 87%
+
+=== Recommendations ===
+- L1TF Mitigation: HIGH performance impact in VMs
+- MDS Mitigation: MODERATE performance impact
+
+To apply: .\SideChannel_Check.ps1 -Apply -Interactive
+```
+
+### Interactive Apply Session
+```
+=== Interactive Mitigation Selection ===
+
+Available mitigations to apply:
+Use numbers to select (e.g., 1,3 or 1-3 or 'all'):
+
+  [1] L1TF Mitigation (Impact: HIGH)
+      L1 Terminal Fault protection
+      WARNING: May require disabling hyperthreading
+
+  [2] MDS Mitigation (Impact: MODERATE) 
+      Microarchitectural Data Sampling protection
+      Performance impact: 3-8%
+
+  [3] Windows Defender ASLR (Impact: LOW)
+      Enhanced memory protection
+
+Enter your selection: 2,3
+
+Selected 2 mitigations for application.
+System restart required after changes.
+```
+
+### VMware ESXi Security Guide
+```
+=== VMware ESXi Host Security Configuration Guide ===
+
+🔧 Essential ESXi Host Settings:
+
+1. Side-Channel Aware Scheduler (SCAS):
+   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true
+
+2. L1TF Protection:
+   esxcli system settings advanced set -o /VMkernel/Boot/mitigateL1TF -i true
+
+3. VM Security Requirements:
+   - VM Hardware Version 14+
+   - Add to .vmx file: vmx.allowNonVPID = "FALSE"
+
+📋 Performance Impact:
+   SCAS: 2-5% impact
+   L1TF: 5-15% impact  
+   Full SMT disable: 20-40% impact
+```
+
+## 🔄 Tool Comparison
+
+This tool complements Microsoft's official assessment tool:
+
 | Feature | This Tool | Microsoft SpeculationControl |
 |---------|-----------|-------------------------------|
 | **CVE Coverage** | ✅ KB4073119 + Performance-Critical CVEs | ✅ Complete (2017-2023) |
-| **Virtualization** | ✅ Comprehensive VMware/Hyper-V | ❌ None |
-| **Auto-Configuration** | ✅ `-Apply` Switch with Interactive Mode | ❌ Assessment only |
+| **Virtualization** | ✅ VMware/Hyper-V Integration | ❌ None |
+| **Auto-Configuration** | ✅ `-Apply` with Interactive Mode | ❌ Assessment only |
 | **Revert Functionality** | ✅ **Interactive Revert with WhatIf** | ❌ None |
-| **Performance Impact Warnings** | ✅ **Detailed L1TF/MDS/SMT warnings** | ⚠️ Basic |
-| **Enterprise Features** | ✅ CSV Export, Tables, WhatIf, Interactive | ⚠️ Basic text |
-| **OS Version-Awareness** | ✅ Automatic | ⚠️ Basic |
-| **Hardware Analysis** | ⚠️ Registry-based + Hardware Detection | ✅ Native APIs |
+| **Performance Warnings** | ✅ **L1TF/MDS Impact Warnings** | ⚠️ Basic |
+| **Enterprise Features** | ✅ CSV Export, Interactive, WhatIf | ⚠️ Basic text |
 
-## 🔧 Installation
-
-1. Download the script:
-   ```powershell
-   git clone <repository-url>
-   cd side-channel-vulnerabilities-check
-   ```
-
-2. Ensure you're running as Administrator:
-   ```powershell
-   # Right-click PowerShell and "Run as Administrator"
-   ```
-
-3. Set execution policy if needed:
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
-
-## 📖 Usage
-
-> **🏢 ENTERPRISE HIGHLIGHT**: This tool features advanced **Interactive Apply** and **Intelligent Revert** systems for professional security management. Use `-Apply -Interactive` for granular control and `-Revert -Interactive` for safe mitigation removal.
-
-### 📋 **Command Reference Table**
-
-| Command | Purpose | Use Case |
-|---------|---------|----------|
-| `.\SideChannel_Check.ps1` | **Basic Security Assessment** | Full security analysis and assessment |
-| `.\SideChannel_Check.ps1 -Detailed` | **Comprehensive Analysis** | Full security audit with registry paths and detailed explanations |
-| `.\SideChannel_Check.ps1 -Apply -Interactive` | **Selective Configuration** | Choose specific mitigations to apply |
-| `.\SideChannel_Check.ps1 -Revert -Interactive` | **Safe Mitigation Removal** | Remove problematic mitigations |
-| `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity` | **VMware Security Guide** | ESXi host security configuration |
-| `.\SideChannel_Check.ps1 -ExportPath "report.csv"` | **Compliance Reporting** | Export results for documentation |
-
-### 📊 **Parameter Comparison:**
-
-| Parameter | Output Level | Content Differences |
-|-----------|-------------|-------------------|
-| **None (default)** | **Complete Assessment** | Full security analysis, detailed mitigations table, VBS analysis, hardware matrix, recommendations |
-| `-Detailed` | **Extended Analysis** | Same as default + detailed registry paths and additional explanations |
-| `-ShowVMwareHostSecurity` | **VMware Focus** | Default assessment + comprehensive ESXi host configuration guide |
-
-### Basic Security Assessment
+**Recommended Usage:**
 ```powershell
+# Use both tools for comprehensive assessment
+.\SideChannel_Check.ps1                    # This tool - configuration management
+Install-Module SpeculationControl          # Microsoft tool - detailed analysis
+Get-SpeculationControlSettings              # Hardware-level verification
+```
+
+## 🏢 Enterprise Workflows
+
+### New VM Deployment
+```powershell
+# 1. Assess baseline security
+.\SideChannel_Check.ps1
+
+# 2. Apply mitigations selectively  
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# 3. Document configuration
+.\SideChannel_Check.ps1 -ExportPath "VM_$(hostname)_Security.csv"
+```
+
+### Performance Troubleshooting
+```powershell
+# 1. Identify problematic mitigations
+.\SideChannel_Check.ps1 -Detailed
+
+# 2. Preview removal impact
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+
+# 3. Selectively remove mitigations
+.\SideChannel_Check.ps1 -Revert -Interactive
+
+# 4. Verify performance improvement
 .\SideChannel_Check.ps1
 ```
-**Default behavior**: Shows a complete security assessment including all mitigations, VBS analysis, hardware mitigation matrix, and recommendations.
 
-**Note**: There is no `-QuickCheck` parameter. The default command provides the full assessment.
-
-### Detailed Information
+### Security Audit
 ```powershell
-.\SideChannel_Check.ps1 -Detailed
+# Complete environment assessment
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "Security_Audit_$(Get-Date -Format 'yyyy-MM-dd').csv"
 ```
-Displays comprehensive details about each security check including registry paths and additional explanations beyond the default output.
 
-### Apply Security Configurations
-```powershell
-.\SideChannel_Check.ps1 -Apply
-```
-Automatically configures all missing security mitigations. **System restart required after changes.**
+## ⚠️ Important Warnings
 
-### 🎯 Interactive Mode - Choose Specific Mitigations
+### **CRITICAL Performance Considerations:**
+- **L1TF & MDS mitigations** may require disabling hyperthreading/SMT
+- **Test in non-production first** - some mitigations have high performance impact
+- **VMware environments** require both host AND guest configuration
+- **Backup registry** before making changes
+
+### **Security vs Performance Balance:**
 ```powershell
+# Low-impact first (recommended)
 .\SideChannel_Check.ps1 -Apply -Interactive
-```
-**NEW**: Allows you to select which specific mitigations to apply using a user-friendly numbered menu with impact assessment and detailed descriptions.
+# Select: Low-impact mitigations (1,4,7)
 
-### 🔍 WhatIf Mode - Preview Changes
-```powershell
-.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
-```
-**NEW**: Shows exactly what registry changes would be made without actually applying them. Must be combined with both `-Apply` and `-Interactive` for security.
+# Medium-impact after testing
+# Select: Medium-impact mitigations (2,5,8)
 
-### 🎮 **Combined Interactive WhatIf** (Enterprise Standard)
-```powershell
-.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+# High-impact in maintenance window
+# Select: High-impact mitigations (3,6)
 ```
-**🏢 ENTERPRISE WORKFLOW**: Select specific mitigations, see detailed registry changes, and apply only after careful review.
+
+## 🛠️ Requirements
+
+- **Windows 10/11** or **Windows Server 2016+**
+- **PowerShell 5.1+** (fully compatible)
+- **Administrator privileges** required
+- **System restart** required after applying changes
+
+## 📋 Command Reference
+
+| Command | Purpose |
+|---------|---------|
+| `.\SideChannel_Check.ps1` | Basic security assessment |
+| `.\SideChannel_Check.ps1 -Detailed` | Comprehensive analysis |
+| `.\SideChannel_Check.ps1 -Apply -Interactive` | Apply selected mitigations |
+| `.\SideChannel_Check.ps1 -Revert -Interactive` | Remove specific mitigations |
+| `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity` | VMware ESXi security guide |
+| `.\SideChannel_Check.ps1 -ExportPath "report.csv"` | Export results |
+
+## 🔍 Troubleshooting
+
+**Access Denied:** Run PowerShell as Administrator
+
+**Performance Issues:** Use revert functionality to remove problematic mitigations:
+```powershell
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
+
+**VMware Issues:** Ensure both ESXi host AND Windows guest are configured
+
+**Registry Errors:** Use `-WhatIf` to preview changes before applying
+
+## 📚 Quick Reference
+
+### Covered Vulnerabilities
+- **Spectre** (CVE-2017-5753, CVE-2017-5715)
+- **Meltdown** (CVE-2017-5754)
+- **L1TF** (CVE-2018-3620/3646) - High performance impact
+- **MDS** (CVE-2018-11091-12130) - Moderate performance impact
+- **Modern CVEs** (2019-2023) with performance ratings
+
+### Security Categories
+- **🛡️ Software Mitigations**: Registry-configurable protections
+- **🔐 Security Features**: VBS, HVCI, Credential Guard
+- **🔧 Hardware Prerequisites**: UEFI, TPM 2.0, CPU features
+
+---
+
+**Version:** 2.8  
+**Author:** Jan Tiedemann  
+**Compatibility:** Windows 10/11, Server 2016+  
+**PowerShell:** 5.1+ (fully compatible)  
+**Repository:** [GitHub](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
 
 ## 🏢 Enterprise Workflows
 
