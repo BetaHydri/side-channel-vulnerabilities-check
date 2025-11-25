@@ -1868,13 +1868,21 @@ function Invoke-MitigationRevert {
                     Write-ColorOutput "  ! VMware Configuration Required:" -Color Warning
                     Write-ColorOutput "    This change requires ESXi host access" -Color Warning
                     Write-ColorOutput "    Commands to run on ESXi host:" -Color Info
-                    foreach ($cmd in $mitigation.ESXiCommands) {
-                        if ($cmd.StartsWith("#")) {
-                            Write-ColorOutput "    $cmd" -Color Good
+                    if ($mitigation.ESXiCommands) {
+                        foreach ($cmd in $mitigation.ESXiCommands) {
+                            if ($cmd.StartsWith("#")) {
+                                Write-ColorOutput "    $cmd" -Color Good
+                            }
+                            else {
+                                Write-ColorOutput "    $cmd" -Color Warning
+                            }
                         }
-                        else {
-                            Write-ColorOutput "    $cmd" -Color Warning
-                        }
+                    }
+                    else {
+                        Write-ColorOutput "    # Access ESXi host via vSphere Client or SSH" -Color Good
+                        Write-ColorOutput "    # Power off VM and edit hardware settings" -Color Good
+                        Write-ColorOutput "    # Disable 'Expose hardware assisted virtualization'" -Color Warning
+                        Write-ColorOutput "    # Or use PowerCLI for advanced configuration" -Color Good
                     }
                     Write-ColorOutput "  ! Cannot execute automatically from Windows guest" -Color Error
                 }
@@ -1967,6 +1975,14 @@ function Invoke-MitigationRevert {
         $projectedChangeText = '  Score Change:    -' + [string]$projectedDiff + ' of 100 (Security Reduction)'
         Write-ColorOutput $projectedChangeText -Color Error
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
+    }
+    
+    # Add VMware-specific guidance if VMware mitigations were selected
+    $vmwareMitigations = $SelectedMitigations | Where-Object { $_.RegistryPath -eq "VMware ESXi" }
+    if ($vmwareMitigations.Count -gt 0) {
+        Write-ColorOutput "`n[!] IMPORTANT: ESXi host configuration required for VMware environments!" -Color Warning
+        Write-ColorOutput "VMware nested virtualization changes require direct ESXi host access." -Color Warning
+        Write-ColorOutput "Contact your VMware infrastructure administrator to apply changes." -Color Info
     }
 }
 
@@ -3284,6 +3300,9 @@ if ($Revert) {
                 # Show appropriate configuration location
                 if ($mitigation.Name -eq "Nested Virtualization Security") {
                     Write-ColorOutput "      Configuration: Hyper-V VM Processor Settings" -Color Gray
+                }
+                elseif ($mitigation.Name -match "VMware.*Nested.*Virtualization") {
+                    Write-ColorOutput "      Configuration: VMware ESXi Host Settings" -Color Gray
                 }
                 elseif ($mitigation.RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
                     Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
