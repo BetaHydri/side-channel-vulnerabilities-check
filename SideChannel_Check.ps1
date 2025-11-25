@@ -2555,25 +2555,81 @@ Write-ColorOutput "`n=== SECURITY CONFIGURATION SUMMARY ===" -Color Header
 $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
 $notConfiguredCount = ($Results | Where-Object { $_.Status -eq "Not Configured" }).Count
 $disabledCount = ($Results | Where-Object { $_.Status -eq "Disabled" }).Count
-$totalCount = $Results.Count
-$configuredPercent = [math]::Round(($enabledCount / $totalCount) * 100, 1)
 
-# Visual status breakdown
+# Categorize results into different types
+$softwareMitigations = $Results | Where-Object { 
+    $_.Status -in @("Enabled", "Not Configured", "Disabled") -and
+    $_.Name -notmatch "UEFI|TPM|CPU Virtualization|Retpoline Support|Information"
+}
+
+$hardwarePrerequisites = $Results | Where-Object { 
+    $_.Name -match "UEFI|TPM|CPU Virtualization" -or $_.Status -eq "Information"
+}
+
+$securityFeatures = $Results | Where-Object {
+    $_.Status -in @("Enabled", "Not Configured", "Disabled") -and
+    $_.Name -match "VBS|HVCI|Credential Guard|Windows Defender|Hyper-V Core Scheduler"
+}
+
+# Count software mitigations for scoring (the main security score)
+$enabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
+$notConfiguredMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Not Configured" }).Count  
+$disabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Disabled" }).Count
+$totalMitigations = $softwareMitigations.Count
+
+# Count security features separately  
+$enabledFeatures = ($securityFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
+$totalFeatures = $securityFeatures.Count
+
+# Count hardware prerequisites (informational)
+$readyHardware = ($hardwarePrerequisites | Where-Object { 
+    $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" 
+}).Count
+$totalHardware = $hardwarePrerequisites.Count
+
+# Show breakdown
+Write-ColorOutput "`nSecurity Assessment Categories:" -Color Info
+Write-ColorOutput "- Software Mitigations: $enabledMitigations/$totalMitigations enabled" -Color Info
+Write-ColorOutput "- Security Features: $enabledFeatures/$totalFeatures enabled" -Color Info  
+Write-ColorOutput "- Hardware Prerequisites: $readyHardware/$totalHardware ready" -Color Info
+
+# Calculate primary security score based on software mitigations only
+$mitigationPercent = if ($totalMitigations -gt 0) { [math]::Round(($enabledMitigations / $totalMitigations) * 100, 1) } else { 0 }
+
+$configuredPercent = $mitigationPercent
+
+# Visual status breakdown - focus on software mitigations for primary score
 Write-Host "`nSecurity Status Overview:" -ForegroundColor $Colors['Header']
 Write-Host "=========================" -ForegroundColor $Colors['Header']
+
+Write-Host "`n🛡️  SOFTWARE MITIGATIONS (Primary Score):" -ForegroundColor $Colors['Header']
 Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
-Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
-Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+Write-Host "$enabledMitigations" -NoNewline -ForegroundColor $Colors['Good']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
 
 Write-Host "[-] NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
-Write-Host "$notConfiguredCount" -NoNewline -ForegroundColor $Colors['Warning']
-Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+Write-Host "$notConfiguredMitigations" -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
 
 Write-Host "[-] DISABLED:      " -NoNewline -ForegroundColor $Colors['Bad']
-Write-Host "$disabledCount" -NoNewline -ForegroundColor $Colors['Bad']
-Write-Host " / $totalCount mitigations" -ForegroundColor Gray
+Write-Host "$disabledMitigations" -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
 
-Write-Host "`nOverall Security Level: " -NoNewline -ForegroundColor $Colors['Info']
+if ($totalFeatures -gt 0) {
+    Write-Host "`n🔐 SECURITY FEATURES:" -ForegroundColor $Colors['Header'] 
+    Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host "$enabledFeatures" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " / $totalFeatures features" -ForegroundColor Gray
+}
+
+if ($totalHardware -gt 0) {
+    Write-Host "`n🔧 HARDWARE PREREQUISITES:" -ForegroundColor $Colors['Header']
+    Write-Host "[+] READY:         " -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host "$readyHardware" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " / $totalHardware components" -ForegroundColor Gray
+}
+
+Write-Host "`nOverall Mitigation Score: " -NoNewline -ForegroundColor $Colors['Info']
 $levelColor = if ($configuredPercent -ge 80) { 'Good' } elseif ($configuredPercent -ge 60) { 'Warning' } else { 'Bad' }
 Write-Host "$configuredPercent%" -ForegroundColor $Colors[$levelColor]
 
@@ -2585,9 +2641,15 @@ $emptyBlocks = 10 - $filledBlocks
 for ($i = 0; $i -lt $filledBlocks; $i++) { $securityBar += "#" }
 for ($i = 0; $i -lt $emptyBlocks; $i++) { $securityBar += "-" }
 
-Write-Host "Security Bar:     [" -NoNewline -ForegroundColor Gray
+Write-Host "Mitigation Progress: [" -NoNewline -ForegroundColor Gray
 Write-Host "$securityBar" -NoNewline -ForegroundColor $Colors[$levelColor]
 Write-Host "] $configuredPercent%" -ForegroundColor Gray
+
+# Show what the score means
+Write-Host "`nScore Explanation:" -ForegroundColor $Colors['Info']
+Write-Host "• Mitigation Score: Based on registry-configurable side-channel protections" -ForegroundColor Gray
+Write-Host "• Security Features: Windows security services (VBS, HVCI, etc.)" -ForegroundColor Gray  
+Write-Host "• Hardware Prerequisites: Platform readiness for advanced security" -ForegroundColor Gray
 
 # Interactive mitigation selection function
 function Select-Mitigations {
