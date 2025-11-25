@@ -1716,14 +1716,14 @@ $Results += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
     -Recommendation "Hardware mitigations are enabled. The core mitigation flag (0x2000000000000000) is set with additional options." `
     -Impact "Hardware-dependent, modern CPUs have better performance"
 
-# 6. SMEP (Supervisor Mode Execution Prevention)
-$Results += Test-SideChannelMitigation -Name "Supervisor Mode Execution Prevention" `
-    -Description "Prevents execution of user-mode pages in kernel mode" `
+# 6. Exception Chain Validation
+$Results += Test-SideChannelMitigation -Name "Exception Chain Validation" `
+    -Description "Validates exception handler chains to prevent SEH exploitation" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
     -RegistryName "DisableExceptionChainValidation" `
     -ExpectedValue 0 `
-    -Recommendation "Ensure exception chain validation is enabled" `
-    -Impact "Prevents certain exploitation techniques"
+    -Recommendation "Ensure exception chain validation is enabled (value = 0)" `
+    -Impact "Prevents SEH (Structured Exception Handler) exploitation techniques"
 
 # 7. SMAP (Supervisor Mode Access Prevention)  
 $Results += Test-SideChannelMitigation -Name "Supervisor Mode Access Prevention" `
