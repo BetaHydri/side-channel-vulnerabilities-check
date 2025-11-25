@@ -168,13 +168,13 @@ $UseEmojis = $false  # Simplified approach for maximum compatibility
 
 # Define simple, consistent category markers
 $Emojis = @{
-    Shield = "[SW]"     # Software Mitigations
-    Lock = "[SF]"       # Security Features  
-    Wrench = "[HW]"     # Hardware Prerequisites
-    Gear = "[OT]"       # Other Mitigations
-    Chart = "[>>]"      # Summary/Progress
+    Shield    = "[SW]"     # Software Mitigations
+    Lock      = "[SF]"       # Security Features  
+    Wrench    = "[HW]"     # Hardware Prerequisites
+    Gear      = "[OT]"       # Other Mitigations
+    Chart     = "[>>]"      # Summary/Progress
     Clipboard = "[--]"  # Status Legend
-    Target = "[>>]"     # Category Descriptions
+    Target    = "[>>]"     # Category Descriptions
 }
 
 # Color coding for output
