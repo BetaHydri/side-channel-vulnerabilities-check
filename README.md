@@ -91,36 +91,72 @@ esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
 ### Basic Security Assessment
 ```
 === Side-Channel Vulnerability Configuration Check ===
-Based on Microsoft KB4073119 - Core Documented Mitigations
+Based on Microsoft KB4073119 + Extended Modern CVE Coverage
 
 System Information:
 CPU: 11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS: Microsoft Windows 11 Enterprise Build 26200
+Architecture: 64-bit
+
+Virtualization Environment:
 Running in VM: No
 Hyper-V Status: Enabled
+VBS Status: Running
+HVCI Status: Enforced
+Nested Virtualization: Enabled
 
 🛡️ SOFTWARE MITIGATIONS
-==============================================
-Speculative Store Bypass Disable    [+] Enabled
-Branch Target Injection              [+] Enabled  
-Kernel VA Shadow (Meltdown)         [+] Enabled
-Intel TSX Disable                   [+] Enabled
-L1TF Mitigation                     [-] Not Set
-MDS Mitigation                      [-] Not Set
+============================================================
+Speculative Store Bypass Disable              : [+] ENABLED (Value: 72)
+SSBD Feature Mask                             : [+] ENABLED (Value: 3)
+Branch Target Injection Mitigation            : [+] ENABLED (Value: 0)
+Kernel VA Shadow (Meltdown Protection)        : [+] ENABLED (Value: 1)
+Enhanced IBRS                                 : [+] ENABLED (Value: 1)
+Intel TSX Disable                             : [+] ENABLED (Value: 1)
+L1TF Mitigation                               : [-] NOT SET
+MDS Mitigation                                : [-] NOT SET
+CVE-2019-11135 Mitigation                     : [+] ENABLED (Value: 1)
+SBDR/SBDS Mitigation                          : [+] ENABLED (Value: 1)
+SRBDS Update Mitigation                       : [+] ENABLED (Value: 1)
+DRPW Mitigation                               : [+] ENABLED (Value: 1)
 
 Category Score: 10/12 enabled (83.3%)
 
 🔐 SECURITY FEATURES
-==============================================
-Hardware Security Mitigations      [+] Enabled
-VBS (Virtualization Security)      [+] Enabled
-HVCI (Code Integrity)              [+] Enabled
-Credential Guard                   [+] Enabled
+============================================================
+Hardware Security Mitigations                 : [+] ENABLED (Value: 0x2000000000000100)
+Exception Chain Validation                    : [+] ENABLED (Value: 0)
+Supervisor Mode Access Prevention             : [+] ENABLED (Value: 1)
+Windows Defender Exploit Guard ASLR           : [-] NOT SET
+Virtualization Based Security                 : [+] ENABLED
+Hypervisor Code Integrity                     : [+] ENABLED
+Credential Guard                              : [+] ENABLED
+Windows Defender Application Guard            : [-] NOT CONFIGURED
 
 Category Score: 4/5 enabled (80%)
 
-Overall Security Score: 87%
-Security Level: [########--] 87%
+🔧 HARDWARE PREREQUISITES
+============================================================
+UEFI Firmware                                 : [+] UEFI Firmware Active
+Secure Boot                                   : [+] Enabled
+TPM 2.0                                       : [+] TPM 2.0 Enabled
+CPU Virtualization (VT-x/AMD-V)               : [+] Enabled and Active
+IOMMU/VT-d Support                            : [-] Enabled
+CPU Microcode                                 : [+] Up to date
+
+Category Score: 5/6 ready (83.3%)
+
+📊 OVERALL SECURITY SUMMARY
+============================================================
+Overall Protection Level: 15/18 mitigations enabled (83.3%)
+Security Level: [========--]
+
+Security Assessment Categories:
+- Software Mitigations: 10/12 enabled
+- Security Features: 4/5 enabled
+- Hardware Prerequisites: 1/1 ready
+
+Overall Mitigation Score: 83.3%
 
 === Recommendations ===
 The following mitigations should be configured:
@@ -273,11 +309,13 @@ This tool complements Microsoft's official assessment tool:
 
 | Feature | This Tool | Microsoft SpeculationControl |
 |---------|-----------|-------------------------------|
-| **CVE Coverage** | ✅ KB4073119 + Performance-Critical CVEs | ✅ Complete (2017-2023) |
-| **Virtualization** | ✅ VMware/Hyper-V Integration | ❌ None |
+| **CVE Coverage** | ✅ KB4073119 + Extended CVE Coverage (2018-2023) | ✅ Complete (2017-2023) |
+| **Virtualization** | ✅ VMware/Hyper-V/Nested Detection & Integration | ❌ None |
 | **Auto-Configuration** | ✅ `-Apply` with Interactive Mode | ❌ Assessment only |
 | **Revert Functionality** | ✅ **Interactive Revert with WhatIf** | ❌ None |
 | **Performance Warnings** | ✅ **L1TF/MDS Impact Warnings** | ⚠️ Basic |
+| **CPU-Specific Filtering** | ✅ **Intel/AMD Automatic Detection** | ⚠️ Basic |
+| **Categorized Scoring** | ✅ **Software/Security/Hardware Categories** | ⚠️ Combined |
 | **Enterprise Features** | ✅ CSV Export, Interactive, WhatIf | ⚠️ Basic text |
 | **OS Version-Awareness** | ✅ Automatic | ⚠️ Basic |
 | **Hardware Analysis** | ⚠️ Registry-based + Hardware Detection | ✅ Native APIs |
@@ -415,9 +453,11 @@ foreach ($VM in $VMs) {
 - **Modern CVEs** (2019-2023) with performance impact ratings
 
 ### Security Categories
-- **🛡️ Software Mitigations**: Registry-configurable protections (primary score)
-- **🔐 Security Features**: VBS, HVCI, Credential Guard status
-- **🔧 Hardware Prerequisites**: UEFI, TPM 2.0, CPU virtualization features
+- **🛡️ Software Mitigations**: CPU side-channel protections (Spectre, Meltdown, L1TF, MDS, etc.) - **12 mitigations on Intel, 13 on AMD**
+- **🔐 Security Features**: Windows security technologies (VBS, HVCI, Credential Guard, ASLR, etc.) - **8 features**
+- **🔧 Hardware Prerequisites**: Platform security capabilities (UEFI, TPM 2.0, VT-x/AMD-V, IOMMU) - **6 components**
+
+**Note:** Counts are CPU-specific - AMD systems include SRSO mitigation, Intel systems include TSX and Enhanced IBRS mitigations.
 
 ### Selection Syntax
 - **Individual**: `1,3,5` - Apply specific mitigations
