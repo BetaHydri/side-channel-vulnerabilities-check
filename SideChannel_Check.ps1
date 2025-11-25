@@ -425,7 +425,7 @@ function Show-ResultsTable {
         $categoryResults = $Results | Where-Object { $_.Name -in $CategoryNames }
         if ($categoryResults.Count -gt 0) {
             Write-ColorOutput "`n$CategoryEmoji $CategoryTitle" -Color Header
-            Write-ColorOutput ([string]::new('=', 60)) -Color Header
+            Write-ColorOutput ("=" * 60) -Color Header
             
             $tableData = @()
             foreach ($result in $categoryResults) {
@@ -470,7 +470,7 @@ function Show-ResultsTable {
             }
             
             Write-Host "Category Score: " -NoNewline
-            Write-Host "$enabled/$total enabled ($percentage`%)" -ForegroundColor $summaryColor
+            Write-Host ("$enabled/$total enabled (" + $percentage + "%)") -ForegroundColor $summaryColor
         }
     }
     
@@ -488,7 +488,7 @@ function Show-ResultsTable {
     
     # Overall summary
     Write-ColorOutput "`n📊 OVERALL SECURITY SUMMARY" -Color Header
-    Write-ColorOutput ([string]::new('=', 60)) -Color Header
+    Write-ColorOutput ("=" * 60) -Color Header
     
     $totalEnabled = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
     $totalCount = $Results.Count
@@ -501,12 +501,14 @@ function Show-ResultsTable {
     }
     
     Write-Host "Overall Protection Level: " -NoNewline
-    Write-Host "$totalEnabled/$totalCount mitigations enabled ($overallPercentage`%)" -ForegroundColor $overallColor
+    Write-Host ("$totalEnabled/$totalCount mitigations enabled (" + $overallPercentage + "%)") -ForegroundColor $overallColor
     
     # Create visual progress bar (PowerShell 5.1 compatible)
     $filledBlocks = [math]::Floor($overallPercentage / 10)
     $emptyBlocks = 10 - $filledBlocks
-    $progressBar = "[" + [string]::new('=', $filledBlocks) + [string]::new('-', $emptyBlocks) + "]"
+    $equalSigns = if ($filledBlocks -gt 0) { "=" * $filledBlocks } else { "" }
+    $dashSigns = if ($emptyBlocks -gt 0) { "-" * $emptyBlocks } else { "" }
+    $progressBar = "[" + $equalSigns + $dashSigns + "]"
     Write-Host "Security Level: " -NoNewline
     Write-Host $progressBar -ForegroundColor $overallColor
     
@@ -1485,7 +1487,9 @@ function Calculate-SecurityScore {
     # Create security bar
     $filledBlocks = [math]::Floor($percentage / 10)
     $emptyBlocks = 10 - $filledBlocks
-    $barDisplay = ("[" + [string]::new('#', $filledBlocks) + [string]::new('-', $emptyBlocks) + "]")
+    $hashSigns = if ($filledBlocks -gt 0) { "#" * $filledBlocks } else { "" }
+    $dashSigns = if ($emptyBlocks -gt 0) { "-" * $emptyBlocks } else { "" }
+    $barDisplay = "[" + $hashSigns + $dashSigns + "]"
     
     return [PSCustomObject]@{
         EnabledCount = $enabledCount
@@ -1777,8 +1781,8 @@ function Invoke-MitigationRevert {
     }
     
     # Show current security score
-    Write-ColorOutput "Current Security Score: $($beforeScore.Percentage)`%" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-    Write-ColorOutput "Security Bar: $($beforeScore.BarDisplay) $($beforeScore.Percentage)`%`n" -Color Info
+    Write-ColorOutput ("Current Security Score: " + $beforeScore.Percentage + "%") -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+    Write-ColorOutput ("Security Bar: " + $beforeScore.BarDisplay + " " + $beforeScore.Percentage + "%`n") -Color Info
     
     $successCount = 0
     $errorCount = 0
@@ -1874,9 +1878,9 @@ function Invoke-MitigationRevert {
             $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
             
             Write-ColorOutput "`nSecurity Impact Assessment:" -Color Header
-            Write-ColorOutput "  Before Revert:  $($beforeScore.Percentage)`% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput "  After Revert:   $($afterScore.Percentage)`% $($afterScore.BarDisplay)" -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-            Write-ColorOutput "  Score Change:   -$([math]::Round($scoreDifference, 1))`% (Security Reduced)" -Color Error
+            Write-ColorOutput ("  Before Revert:  " + $beforeScore.Percentage + "% " + $beforeScore.BarDisplay) -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput ("  After Revert:   " + $afterScore.Percentage + "% " + $afterScore.BarDisplay) -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput ("  Score Change:   -" + [math]::Round($scoreDifference, 1) + "% (Security Reduced)") -Color Error
         }
     }
     
@@ -1904,9 +1908,9 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "  System restart would be required: Yes" -Color Warning
         Write-ColorOutput "" -Color Info
         Write-ColorOutput "Security Score Impact:" -Color Header
-        Write-ColorOutput "  Current Score:   $($beforeScore.Percentage)`% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-        Write-ColorOutput "  After Revert:    $($projectedScore.Percentage)`% $($projectedScore.BarDisplay)" -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
-        Write-ColorOutput "  Score Change:    -$([math]::Round($scoreDifference, 1))`% (Security Reduction)" -Color Error
+        Write-ColorOutput ("  Current Score:   " + $beforeScore.Percentage + "% " + $beforeScore.BarDisplay) -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        Write-ColorOutput ("  After Revert:    " + $projectedScore.Percentage + "% " + $projectedScore.BarDisplay) -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        Write-ColorOutput ("  Score Change:    -" + [math]::Round($scoreDifference, 1) + "% (Security Reduction)") -Color Error
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
     }
 }
