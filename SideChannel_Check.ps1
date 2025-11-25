@@ -3248,7 +3248,15 @@ if ($Revert) {
                 Write-ColorOutput "  [$($i + 1)] $($mitigation.Name) (Impact: $($mitigation.Impact))" -Color Warning
                 Write-ColorOutput "      $($mitigation.Description)" -Color Info
                 Write-ColorOutput "      Security Risk: $($mitigation.SecurityRisk)" -Color Error
-                Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
+                
+                # Show appropriate configuration location
+                if ($mitigation.Name -eq "Nested Virtualization Security") {
+                    Write-ColorOutput "      Configuration: Hyper-V VM Processor Settings" -Color Gray
+                }
+                else {
+                    Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
+                }
+                
                 Write-ColorOutput "" -Color Info
             }
             
