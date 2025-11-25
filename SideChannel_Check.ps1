@@ -73,7 +73,7 @@
     
 .NOTES
     Author: Jan Tiedemann
-    Version: 1.0
+    Version: 2.5
     Requires: PowerShell 5.1+ and Administrator privileges
     Based on: Microsoft KB4073119
     GitHub: https://github.com/BetaHydri/side-channel-vulnerabilities-check
@@ -595,14 +595,14 @@ function Get-HardwareRequirements {
     #>
     
     $hwInfo = @{
-        IsUEFI = $false
+        IsUEFI            = $false
         SecureBootEnabled = $false
         SecureBootCapable = $false
-        TPMPresent = $false
-        TPMVersion = "Not Available"
-        IOMMUSupport = "Unknown"
-        VTxSupport = $false
-        SecureBootStatus = "Not Available"
+        TPMPresent        = $false
+        TPMVersion        = "Not Available"
+        IOMMUSupport      = "Unknown"
+        VTxSupport        = $false
+        SecureBootStatus  = "Not Available"
     }
     
     try {
@@ -657,7 +657,7 @@ function Get-HardwareRequirements {
                 catch {
                     # Try PowerShell TPM module
                     try {
-                        $tpmInfo = Get-TPM -ErrorAction SilentlyContinue
+                        $tpmInfo = Get-Tpm -ErrorAction SilentlyContinue
                         if ($tpmInfo) {
                             $hwInfo.TPMPresent = $tpmInfo.TmpPresent
                             $hwInfo.TPMVersion = if ($tmpInfo.TmpPresent) { "2.0" } else { "Not Available" }
@@ -2608,7 +2608,8 @@ Write-ColorOutput "Hardware Security Assessment:" -Color Info
 Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
 if ($hwStatus.IsUEFI) {
     Write-Host "[+] Present" -ForegroundColor $Colors['Good']
-} else {
+}
+else {
     Write-Host "[-] Legacy BIOS Detected - Upgrade Required" -ForegroundColor $Colors['Bad']
 }
 
@@ -2616,9 +2617,11 @@ if ($hwStatus.IsUEFI) {
 Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
 if ($hwStatus.SecureBootEnabled) {
     Write-Host "[+] Enabled" -ForegroundColor $Colors['Good']
-} elseif ($hwStatus.SecureBootCapable) {
+}
+elseif ($hwStatus.SecureBootCapable) {
     Write-Host "[?] Available but Disabled - Enable in UEFI" -ForegroundColor $Colors['Warning']
-} else {
+}
+else {
     Write-Host "[-] Not Available - Firmware Upgrade Required" -ForegroundColor $Colors['Bad']
 }
 
@@ -2627,10 +2630,12 @@ Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
 if ($hwStatus.TPMPresent) {
     if ($hwStatus.TPMVersion -match "2\.0") {
         Write-Host "[+] TPM 2.0 Present" -ForegroundColor $Colors['Good']
-    } else {
+    }
+    else {
         Write-Host "[?] TPM Present ($($hwStatus.TPMVersion)) - Verify version" -ForegroundColor $Colors['Warning']
     }
-} else {
+}
+else {
     Write-Host "[-] Not Detected - Enable or Install TPM" -ForegroundColor $Colors['Bad']
 }
 
@@ -2638,7 +2643,8 @@ if ($hwStatus.TPMPresent) {
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
 if ($hwStatus.VTxSupport) {
     Write-Host "[+] Available" -ForegroundColor $Colors['Good']
-} else {
+}
+else {
     Write-Host "[-] Not Detected - Enable in BIOS/UEFI" -ForegroundColor $Colors['Bad']
 }
 
@@ -2646,7 +2652,8 @@ if ($hwStatus.VTxSupport) {
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
 if ($hwStatus.IOMMUSupport -match "Available") {
     Write-Host "[+] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Good']
-} else {
+}
+else {
     Write-Host "[?] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Warning']
 }
 

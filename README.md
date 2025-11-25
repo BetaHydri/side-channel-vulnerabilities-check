@@ -1088,11 +1088,12 @@ Contributions are welcome! Please:
 
 ---
 
-**Version:** 2.4  
+**Version:** 2.5  
 **Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
 **CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
-**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert, Intelligent OS Detection  
-**New in 2.4:** Enhanced Hyper-V Core Scheduler detection, improved registry path formatting, smarter recommendations  
+**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert, Intelligent OS Detection, Hardware Requirements Detection  
+**New in 2.5:** **Hardware Requirements Detection** - Automatic UEFI, Secure Boot, TPM 2.0, VT-x/AMD-V, and IOMMU status detection with proper color coding  
+**Previous in 2.4:** Enhanced Hyper-V Core Scheduler detection, improved registry path formatting, smarter recommendations  
 **Compatibility:** Windows 10/11, Windows Server 2016/2019/2022/2025  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
