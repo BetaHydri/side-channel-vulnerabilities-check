@@ -3566,16 +3566,16 @@ Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color In
 Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
 
 Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
-$uefiStatusText = if ($hwStatus.IsUEFI) { "+ Met" } else { "- Not Met" }
+$uefiStatusText = if ($hwStatus.IsUEFI) { "[+] Met" } else { "[-] Not Met" }
 $uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
 Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
-$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "+ Available" } else { "- Not Available" }
+$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "[+] Available" } else { "[-] Not Available" }
 $secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
 Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
 $tpmStatusText = if ($hwStatus.TPMPresent) { "[+] Present" } else { "[-] Missing" }
 $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
 Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
-Write-ColorOutput "- Latest firmware updates: ? Check with manufacturer" -Color Warning
+Write-ColorOutput "- Latest firmware updates: [?] Check with manufacturer" -Color Warning
 
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
