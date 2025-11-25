@@ -206,62 +206,6 @@ function Set-RegistryValue {
         # Special handling for Windows Defender Exploit Guard paths
         $isWindowsDefenderPath = $Path -match "Windows Defender.*Exploit Guard"
         
-        # Special handling for modern CVE mitigations (2022-2023)
-        $ModernCVEMitigations = @(
-            "BranchHistoryBufferEnabled",                    # BHB - CVE-2022-0001/0002
-            "GatherDataSampleMitigation",                    # GDS - CVE-2022-40982
-            "SpeculativeReturnStackMitigation",             # SRSO - CVE-2023-20569
-            "RegisterFileDataSamplingMitigation",           # RFDS - CVE-2023-28746
-            "MicroarchitecturalDataSamplingMitigation",     # MDS
-            "L1TerminalFaultMitigation"                      # L1TF - CVE-2018-3620
-        )
-        
-        # Enhanced CVE mitigation configuration
-        if ($Name -in $ModernCVEMitigations) {
-            Write-ColorOutput "Configuring advanced CVE mitigation: $Name" -Color Warning
-            
-            # Get CPU information for compatibility validation
-            $CPUInfo = Get-CimInstance Win32_Processor | Select-Object -First 1
-            $CPUManufacturer = $CPUInfo.Manufacturer
-            
-            # CPU-specific validation and guidance
-            $mitigation = switch ($Name) {
-                "BranchHistoryBufferEnabled" { 
-                    @{ Description = "BHB (Branch History Buffer)"; CPUs = "Intel and AMD with microcode updates"; Critical = $false }
-                }
-                "GatherDataSampleMitigation" { 
-                    @{ Description = "GDS (Gather Data Sample)"; CPUs = "Intel server/datacenter CPUs"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
-                }
-                "SpeculativeReturnStackMitigation" { 
-                    @{ Description = "SRSO (Speculative Return Stack Overflow)"; CPUs = "AMD Zen architecture"; Critical = ($CPUManufacturer -eq "AuthenticAMD") }
-                }
-                "RegisterFileDataSamplingMitigation" { 
-                    @{ Description = "RFDS (Register File Data Sampling)"; CPUs = "Intel CPUs with RFDS vulnerability"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
-                }
-                "MicroarchitecturalDataSamplingMitigation" { 
-                    @{ Description = "MDS (Microarchitectural Data Sampling)"; CPUs = "Intel CPUs vulnerable to MDS"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
-                }
-                "L1TerminalFaultMitigation" { 
-                    @{ Description = "L1TF (L1 Terminal Fault)"; CPUs = "Intel CPUs in virtualized environments"; Critical = ($CPUManufacturer -eq "GenuineIntel") }
-                }
-            }
-            
-            Write-ColorOutput "   Mitigation: $($mitigation.Description)" -Color Info
-            Write-ColorOutput "   Target CPUs: $($mitigation.CPUs)" -Color Info
-            Write-ColorOutput "   Current CPU: $CPUManufacturer" -Color Info
-            
-            # Skip SRSO for non-AMD CPUs
-            if ($Name -eq "SpeculativeReturnStackMitigation" -and $CPUManufacturer -ne "AuthenticAMD") {
-                Write-ColorOutput "   WARNING: Skipping SRSO mitigation - AMD-specific vulnerability" -Color Warning
-                return $false
-            }
-            
-            # Warn for vendor-specific mitigations on different CPUs
-            if (-not $mitigation.Critical -and $Name -match "GatherDataSample|RegisterFileDataSampling|L1TerminalFault|MicroarchitecturalDataSampling") {
-                Write-ColorOutput "   INFO: This mitigation is primarily for other CPU vendors but may still provide benefits" -Color Info
-            }
-        }
-        
         # Create the registry path if it doesn't exist
         if (-not (Test-Path $Path)) {
             if ($isWindowsDefenderPath) {
@@ -1278,34 +1222,7 @@ function Get-RevertableMitigations {
         }
     }
     
-    # 7. Modern CVE Mitigations
-    $modernCVEs = @(
-        @{ Name = "BHB Mitigation"; RegName = "BranchHistoryBufferEnabled"; CVE = "CVE-2022-0001/0002" }
-        @{ Name = "GDS Mitigation"; RegName = "GatherDataSampleMitigation"; CVE = "CVE-2022-40982" }
-        @{ Name = "SRSO Mitigation"; RegName = "SpeculativeReturnStackMitigation"; CVE = "CVE-2023-20569" }
-        @{ Name = "RFDS Mitigation"; RegName = "RegisterFileDataSamplingMitigation"; CVE = "CVE-2023-28746" }
-        @{ Name = "L1TF Mitigation"; RegName = "L1TerminalFaultMitigation"; CVE = "CVE-2018-3620" }
-        @{ Name = "MDS Mitigation"; RegName = "MicroarchitecturalDataSamplingMitigation"; CVE = "MDS" }
-    )
-    
-    foreach ($cve in $modernCVEs) {
-        $value = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name $cve.RegName
-        if ($value -ne $null -and $value -eq 1) {
-            $revertableMitigations += @{
-                Name          = $cve.Name
-                Description   = "Disable $($cve.CVE) mitigation"
-                RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-                RegistryName  = $cve.RegName
-                CurrentValue  = $value
-                RevertValue   = 0
-                Impact        = "Low-Medium"
-                CanBeReverted = $true
-                SecurityRisk  = "Medium - Removes protection against $($cve.CVE)"
-            }
-        }
-    }
-    
-    # 8. Windows Defender ASLR
+    # 7. Windows Defender ASLR
     $aslr = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
     if ($aslr -ne $null -and $aslr -eq 1) {
         $revertableMitigations += @{
@@ -1318,6 +1235,70 @@ function Get-RevertableMitigations {
             Impact        = "Low"
             CanBeReverted = $true
             SecurityRisk  = "Medium - Reduces memory layout randomization"
+        }
+    }
+
+    # 8. L1TF Mitigation - CVE-2018-3620/3646
+    $l1tf = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "L1TFMitigationLevel"
+    if ($l1tf -ne $null -and $l1tf -eq 1) {
+        $revertableMitigations += @{
+            Name          = "L1TF Mitigation"
+            Description   = "Disable L1 Terminal Fault protection (CVE-2018-3620/3646)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "L1TFMitigationLevel"
+            CurrentValue  = $l1tf
+            RevertValue   = 0
+            Impact        = "High"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Exposes VMs to L1TF attacks"
+        }
+    }
+
+    # 9. MDS Mitigation - CVE-2018-11091/12126/12127/12130
+    $mds = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "MDSMitigationLevel"
+    if ($mds -ne $null -and $mds -eq 1) {
+        $revertableMitigations += @{
+            Name          = "MDS Mitigation"
+            Description   = "Disable Microarchitectural Data Sampling protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "MDSMitigationLevel"
+            CurrentValue  = $mds
+            RevertValue   = 0
+            Impact        = "High"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Exposes Intel CPUs to MDS attacks"
+        }
+    }
+
+    # 10. CVE-2019-11135 Mitigation
+    $tsx = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "TSXAsyncAbortLevel"
+    if ($tsx -ne $null -and $tsx -eq 1) {
+        $revertableMitigations += @{
+            Name          = "CVE-2019-11135 Mitigation"
+            Description   = "Disable Windows Kernel Information Disclosure protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "TSXAsyncAbortLevel"
+            CurrentValue  = $tsx
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - TSX-related vulnerability exposure"
+        }
+    }
+
+    # 11. SBDR/SBDS Mitigation - CVE-2022-21123/21125
+    $sbds = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "SBDRMitigationLevel"
+    if ($sbds -ne $null -and $sbds -eq 1) {
+        $revertableMitigations += @{
+            Name          = "SBDR/SBDS Mitigation"
+            Description   = "Disable Shared Buffer Data Read/Sampling protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "SBDRMitigationLevel"
+            CurrentValue  = $sbds
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Intel CPU vulnerability exposure"
         }
     }
 
@@ -1454,22 +1435,22 @@ function Get-CurrentSecurityResults {
         -Recommendation "Disable Intel TSX for security" `
         -Impact "May affect applications that rely on TSX, but improves security"
 
-    # Add modern CVE mitigations
-    $currentResults += Test-SideChannelMitigation -Name "BHB Mitigation" `
-        -Description "CVE-2022-0001/0002 mitigation (Branch History Buffer)" `
-        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-        -RegistryName "BranchHistoryBufferEnabled" `
-        -ExpectedValue 1 `
-        -Recommendation "Enable BHB mitigation for CVE-2022-0001/0002" `
-        -Impact "Minimal performance impact on recent CPUs"
-
+    # Add key CVE mitigations for scoring
     $currentResults += Test-SideChannelMitigation -Name "L1TF Mitigation" `
-        -Description "CVE-2018-3620 mitigation (L1 Terminal Fault)" `
+        -Description "L1 Terminal Fault protection (CVE-2018-3620/3646)" `
         -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-        -RegistryName "L1TerminalFaultMitigation" `
+        -RegistryName "L1TFMitigationLevel" `
         -ExpectedValue 1 `
-        -Recommendation "Enable L1TF mitigation for CVE-2018-3620" `
+        -Recommendation "Enable L1TF protection" `
         -Impact "High performance impact in virtualized environments"
+
+    $currentResults += Test-SideChannelMitigation -Name "MDS Mitigation" `
+        -Description "Microarchitectural Data Sampling protection" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "MDSMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable MDS protection" `
+        -Impact "Moderate performance impact on Intel CPUs"
 
     return $currentResults
 }
@@ -1646,12 +1627,21 @@ function Invoke-MitigationRevert {
 
 # Main execution
 Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
-Write-ColorOutput "Based on Microsoft KB4073119`n" -Color Info
-Write-ColorOutput "Enhanced with additional CVEs from Microsoft's SpeculationControl tool analysis`n" -Color Warning
+Write-ColorOutput "Based on Microsoft KB4073119 - Core Documented Mitigations`n" -Color Info
 
 # Parameter validation (simplified with ParameterSets)
-Write-ColorOutput "NOTE: For official Microsoft assessment, also consider running:" -Color Info
+Write-ColorOutput "IMPORTANT: This script checks only the core KB4073119 documented mitigations." -Color Warning
+Write-ColorOutput "For comprehensive analysis including modern CVEs (2022-2023), also run:" -Color Info
 Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
+
+# Performance Impact Warning
+Write-ColorOutput "⚠️  PERFORMANCE IMPACT WARNING ⚠️" -Color Error
+Write-ColorOutput "Some mitigations may significantly impact system performance:" -Color Warning
+Write-ColorOutput "• L1TF & MDS Mitigations: May require disabling hyperthreading" -Color Warning
+Write-ColorOutput "• Older Hyper-V (pre-2016): Higher performance impact" -Color Warning
+Write-ColorOutput "• VBS/Credential Guard: Requires UEFI, Secure Boot, TPM 2.0" -Color Warning
+Write-ColorOutput "• Build servers/shared hosting: May need SMT disabled" -Color Warning
+Write-ColorOutput "Test performance impact in non-production first!`n" -Color Error
 
 # System Information
 $cpuInfo = Get-CPUInfo
@@ -1704,19 +1694,19 @@ $Results += Test-SideChannelMitigation -Name "SSBD Feature Mask" `
 $Results += Test-SideChannelMitigation -Name "Branch Target Injection Mitigation" `
     -Description "Mitigates Branch Target Injection (Spectre Variant 2)" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "DisableGPOLoading" `
+    -RegistryName "DisablePageCombining" `
     -ExpectedValue 0 `
-    -Recommendation "Ensure Group Policy loading is enabled for security policies" `
-    -Impact "Required for proper security policy application"
+    -Recommendation "Enable BTI mitigation to protect against Spectre V2 attacks" `
+    -Impact "Minimal performance impact on modern CPUs"
 
 # 4. Kernel VA Shadow (KVAS) for Meltdown Protection
 $Results += Test-SideChannelMitigation -Name "Kernel VA Shadow (Meltdown Protection)" `
     -Description "Kernel Virtual Address Shadowing to mitigate Meltdown attacks" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
-    -RegistryName "EnableCfg" `
+    -RegistryName "EnableKernelVaShadow" `
     -ExpectedValue 1 `
-    -Recommendation "Enable Control Flow Guard for additional protection" `
-    -Impact "Provides additional exploit mitigation"
+    -Recommendation "Enable KVAS to protect against Meltdown (CVE-2017-5754)" `
+    -Impact "Medium performance impact, essential for Meltdown protection"
 
 # 5. Hardware Mitigations
 $Results += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
@@ -1754,122 +1744,87 @@ $Results += Test-SideChannelMitigation -Name "Intel TSX Disable" `
     -Recommendation "Disable TSX if not required by applications" `
     -Impact "May affect applications that rely on TSX, but improves security"
 
-# 9. Retpoline Support Check
-$Results += Test-SideChannelMitigation -Name "Retpoline Support" `
-    -Description "Compiler-based mitigation for indirect branch speculation" `
-    -RegistryPath "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" `
-    -RegistryName "MinVmVersionForCpuBasedMitigations" `
-    -ExpectedValue "1.0" `
-    -Recommendation "Ensure retpoline support is available in compiled code" `
-    -Impact "Compiler and application dependent"
+# 9. Retpoline Support Check (Informational)
+$Results += [PSCustomObject]@{
+    Name           = "Retpoline Support"
+    Description    = "Compiler-based mitigation for indirect branch speculation"
+    Status         = "Information"
+    CurrentValue   = "Check with compiler and application vendors"
+    ExpectedValue  = "Enabled in compiled binaries"
+    RegistryPath   = "N/A - Compiler Feature"
+    RegistryName   = "N/A"
+    Recommendation = "Ensure applications are compiled with retpoline support"
+    Impact         = "Compiler and application dependent"
+    CanBeEnabled   = $false
+}
 
 # 10. Enhanced IBRS (Indirect Branch Restricted Speculation)
 $Results += Test-SideChannelMitigation -Name "Enhanced IBRS" `
     -Description "Enhanced Indirect Branch Restricted Speculation" `
-    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
-    -RegistryName "DisablePagingExecutive" `
-    -ExpectedValue 1 `
-    -Recommendation "Consider disabling paging executive for better security" `
-    -Impact "Requires sufficient physical memory"
-
-# Additional Modern CVE Checks - Based on Microsoft SpeculationControl tool analysis
-
-# 11. BHB (Branch History Buffer) - CVE-2022-0001, CVE-2022-0002
-$Results += Test-SideChannelMitigation -Name "BHB Mitigation" `
-    -Description "Branch History Buffer injection mitigation (CVE-2022-0001, CVE-2022-0002)" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "BranchHistoryBufferEnabled" `
+    -RegistryName "IbrsEnabled" `
     -ExpectedValue 1 `
-    -Recommendation "Enable BHB mitigation for modern Intel/AMD CPU protection" `
-    -Impact "Minimal performance impact on recent CPUs"
+    -Recommendation "Enable Enhanced IBRS for Spectre V2 protection on supported CPUs" `
+    -Impact "Minimal performance impact on CPUs with Enhanced IBRS support"
 
-# 12. GDS (Gather Data Sample) - CVE-2022-40982  
-$Results += Test-SideChannelMitigation -Name "GDS Mitigation" `
-    -Description "Gather Data Sample vulnerability mitigation (CVE-2022-40982)" `
+# ===================================================================
+# ADDITIONAL CVE MITIGATIONS - HIGH PERFORMANCE IMPACT WARNING
+# ===================================================================
+Write-ColorOutput "`nChecking Additional CVE Mitigations (Performance Impact Warning)..." -Color Warning
+
+# 11. L1 Terminal Fault (L1TF) - CVE-2018-3620, CVE-2018-3646
+$Results += Test-SideChannelMitigation -Name "L1TF Mitigation" `
+    -Description "L1 Terminal Fault protection (CVE-2018-3620/3646)" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "GatherDataSampleMitigation" `
+    -RegistryName "L1TFMitigationLevel" `
     -ExpectedValue 1 `
-    -Recommendation "Enable GDS mitigation for Intel CPU data sampling protection" `
-    -Impact "Performance impact varies by workload"
+    -Recommendation "Enable L1TF protection. WARNING: High performance impact in virtualized environments" `
+    -Impact "HIGH - May require disabling hyperthreading on older Hyper-V versions"
 
-# 13. SRSO (Speculative Return Stack Overflow) - CVE-2023-20569
-$Results += Test-SideChannelMitigation -Name "SRSO Mitigation" `
-    -Description "Speculative Return Stack Overflow mitigation for AMD CPUs (CVE-2023-20569)" `
-    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "SpeculativeReturnStackMitigation" `
-    -ExpectedValue 1 `
-    -Recommendation "Enable SRSO mitigation for AMD Zen architecture protection" `
-    -Impact "Minor performance impact on AMD Zen processors"
-
-# 14. RFDS (Register File Data Sampling) - CVE-2023-28746
-$Results += Test-SideChannelMitigation -Name "RFDS Mitigation" `
-    -Description "Register File Data Sampling vulnerability mitigation (CVE-2023-28746)" `
-    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "RegisterFileDataSamplingMitigation" `
-    -ExpectedValue 1 `
-    -Recommendation "Enable RFDS mitigation for Intel CPU register file protection" `
-    -Impact "Minimal performance overhead on supported CPUs"
-
-# 15. L1TF (L1 Terminal Fault) - CVE-2018-3620
-# Perform Intel CPU-specific vulnerability detection
-if ($cpuInfo.Manufacturer -eq "GenuineIntel") {
-    # Extract Intel CPU Family/Model/Stepping for vulnerability assessment
-    $IntelCPUDetails = $null
-    if ($cpuInfo.Description -match 'Family (\d+) Model (\d+) Stepping (\d+)') {
-        $IntelCPUDetails = @{
-            Family   = [int]$Matches[1]
-            Model    = [int]$Matches[2]
-            Stepping = [int]$Matches[3]
-        }
-    }
-    
-    # Define known L1TF vulnerable Intel CPU signatures
-    $L1TFVulnerableCPUs = @(
-        @{Family = 6; Model = 26; Stepping = 4 }, @{Family = 6; Model = 26; Stepping = 5 },
-        @{Family = 6; Model = 30; Stepping = 5 }, @{Family = 6; Model = 37; Stepping = 1 },
-        @{Family = 6; Model = 44; Stepping = 2 }, @{Family = 6; Model = 42; Stepping = 7 },
-        @{Family = 6; Model = 45; Stepping = 7 }, @{Family = 6; Model = 58; Stepping = 9 },
-        @{Family = 6; Model = 62; Stepping = 4 }, @{Family = 6; Model = 60; Stepping = 3 },
-        @{Family = 6; Model = 79; Stepping = 1 }, @{Family = 6; Model = 142; Stepping = 9 },
-        @{Family = 6; Model = 158; Stepping = 9 }, @{Family = 6; Model = 158; Stepping = 10 }
-    )
-    
-    $IsL1TFVulnerable = $false
-    if ($IntelCPUDetails) {
-        foreach ($VulnCPU in $L1TFVulnerableCPUs) {
-            if ($IntelCPUDetails.Family -eq $VulnCPU.Family -and 
-                $IntelCPUDetails.Model -eq $VulnCPU.Model -and 
-                $IntelCPUDetails.Stepping -eq $VulnCPU.Stepping) {
-                $IsL1TFVulnerable = $true
-                break
-            }
-        }
-    }
-    
-    $L1TFRecommendation = if ($IsL1TFVulnerable) {
-        "CPU signature matches L1TF vulnerable list. Ensure L1D flush mitigation and latest microcode updates."
-    }
-    else {
-        "CPU does not match known L1TF vulnerable signatures, but enable mitigation if available."
-    }
-    
-    $Results += Test-SideChannelMitigation -Name "L1TF Mitigation" `
-        -Description "L1 Terminal Fault (Foreshadow) mitigation for Intel CPUs (CVE-2018-3620)" `
-        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-        -RegistryName "L1TerminalFaultMitigation" `
-        -ExpectedValue 1 `
-        -Recommendation $L1TFRecommendation `
-        -Impact "High performance impact in virtualized environments"
-}
-
-# 16. MDS (Microarchitectural Data Sampling) 
+# 12. MDS Mitigation - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
 $Results += Test-SideChannelMitigation -Name "MDS Mitigation" `
-    -Description "Microarchitectural Data Sampling vulnerability mitigation" `
+    -Description "Microarchitectural Data Sampling protection (CVE-2018-11091/12126/12127/12130)" `
     -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "MicroarchitecturalDataSamplingMitigation" `
+    -RegistryName "MDSMitigationLevel" `
     -ExpectedValue 1 `
-    -Recommendation "Enable MDS mitigation to prevent microarchitectural data leakage" `
-    -Impact "Moderate performance impact on affected Intel CPUs"
+    -Recommendation "Enable MDS protection. WARNING: Moderate performance impact on Intel CPUs" `
+    -Impact "MODERATE-HIGH - 3-8% performance impact, may require SMT disable"
+
+# 13. Windows Kernel Information Disclosure - CVE-2019-11135  
+$Results += Test-SideChannelMitigation -Name "CVE-2019-11135 Mitigation" `
+    -Description "Windows Kernel Information Disclosure Vulnerability protection" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "TSXAsyncAbortLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable TAA/TSX mitigation. Performance impact varies by workload" `
+    -Impact "MODERATE - Application-dependent performance impact"
+
+# 14. SBDR/SBDS Mitigation - CVE-2022-21123, CVE-2022-21125
+$Results += Test-SideChannelMitigation -Name "SBDR/SBDS Mitigation" `
+    -Description "Shared Buffer Data Read/Sampling protection (CVE-2022-21123/21125)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "SBDRMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable SBDR/SBDS protection for recent Intel CPUs" `
+    -Impact "LOW-MODERATE - Performance impact varies by CPU generation"
+
+# 15. SRBDS Update - CVE-2022-21127
+$Results += Test-SideChannelMitigation -Name "SRBDS Update Mitigation" `
+    -Description "Special Register Buffer Data Sampling Update protection (CVE-2022-21127)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "SRBDSMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable SRBDS Update protection for affected Intel CPUs" `
+    -Impact "LOW - Minimal performance impact on most workloads"
+
+# 16. DRPW Mitigation - CVE-2022-21166
+$Results += Test-SideChannelMitigation -Name "DRPW Mitigation" `
+    -Description "Device Register Partial Write protection (CVE-2022-21166)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "DRPWMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable DRPW protection for Intel CPUs with affected components" `
+    -Impact "LOW - Typically minimal performance impact"
 
 # Check Windows Defender features
 Write-ColorOutput "`nChecking Windows Security Features..." -Color Header
@@ -2473,8 +2428,9 @@ function Select-Mitigations {
     $index = 1
     foreach ($mitigation in $AvailableMitigations) {
         $impact = switch ($mitigation.Name) {
-            { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Low" }
-            { $_ -match "Meltdown|KVAS" } { "Medium" }
+            { $_ -match "Spectre|BTI|IBRS|SSBD|SRBDS|DRPW" } { "Low" }
+            { $_ -match "Meltdown|KVAS|SBDR|SBDS|CVE-2019-11135" } { "Medium" }
+            { $_ -match "L1TF|MDS" } { "High" }
             { $_ -match "TSX|Hardware" } { "Variable" }
             { $_ -match "VBS|HVCI" } { "High" }
             default { "Unknown" }
@@ -2487,6 +2443,12 @@ function Select-Mitigations {
             "Hardware Security Mitigations" { "CPU-level side-channel protections" }
             "Intel TSX Disable" { "Prevents TSX-based attacks" }
             "Enhanced IBRS" { "Intel hardware mitigation" }
+            "L1TF Mitigation" { "L1 Terminal Fault protection (may require SMT disable)" }
+            "MDS Mitigation" { "Microarchitectural Data Sampling protection (Intel)" }
+            "CVE-2019-11135 Mitigation" { "Windows Kernel Information Disclosure protection" }
+            "SBDR/SBDS Mitigation" { "Shared Buffer Data protection (Intel)" }
+            "SRBDS Update Mitigation" { "Special Register Buffer protection (Intel)" }
+            "DRPW Mitigation" { "Device Register Partial Write protection (Intel)" }
             "VBS" { "Virtualization Based Security" }
             "HVCI" { "Hypervisor-protected Code Integrity" }
             default { $mitigation.Description -replace "^CVE-[^:]+: ", "" }
@@ -2555,7 +2517,11 @@ function Filter-CPUSpecificMitigations {
         "RFDS Mitigation", 
         "L1TF Mitigation",
         "MDS Mitigation",
-        "Intel TSX Disable"
+        "Intel TSX Disable",
+        "CVE-2019-11135 Mitigation",
+        "SBDR/SBDS Mitigation", 
+        "SRBDS Update Mitigation",
+        "DRPW Mitigation"
     )
     
     $amdSpecificMitigations = @(
@@ -2605,6 +2571,29 @@ if ($Apply) {
     if ($notConfigured.Count -gt 0) {
         Write-ColorOutput "Filtering mitigations for CPU compatibility..." -Color Info
         $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
+    }
+    
+    # Filter out hardware/firmware settings that cannot be configured via registry
+    if ($notConfigured.Count -gt 0) {
+        Write-ColorOutput "Filtering hardware/firmware settings..." -Color Info
+        $notConfigured = $notConfigured | Where-Object { 
+            $_.RegistryPath -notmatch "Hardware/UEFI|BIOS/UEFI" -and
+            $_.RegistryPath -notmatch "Hardware Feature" 
+        }
+        
+        # Show which hardware settings were filtered out
+        $hardwareSettings = $Results | Where-Object { 
+            $_.Status -ne "Enabled" -and 
+            $_.CanBeEnabled -and 
+            ($_.RegistryPath -match "Hardware/UEFI|BIOS/UEFI" -or $_.RegistryPath -match "Hardware Feature") 
+        }
+        
+        if ($hardwareSettings.Count -gt 0) {
+            Write-ColorOutput "`nNote: The following settings require hardware/firmware configuration and cannot be applied via registry:" -Color Warning
+            foreach ($setting in $hardwareSettings) {
+                Write-ColorOutput "  - $($setting.Name): $($setting.Recommendation)" -Color Info
+            }
+        }
     }
     
     if ($notConfigured.Count -gt 0) {
@@ -2721,26 +2710,11 @@ else {
                 }
             }
             
-            # Add comment for modern CVE mitigations
-            $ModernCVENames = @("BranchHistoryBufferEnabled", "GatherDataSampleMitigation", "SpeculativeReturnStackMitigation", "RegisterFileDataSamplingMitigation", "MicroarchitecturalDataSamplingMitigation", "L1TerminalFaultMitigation")
-            if ($item.RegistryName -in $ModernCVENames) {
-                $cveDescription = switch ($item.RegistryName) {
-                    "BranchHistoryBufferEnabled" { "BHB CVE-2022-0001/0002" }
-                    "GatherDataSampleMitigation" { "GDS CVE-2022-40982" }
-                    "SpeculativeReturnStackMitigation" { "SRSO CVE-2023-20569" }
-                    "RegisterFileDataSamplingMitigation" { "RFDS CVE-2023-28746" }
-                    "MicroarchitecturalDataSamplingMitigation" { "MDS mitigation" }
-                    "L1TerminalFaultMitigation" { "L1TF CVE-2018-3620" }
-                }
-                Write-ColorOutput "# $($item.Name) - $cveDescription" -Color Info
-            }
-            
             Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t $regType /d $regValue /f" -Color Info
         }
         Write-ColorOutput "`nNote: A system restart may be required after making registry changes." -Color Warning
-        
-        # Additional guidance for modern CVE mitigations
-        $hasModernCVEs = $notConfigured | Where-Object { $_.Name -match "BHB|GDS|SRSO|RFDS|MDS|L1TF" }
+        Write-ColorOutput "These are the core KB4073119 documented mitigations. For additional modern CVE mitigations," -Color Info
+        Write-ColorOutput "use Microsoft's official SpeculationControl PowerShell module." -Color Info
         if ($hasModernCVEs) {
             Write-ColorOutput "`nAdvanced CVE Mitigations Notice:" -Color Header
             Write-ColorOutput "- These mitigations target recent vulnerabilities (2018-2023)" -Color Info

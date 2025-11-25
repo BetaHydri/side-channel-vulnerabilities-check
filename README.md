@@ -14,18 +14,23 @@ This tool helps system administrators assess and configure their Windows systems
 - **Speculative Store Bypass** (SSB) - CVE-2018-3639
 
 ### 🆕 Modern CVEs (2018-2023):
-- **L1TF** (L1 Terminal Fault) - CVE-2018-3620
-- **BHB** (Branch History Buffer) - CVE-2022-0001/0002
-- **GDS** (Gather Data Sample) - CVE-2022-40982
-- **SRSO** (Speculative Return Stack Overflow) - CVE-2023-20569
-- **RFDS** (Register File Data Sampling) - CVE-2023-28746
-- **MDS** (Microarchitectural Data Sampling) mitigation
+- **L1TF** (L1 Terminal Fault) - CVE-2018-3620, CVE-2018-3646
+- **MDS** (Microarchitectural Data Sampling) - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
+- **CVE-2019-11135** (Windows Kernel Information Disclosure)
+- **SBDR/SBDS** (Shared Buffer Data) - CVE-2022-21123, CVE-2022-21125
+- **SRBDS** (Special Register Buffer) - CVE-2022-21127
+- **DRPW** (Device Register Partial Write) - CVE-2022-21166
 
-### 🎯 NEW Enterprise Features:
+⚠️ **PERFORMANCE IMPACT WARNING**: L1TF and MDS mitigations may require disabling hyperthreading/SMT on older systems
+
+### 🎯 Enterprise Features:
 - **🎮 Interactive Mode** - Choose specific mitigations with user-friendly interface
 - **🔍 WhatIf Preview** - See changes before applying them
 - **🎯 Granular Control** - Select individual, ranges, or all mitigations
+- **🔄 Intelligent Revert** - Safely remove specific problematic mitigations
+- **⚠️ Performance Impact Warnings** - Clear warnings about L1TF/MDS performance impacts
 - **🖥️ PowerShell 5.1 Compatibility** - Works seamlessly on Windows Server default installations
+- **🏢 KB4073119 + Extended CVE Support** - Core documented mitigations plus performance-critical CVEs
 
 ## 🏢 Enterprise Features
 
@@ -123,13 +128,14 @@ Get-SpeculationControlSettings             # Hardware-level analysis
 ### Tool Comparison:
 | Feature | This Tool | Microsoft SpeculationControl |
 |---------|-----------|-------------------------------|
-| **CVE Coverage** | ✅ Complete (2017-2023) | ✅ Complete (2017-2023) |
-| **Virtualization** | ✅ Comprehensive | ❌ None |
-| **Auto-Configuration** | ✅ `-Apply` Switch | ❌ Assessment only |
-| **Revert Functionality** | ✅ **Interactive Revert** | ❌ None |
-| **Enterprise Features** | ✅ CSV Export, Tables, WhatIf | ⚠️ Basic text |
+| **CVE Coverage** | ✅ KB4073119 + Performance-Critical CVEs | ✅ Complete (2017-2023) |
+| **Virtualization** | ✅ Comprehensive VMware/Hyper-V | ❌ None |
+| **Auto-Configuration** | ✅ `-Apply` Switch with Interactive Mode | ❌ Assessment only |
+| **Revert Functionality** | ✅ **Interactive Revert with WhatIf** | ❌ None |
+| **Performance Impact Warnings** | ✅ **Detailed L1TF/MDS/SMT warnings** | ⚠️ Basic |
+| **Enterprise Features** | ✅ CSV Export, Tables, WhatIf, Interactive | ⚠️ Basic text |
 | **OS Version-Awareness** | ✅ Automatic | ⚠️ Basic |
-| **Hardware Analysis** | ⚠️ Registry-based | ✅ Native APIs |
+| **Hardware Analysis** | ⚠️ Registry-based + Hardware Detection | ✅ Native APIs |
 
 ## 🔧 Installation
 
@@ -328,13 +334,13 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 ```powershell
 .\SideChannel_Check.ps1 -Revert -Interactive
 ```
-**🏢 ENTERPRISE FEATURE**: Intelligently remove specific side-channel mitigations causing performance issues. Interactive mode provides safety confirmations with detailed security impact analysis.
+**🏢 ENTERPRISE FEATURE**: Intelligently remove specific side-channel mitigations causing performance issues. Particularly useful for L1TF/MDS mitigations that may require SMT disable. Interactive mode provides safety confirmations with detailed security impact analysis.
 
 ### 🔍 **Preview Revert Changes** - Risk-Free Planning
 ```powershell
 .\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
 ```
-**🎯 RECOMMENDED ENTERPRISE WORKFLOW**: Preview which mitigations would be reverted, their security implications, and registry changes before making any modifications.
+**🎯 RECOMMENDED ENTERPRISE WORKFLOW**: Preview which mitigations would be reverted, their security implications, and registry changes before making any modifications. Essential for performance recovery in production environments.
 
 ## 🖥️ VMware Host Security Management
 
@@ -820,9 +826,13 @@ BHB Mitigation                          [+] Enabled                1            
 GDS Mitigation                          [+] Enabled                1                 1    Performance impact varies by workload
 SRSO Mitigation                         [?] Not Set          Not Set                 1    Minor performance impact on AMD Zen
 RFDS Mitigation                         [+] Enabled                1                 1    Minimal performance overhead
-L1TF Mitigation                         [+] Enabled                1                 1    High performance impact in virtualized environments
-MDS Mitigation                          [+] Enabled                1                 1    Moderate performance impact on Intel CPUs
-Windows Defender Exploit Guard ASLR     [?] Not Set          Not Set                 1    Improves resistance to memory corruption
+L1TF Mitigation                         [-] Not Set          Not Set                 1    HIGH - May require SMT disable in virtualized environments
+MDS Mitigation                          [-] Not Set          Not Set                 1    MODERATE-HIGH - 3-8% performance impact on Intel CPUs
+CVE-2019-11135 Mitigation               [-] Not Set          Not Set                 1    VARIABLE - Application-dependent performance impact
+SBDR/SBDS Mitigation                    [-] Not Set          Not Set                 1    LOW-MEDIUM - Performance impact varies by CPU generation
+SRBDS Update Mitigation                 [-] Not Set          Not Set                 1    LOW - Minimal performance impact on most workloads
+DRPW Mitigation                         [-] Not Set          Not Set                 1    LOW - Typically minimal performance impact
+Windows Defender Exploit Guard ASLR     [-] Not Set          Not Set                 1    Improves resistance to memory corruption
 Virtualization Based Security (VBS)     [+] Enabled                1                 1    Requires UEFI, Secure Boot
 UEFI Firmware (not Legacy BIOS)         [+] Enabled             UEFI              UEFI    Required for Secure Boot, VBS
 Secure Boot                             [+] Enabled          Enabled           Enabled    Essential for VBS and prevents boot malware  
@@ -916,16 +926,16 @@ Enabled: 2 of 25 known flags
 | **Intel TSX Disable** | Prevents TSX-based attacks | `HKLM:\SYSTEM\...\kernel` | Application-dependent |
 | **Hardware Mitigations** | CPU-level protection | `HKLM:\SYSTEM\...\kernel` | Hardware-dependent |
 
-### Modern CVE Mitigations (2018-2023):
+### Modern CVE Mitigations (2018-2023) - Performance Impact Focus:
 
-| CVE | Mitigation | Target CPUs | Description |
-|-----|------------|-----------|-------------|
-| **CVE-2018-3620** | L1TF Mitigation | Intel (Virtualization) | L1 Terminal Fault protection |
-| **CVE-2022-0001/0002** | BHB Mitigation | Intel/AMD (Modern) | Branch History Buffer |
-| **CVE-2022-40982** | GDS Mitigation | Intel (Server/Datacenter) | Gather Data Sample |
-| **CVE-2023-20569** | SRSO Mitigation | AMD Zen | Speculative Return Stack Overflow |
-| **CVE-2023-28746** | RFDS Mitigation | Intel (Modern) | Register File Data Sampling |
-| **MDS** | MDS Mitigation | Intel (Affected) | Microarchitectural Data Sampling |
+| CVE | Mitigation | Target CPUs | Performance Impact | Description |
+|-----|------------|-----------|-------------------|-------------|
+| **CVE-2018-3620/3646** | L1TF Mitigation | Intel (Virtualization) | **HIGH** - May require SMT disable | L1 Terminal Fault protection |
+| **CVE-2018-11091-12130** | MDS Mitigation | Intel (Affected) | **MODERATE-HIGH** - 3-8% impact | Microarchitectural Data Sampling |
+| **CVE-2019-11135** | TAA/TSX Mitigation | Intel/AMD | **VARIABLE** - Application dependent | Windows Kernel Information Disclosure |
+| **CVE-2022-21123/21125** | SBDR/SBDS Mitigation | Intel (Recent) | **LOW-MEDIUM** - CPU dependent | Shared Buffer Data protection |
+| **CVE-2022-21127** | SRBDS Update Mitigation | Intel (Affected) | **LOW** - Minimal impact | Special Register Buffer protection |
+| **CVE-2022-21166** | DRPW Mitigation | Intel (Components) | **LOW** - Typically minimal | Device Register Partial Write protection |
 
 ### Hardware Requirements & Platform Security:
 
@@ -1122,12 +1132,20 @@ vmware-toolbox-cmd -v
 - CPU flags: +spec-ctrl, +ibpb, +ssbd
 - Intel EPT/AMD RVI enabled## ⚠️ Important Notes
 
+### ⚠️ **CRITICAL PERFORMANCE WARNING**:
+- **L1TF & MDS Mitigations**: May require disabling hyperthreading/SMT
+- **Older Hyper-V (pre-Windows Server 2016)**: Higher performance impact
+- **VBS/Credential Guard**: Requires UEFI, Secure Boot, TPM 2.0
+- **Build servers/shared hosting**: May need SMT disabled for security
+- **TEST PERFORMANCE IMPACT IN NON-PRODUCTION FIRST!**
+
 ### Before running `-Apply`:
 - **Backup registry** or create system restore point
 - **Test in non-production environment first**
 - **Check application compatibility** - some protections may impact performance
 - **Update CPU microcode** - Modern CVE mitigations require current microcode
 - **Plan system restart** - Changes require reboot
+- **Review performance warnings** - Especially for L1TF and MDS mitigations
 
 ### Interactive Mode Best Practices:
 - **Use WhatIf first** - Always preview changes with `-Interactive -WhatIf`
@@ -1558,12 +1576,13 @@ Contributions are welcome! Please:
 
 ---
 
-**Version:** 2.5  
+**Version:** 2.8  
 **Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
-**CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
-**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert, Intelligent OS Detection, Hardware Requirements Detection  
-**New in 2.5:** **Hardware Requirements Detection** - Automatic UEFI, Secure Boot, TPM 2.0, VT-x/AMD-V, and IOMMU status detection with proper color coding  
-**Previous in 2.4:** Enhanced Hyper-V Core Scheduler detection, improved registry path formatting, smarter recommendations  
+**CVE Coverage:** KB4073119 + Performance-Critical CVEs (2018-2022)  
+**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert, Performance Impact Warnings, Hardware Requirements Detection  
+**New in 2.8:** **Extended CVE Support** - L1TF, MDS, CVE-2019-11135, SBDR/SBDS, SRBDS, DRPW mitigations with performance impact warnings  
+**Previous in 2.7:** Enhanced revert functionality, CPU filtering, performance impact assessment  
+**Focus:** Enterprise deployment with performance consideration for production systems  
 **Compatibility:** Windows 10/11, Windows Server 2016/2019/2022/2025  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
