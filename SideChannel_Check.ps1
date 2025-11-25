@@ -1021,7 +1021,69 @@ function Get-RevertableMitigations {
             SecurityRisk  = "Medium - Reduces memory layout randomization"
         }
     }
-    
+
+    # 9. Nested Virtualization Security  
+    try {
+        $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+        $nestedEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+        if ($nestedEnabled) {
+            # Get list of VMs with nested virtualization enabled
+            $nestedVMs = $vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true } | Select-Object -ExpandProperty VMName
+            $vmList = $nestedVMs -join ", "
+            
+            $revertableMitigations += @{
+                Name          = "Nested Virtualization Security"
+                Description   = "Disable nested virtualization for enhanced security (VMs: $vmList)"
+                RegistryPath  = "Hyper-V PowerShell"
+                RegistryName  = "ExposeVirtualizationExtensions"
+                CurrentValue  = "Enabled"
+                RevertValue   = "Disabled"
+                Impact        = "High"
+                CanBeReverted = $true
+                SecurityRisk  = "Medium - Improves security by removing nested attack surface, but breaks VM-in-VM scenarios"
+                VMNames       = $nestedVMs
+            }
+        }
+    }
+    catch {
+        # Hyper-V not available or no VMs running - check for VMware
+        try {
+            # Detect if running in VMware VM
+            $vmwareDetected = $false
+            $manufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+            $model = (Get-WmiObject -Class Win32_ComputerSystem).Model
+            $biosVersion = (Get-WmiObject -Class Win32_BIOS).Version
+            
+            if ($manufacturer -match "VMware" -or $model -match "VMware" -or $biosVersion -match "VMware") {
+                $vmwareDetected = $true
+            }
+            
+            if ($vmwareDetected) {
+                $revertableMitigations += @{
+                    Name          = "VMware Nested Virtualization (Information Only)"
+                    Description   = "VMware nested virtualization detected - requires ESXi host configuration"
+                    RegistryPath  = "VMware ESXi"
+                    RegistryName  = "VT-x/AMD-V Passthrough"
+                    CurrentValue  = "Unknown (requires ESXi access)"
+                    RevertValue   = "ESXi Configuration Required"
+                    Impact        = "High"
+                    CanBeReverted = $false
+                    SecurityRisk  = "Info - Cannot be controlled from Windows guest. Requires ESXi host access."
+                    ESXiCommands  = @(
+                        "# Disable VT-x/AMD-V passthrough (run on ESXi host):",
+                        "esxcli hardware cpu set --vhv 0",
+                        "# Or edit VM .vmx file:",
+                        "vhv.enable = `"FALSE`"",
+                        "featMask.vm.hv.capable = `"Min:0`""
+                    )
+                }
+            }
+        }
+        catch {
+            # No VMware detection available
+        }
+    }
+
     return $revertableMitigations
 }
 
@@ -1160,16 +1222,53 @@ function Invoke-MitigationRevert {
         
         if ($WhatIf) {
             Write-ColorOutput "  Would revert:" -Color Warning
-            Write-ColorOutput "    Registry Path: $($mitigation.RegistryPath)" -Color Info
-            Write-ColorOutput "    Registry Name: $($mitigation.RegistryName)" -Color Info
-            Write-ColorOutput "    Current Value: $($mitigation.CurrentValue)" -Color Info
-            Write-ColorOutput "    New Value: $($mitigation.RevertValue)" -Color Warning
+            if ($mitigation.RegistryPath -eq "Hyper-V PowerShell") {
+                Write-ColorOutput "    Action: Disable nested virtualization on VMs" -Color Info
+                Write-ColorOutput "    VMs affected: $($mitigation.VMNames -join ', ')" -Color Info
+                Write-ColorOutput "    PowerShell Command: Set-VMProcessor -VMName <VM> -ExposeVirtualizationExtensions `$false" -Color Info
+            }
+            elseif ($mitigation.RegistryPath -eq "VMware ESXi") {
+                Write-ColorOutput "    Platform: VMware vSphere detected" -Color Info
+                Write-ColorOutput "    Action: Cannot be controlled from Windows guest" -Color Warning
+                Write-ColorOutput "    Required: ESXi host access" -Color Warning
+                Write-ColorOutput "    ESXi Commands:" -Color Info
+                foreach ($cmd in $mitigation.ESXiCommands) {
+                    Write-ColorOutput "      $cmd" -Color Gray
+                }
+            }
+            else {
+                Write-ColorOutput "    Registry Path: $($mitigation.RegistryPath)" -Color Info
+                Write-ColorOutput "    Registry Name: $($mitigation.RegistryName)" -Color Info
+                Write-ColorOutput "    Current Value: $($mitigation.CurrentValue)" -Color Info
+                Write-ColorOutput "    New Value: $($mitigation.RevertValue)" -Color Warning
+            }
             Write-ColorOutput "    Security Risk: $($mitigation.SecurityRisk)" -Color Error
             Write-ColorOutput "" -Color Info
         }
         else {
             try {
-                if ($mitigation.RevertValue -eq "Remove registry value") {
+                if ($mitigation.RegistryPath -eq "Hyper-V PowerShell") {
+                    # Handle nested virtualization through Hyper-V PowerShell commands
+                    foreach ($vmName in $mitigation.VMNames) {
+                        Set-VMProcessor -VMName $vmName -ExposeVirtualizationExtensions $false -ErrorAction Stop
+                        Write-ColorOutput "  ✓ Disabled nested virtualization for VM: $vmName" -Color Good
+                    }
+                }
+                elseif ($mitigation.RegistryPath -eq "VMware ESXi") {
+                    # Handle VMware guidance
+                    Write-ColorOutput "  ⚠️ VMware Configuration Required:" -Color Warning
+                    Write-ColorOutput "    This change requires ESXi host access" -Color Warning
+                    Write-ColorOutput "    Commands to run on ESXi host:" -Color Info
+                    foreach ($cmd in $mitigation.ESXiCommands) {
+                        if ($cmd.StartsWith("#")) {
+                            Write-ColorOutput "    $cmd" -Color Good
+                        } else {
+                            Write-ColorOutput "    $cmd" -Color Warning
+                        }
+                    }
+                    Write-ColorOutput "  ⚠️ Cannot execute automatically from Windows guest" -Color Error
+                }
+                elseif ($mitigation.RevertValue -eq "Remove registry value") {
                     # Remove the registry value entirely
                     if (Test-Path $mitigation.RegistryPath) {
                         Remove-ItemProperty -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -ErrorAction SilentlyContinue

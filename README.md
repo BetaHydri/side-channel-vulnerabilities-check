@@ -293,6 +293,8 @@ To apply these changes, run without -WhatIf switch
 | **BHB/GDS/SRSO Mitigations** | Medium | CPU-specific performance impact |
 | **Speculative Store Bypass** | Medium | Application-specific performance |
 | **Windows Defender ASLR** | Medium | Legacy application compatibility |
+| **Nested Virtualization (Hyper-V)** | Medium | Enhanced security by reducing attack surface |
+| **Nested Virtualization (VMware)** | Info | Guidance provided for ESXi host configuration |
 
 ### 📋 Example Revert Session:
 ```
@@ -312,21 +314,31 @@ Use numbers to select (e.g., 1,3 or 1-2 or 'all'):
       Security Risk: High - Removes multiple CPU security features
       Registry: HKLM:\SYSTEM\...\kernel\MitigationOptions
 
-Enter your selection: 1
+  [3] VMware Nested Virtualization (Information Only) (Impact: High)
+      VMware nested virtualization detected - requires ESXi host configuration
+      Security Risk: Info - Cannot be controlled from Windows guest. Requires ESXi host access.
+      Registry: VMware ESXi\VT-x/AMD-V Passthrough
 
-⚠️  Are you sure you want to REMOVE these security protections? (yes/no): yes
+Enter your selection: 3
 
 === Mitigation Revert Operation ===
-Processing: Intel TSX Disable
-  ✓ Reverted: Intel TSX Disable = 0
+Processing: VMware Nested Virtualization (Information Only)
+  ⚠️ VMware Configuration Required:
+    This change requires ESXi host access
+    Commands to run on ESXi host:
+    # Disable VT-x/AMD-V passthrough (run on ESXi host):
+    esxcli hardware cpu set --vhv 0
+    # Or edit VM .vmx file:
+    vhv.enable = "FALSE"
+    featMask.vm.hv.capable = "Min:0"
+  ⚠️ Cannot execute automatically from Windows guest
 
 Revert Summary:
-  Successfully reverted: 1
+  Successfully reverted: 0 (Information provided)
   Failed: 0
 
-⚠️  IMPORTANT: System restart required for changes to take effect!
-Your system now has REDUCED security protection.
-Monitor system performance and re-enable mitigations if possible.
+⚠️ IMPORTANT: ESXi host configuration required for VMware environments!
+For VMware nested virtualization changes, access the ESXi host directly.
 ```
 
 **NEW in Version 2.0**: The `-Detailed` mode now includes a comprehensive **Hardware Security Mitigation Value Matrix** that decodes the cryptic MitigationOptions registry values.
