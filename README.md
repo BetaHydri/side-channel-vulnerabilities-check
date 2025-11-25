@@ -122,7 +122,8 @@ Get-SpeculationControlSettings             # Hardware-level analysis
 | **CVE Coverage** | ✅ Complete (2017-2023) | ✅ Complete (2017-2023) |
 | **Virtualization** | ✅ Comprehensive | ❌ None |
 | **Auto-Configuration** | ✅ `-Apply` Switch | ❌ Assessment only |
-| **Enterprise Features** | ✅ CSV Export, Tables | ⚠️ Basic text |
+| **Revert Functionality** | ✅ **Interactive Revert** | ❌ None |
+| **Enterprise Features** | ✅ CSV Export, Tables, WhatIf | ⚠️ Basic text |
 | **OS Version-Awareness** | ✅ Automatic | ⚠️ Basic |
 | **Hardware Analysis** | ⚠️ Registry-based | ✅ Native APIs |
 
