@@ -464,6 +464,67 @@ Enabled: 2 of 25 known flags
 - **Core Hardware Security Features** - Essential CPU security mitigations
 - **25+ additional flags** - Complete list in detailed output
 
+## 🎨 Interpreting Terminal Output
+
+### 📊 Status Symbols & Color Guide
+
+The tool uses **color-coded status symbols** for quick visual assessment:
+
+| Symbol | Color | Meaning | Action Required |
+|--------|-------|---------|----------------|
+| **[+]** | 🟢 **GREEN** | ✅ **Enabled/Secure** | None - properly configured |
+| **[-]** | 🔴 **RED** | ❌ **Disabled/Vulnerable** | **URGENT** - Enable protection |
+| **[?]** | 🟡 **YELLOW** | ⚠️ **Unknown/Default** | **REVIEW** - May need configuration |
+
+### 🖥️ Terminal Color Scheme:
+- **🟢 GREEN Text**: Successful/secure configurations
+- **🔴 RED Text**: Critical issues requiring immediate attention  
+- **🟡 YELLOW Text**: Warnings and items needing review
+- **🔵 BLUE Text**: Informational messages and system details
+- **🟣 MAGENTA Text**: Section headers and important summaries
+- **🟠 CYAN Text**: Virtualization-specific guidance and recommendations
+
+### 📈 Security Summary Colors:
+- **High Security (>85%)**: Predominantly GREEN output
+- **Medium Security (70-85%)**: Mix of GREEN and YELLOW
+- **Low Security (<70%)**: Significant RED and YELLOW items
+
+### 🎯 Quick Assessment Tips:
+1. **Scan for RED [-] symbols** - These are your highest priority items
+2. **Review YELLOW [?] symbols** - These may need configuration based on your environment
+3. **GREEN [+] symbols** - These are properly configured and secure
+4. **Check the Security Bar** - Visual representation of overall security level
+
+### 🏢 Enterprise Dashboard Reading:
+```
+=== SECURITY CONFIGURATION SUMMARY ===
+
+Security Status Overview:
+=========================
+[+] ENABLED:       20 / 22 mitigations  (GREEN - Good)
+[?] NOT SET:       2 / 22 mitigations   (YELLOW - Review needed)
+[-] DISABLED:      0 / 22 mitigations   (RED - Critical if present)
+
+Overall Security Level: 90.9%            (GREEN - Excellent)
+Security Bar:     [#########-] 90.9%     (Visual progress indicator)
+```
+
+### 🖥️ Virtualization Recommendations Color Guide:
+At the end of the output, **Virtualization Security Recommendations** use the same color system:
+- **🟢 [+] Enabled/Recommended**: Feature is active or recommended configuration
+- **🔴 [-] Disabled/Not Recommended**: Feature is disabled or not recommended  
+- **🟡 [?] Unknown/Variable**: Status depends on configuration or hardware
+
+**Example Interpretation**:
+```
+=== Virtualization Security Recommendations ===
+Hyper-V Host Specific:
+- Core Scheduler: [+] Enabled by default (Windows 11/Server 2022+ Build 26200)
+- Configure VM isolation policies
+- Use Generation 2 VMs for enhanced security
+```
+This means the Core Scheduler is properly enabled (GREEN [+]) and no action is needed.
+
 ## 📊 Example Output
 
 ```
@@ -507,9 +568,26 @@ Credential Guard                        [+] Enabled                1            
 Hyper-V Core Scheduler                  [+] Enabled         OS Default             Built-in No action needed - already optimized
 
 Status Legend:
-[+] Enabled - Mitigation is active and properly configured
-[-] Disabled - Mitigation is explicitly disabled  
-[?] Not Set - Registry value not configured (using defaults)
+[+] Enabled - Mitigation is active and properly configured (GREEN in terminal)
+[-] Disabled - Mitigation is explicitly disabled (RED in terminal)
+[?] Not Set - Registry value not configured (using defaults) (YELLOW in terminal)
+
+### 🎨 Color Coding in Terminal Output:
+- **🟢 GREEN [+]**: Security feature is properly enabled and working
+- **🔴 RED [-]**: Security feature is disabled or not working (requires attention)
+- **🟡 YELLOW [?]**: Security feature status is unknown or using default values (may need configuration)
+- **🔵 BLUE**: Informational messages and system details
+- **🟣 MAGENTA**: Section headers and important status summaries
+- **🟠 CYAN**: Virtualization-specific recommendations and host security guidance
+
+### 📋 Understanding the Output:
+**Main Security Table**: Each mitigation shows its current status with color-coded symbols for quick visual assessment.
+
+**Virtualization Security Recommendations**: 
+- Use the status symbols and colors to quickly identify which features need attention
+- GREEN items are properly configured and secure
+- YELLOW/RED items may require configuration or updates
+- Follow the specific recommendations provided for your environment type
 
 === SECURITY CONFIGURATION SUMMARY ===
 
