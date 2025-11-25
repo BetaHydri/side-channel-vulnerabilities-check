@@ -2470,6 +2470,7 @@ if ($virtInfo.IsVirtualMachine) {
 else {
     # Physical Host or Hypervisor-Specific Checks
     Write-ColorOutput "`nHypervisor Host-Specific Security Checks:" -Color Header
+    Write-ColorOutput "Checking host-level virtualization security features..." -Color Info
     
     # 6. Hyper-V Core Scheduler (OS version dependent)
     if ($virtInfo.HyperVStatus -eq "Enabled") {
