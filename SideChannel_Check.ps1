@@ -1988,11 +1988,11 @@ function Invoke-MitigationRevert {
 
 # Main execution
 Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
-Write-ColorOutput "Based on Microsoft KB4073119 - Core Documented Mitigations`n" -Color Info
+Write-ColorOutput "Based on Microsoft KB4073119 + Extended Modern CVE Coverage`n" -Color Info
 
 # Parameter validation (simplified with ParameterSets)
-Write-ColorOutput "IMPORTANT: This script checks only the core KB4073119 documented mitigations." -Color Warning
-Write-ColorOutput "For comprehensive analysis including modern CVEs (2022-2023), also run:" -Color Info
+Write-ColorOutput "IMPORTANT: This script checks KB4073119 + modern CVEs (2018-2023) with enterprise features." -Color Warning
+Write-ColorOutput "For additional hardware-level analysis, also consider running:" -Color Info
 Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
 
 # Performance Impact Warning
