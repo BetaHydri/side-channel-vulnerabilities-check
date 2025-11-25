@@ -151,6 +151,17 @@ Get-SpeculationControlSettings             # Hardware-level analysis
 
 > **🏢 ENTERPRISE HIGHLIGHT**: This tool features advanced **Interactive Apply** and **Intelligent Revert** systems for professional security management. Use `-Apply -Interactive` for granular control and `-Revert -Interactive` for safe mitigation removal.
 
+### 📋 **Command Reference Table**
+
+| Command | Purpose | Use Case |
+|---------|---------|----------|
+| `.\SideChannel_Check.ps1` | **Basic Assessment** | Quick security status overview |
+| `.\SideChannel_Check.ps1 -Detailed` | **Comprehensive Analysis** | Full security audit with registry paths |
+| `.\SideChannel_Check.ps1 -Apply -Interactive` | **Selective Configuration** | Choose specific mitigations to apply |
+| `.\SideChannel_Check.ps1 -Revert -Interactive` | **Safe Mitigation Removal** | Remove problematic mitigations |
+| `.\SideChannel_Check.ps1 -ShowVMwareHostSecurity` | **VMware Security Guide** | ESXi host security configuration |
+| `.\SideChannel_Check.ps1 -ExportPath "report.csv"` | **Compliance Reporting** | Export results for documentation |
+
 ### Basic Security Assessment
 ```powershell
 .\SideChannel_Check.ps1
@@ -188,6 +199,24 @@ Automatically configures all missing security mitigations. **System restart requ
 **🏢 ENTERPRISE WORKFLOW**: Select specific mitigations, see detailed registry changes, and apply only after careful review.
 
 ## 🏢 Enterprise Workflows
+
+### 🖥️ **VMware Environment Security Workflow**
+```powershell
+# 1. Initial security assessment of Windows VM
+.\SideChannel_Check.ps1 -Detailed
+
+# 2. Get ESXi host configuration requirements
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# 3. Apply Windows guest-level mitigations
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# 4. Document complete environment security
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "C:\Reports\VMware_Security_Complete.csv"
+
+# 5. Verify configuration after ESXi host changes
+.\SideChannel_Check.ps1 -QuickCheck
+```
 
 ### 📋 **Standard Enterprise Deployment**
 ```powershell
@@ -269,11 +298,19 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\Reports\DetailedReport.csv"
 ```
 
-### VMware Host Security Guide
+### 🏢 VMware Host Security Guide
 ```powershell
 .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
 ```
 **For VMware Administrators**: Displays comprehensive ESXi host security configuration guide with specific commands and settings for protecting VMs against side-channel attacks.
+
+#### VMware Security Guide Features:
+- **ESXi Host Configuration** - Complete command-line configuration guide
+- **Side-Channel Aware Scheduler** - SCAS configuration for ESXi 6.7 U2+
+- **VM-Level Security** - Hardware version and .vmx file settings
+- **Security Verification** - Commands to verify ESXi security status
+- **Performance Impact Analysis** - Impact assessment for each mitigation
+- **Security Checklist** - Comprehensive host and VM security checklist
 
 ### 🔄 **Enterprise Revert System** - Safely Remove Mitigations
 ```powershell
@@ -286,6 +323,108 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 .\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
 ```
 **🎯 RECOMMENDED ENTERPRISE WORKFLOW**: Preview which mitigations would be reverted, their security implications, and registry changes before making any modifications.
+
+## 🖥️ VMware Host Security Management
+
+### 🎯 **VMware Security Guide Display**
+```powershell
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+```
+**For VMware vSphere Administrators**: Displays a comprehensive security configuration guide specifically for ESXi hosts protecting against side-channel vulnerabilities.
+
+#### Sample Output:
+```
+=== VMware ESXi Host Security Configuration Guide ===
+Protecting VMs against Side-Channel Vulnerabilities
+
+🔧 Essential ESXi Host Settings:
+
+1. Side-Channel Aware Scheduler (SCAS)
+   # Enable SCAS (ESXi 6.7 U2+)
+   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true
+   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIntraVM -i true
+
+2. L1 Terminal Fault (L1TF) Protection
+   # Enable L1D cache flush for VMs
+   esxcli system settings advanced set -o /VMkernel/Boot/runToCompletionOnly -i true
+
+3. MDS/TAA Microcode Mitigations
+   # Enable CPU microcode updates
+   esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
+
+4. VM Configuration Requirements
+   # VM Hardware Version 14+ required
+   # Add to VM .vmx file:
+   vmx.allowNonVPID = "FALSE"
+   featMask.vm.hv.capable = "Min:1"
+
+📋 VMware Security Checklist:
+  ✅ Update ESXi to 6.7 U2+ or 7.0+
+  ✅ Enable Side-Channel Aware Scheduler
+  ✅ Configure L1TF protection
+  ✅ Apply latest CPU microcode
+  ✅ Update VM Hardware Version to 14+
+  ✅ Configure VM security parameters
+
+⚡ Performance Impact Guide:
+  SCAS: 2-5% impact (recommended for multi-tenant)
+  L1TF: 5-15% impact (critical for untrusted VMs)
+  Microcode: 3-8% impact (essential for Intel hosts)
+```
+
+**Key Features of VMware Security Guide:**
+- **Ready-to-use ESXi commands** - Copy-paste configuration commands
+- **VM Configuration templates** - .vmx file security parameters
+- **Performance impact ratings** - Informed decision making
+- **Security verification commands** - Validate configuration
+- **Comprehensive checklists** - Ensure nothing is missed
+
+### 🔗 **Combined VMware Assessment**
+```powershell
+# Complete VMware environment assessment
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity
+```
+Displays both Windows guest assessment AND ESXi host security guidance in a single comprehensive report.
+
+### 📊 **VMware Security Documentation**
+```powershell
+# Export Windows assessment with VMware guidance
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity -ExportPath "C:\Reports\VMware_Security_Guide.csv"
+```
+Exports the security assessment along with VMware-specific recommendations for comprehensive documentation.
+
+### 🎯 **VMware-Specific Use Cases**
+
+#### **For VMware Infrastructure Teams:**
+```powershell
+# 1. Quick ESXi security reference during maintenance
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# 2. Combined guest and host security assessment
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "VMware_Complete_Report.csv"
+
+# 3. Pre-deployment security verification
+.\SideChannel_Check.ps1 -QuickCheck
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+```
+
+#### **For Security Audits:**
+```powershell
+# Comprehensive VMware security audit
+.\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity -ExportPath "Security_Audit_$(Get-Date -Format 'yyyy-MM-dd').csv"
+```
+
+#### **For Troubleshooting Performance Issues:**
+```powershell
+# Check current mitigations that may impact VM performance
+.\SideChannel_Check.ps1 -Detailed
+
+# Get ESXi performance tuning guidance
+.\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+
+# Selectively disable problematic mitigations if needed
+.\SideChannel_Check.ps1 -Revert -Interactive
+```
 
 ## 🎯 Interactive Mitigation Selection
 
