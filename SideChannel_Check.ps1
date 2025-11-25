@@ -673,25 +673,105 @@ function Get-HardwareRequirements {
             $hwInfo.TPMVersion = "Detection Failed"
         }
         
-        # Check CPU Virtualization Support
+        # Check CPU Virtualization Support (Enhanced Detection)
         try {
-            $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
-            if ($cpu.VirtualizationFirmwareEnabled -eq $true) {
-                $hwInfo.VTxSupport = $true
-            }
-            else {
-                # Check CPU features for VT-x/AMD-V
-                $cpuFeatures = Get-WmiObject -Class Win32_Processor | Select-Object -First 1
-                if ($cpuFeatures.Name -match "Intel" -and $cpuFeatures.Description -match "VT-x|Virtualization") {
+            $hwInfo.VTxSupport = $false
+            $vtxStatus = "Not Detected"
+            
+            # Method 1: Check if Hyper-V is running (strong indicator of VT-x/AMD-V)
+            try {
+                $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
+                if ($hyperv -and $hyperv.State -eq "Enabled") {
                     $hwInfo.VTxSupport = $true
-                }
-                elseif ($cpuFeatures.Name -match "AMD" -and $cpuFeatures.Description -match "AMD-V|SVM") {
-                    $hwInfo.VTxSupport = $true
+                    $vtxStatus = "Enabled (Hyper-V Running)"
                 }
             }
+            catch { }
+            
+            # Method 2: Check Win32_Processor VirtualizationFirmwareEnabled
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+                    if ($cpu.VirtualizationFirmwareEnabled -eq $true) {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (Firmware)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 3: Check systeminfo command for virtualization
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $systemInfo = systeminfo.exe 2>$null | Out-String
+                    if ($systemInfo -match "Virtualization Enabled In Firmware:\s*Yes") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (System Info)"
+                    }
+                    elseif ($systemInfo -match "Hyper-V") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (Hyper-V Detected)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 4: Check CPU capabilities via WMI
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $cpuFeatures = Get-WmiObject -Class Win32_Processor | Select-Object -First 1
+                    # Intel VT-x detection
+                    if ($cpuFeatures.Name -match "Intel") {
+                        # Check if we can detect Intel VT-x flags
+                        if ($cpuFeatures.Description -match "VT-x|Virtualization" -or 
+                            $cpuFeatures.Characteristics -contains 32) { # 32 = supports virtualization
+                            $hwInfo.VTxSupport = $true
+                            $vtxStatus = "Available (Intel VT-x)"
+                        }
+                    }
+                    # AMD-V detection
+                    elseif ($cpuFeatures.Name -match "AMD") {
+                        if ($cpuFeatures.Description -match "AMD-V|SVM") {
+                            $hwInfo.VTxSupport = $true
+                            $vtxStatus = "Available (AMD-V)"
+                        }
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 5: Check if VMware Workstation/VirtualBox can run (indirect detection)
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    # Check for virtualization-capable services
+                    $vboxService = Get-Service -Name "VBoxSVC" -ErrorAction SilentlyContinue
+                    $vmwareService = Get-Service -Name "VMware*" -ErrorAction SilentlyContinue
+                    if ($vboxService -or $vmwareService) {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Likely Available (VM Software Installed)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 6: Check WMIC for processor features (last resort)
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $wmicOutput = wmic cpu get Name,VirtualizationFirmwareEnabled /format:list 2>$null | Out-String
+                    if ($wmicOutput -match "VirtualizationFirmwareEnabled=TRUE") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (WMIC)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Store detection method for debugging
+            $hwInfo.VTxDetectionMethod = $vtxStatus
         }
         catch {
             $hwInfo.VTxSupport = $false
+            $hwInfo.VTxDetectionMethod = "Detection Failed"
         }
         
         # Check IOMMU/VT-d support (basic detection)
@@ -2643,9 +2723,15 @@ else {
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
 if ($hwStatus.VTxSupport) {
     Write-Host "[+] Available" -ForegroundColor $Colors['Good']
+    if ($hwStatus.VTxDetectionMethod) {
+        Write-Host "  Method: $($hwStatus.VTxDetectionMethod)" -ForegroundColor $Colors['Info']
+    }
 }
 else {
     Write-Host "[-] Not Detected - Enable in BIOS/UEFI" -ForegroundColor $Colors['Bad']
+    if ($hwStatus.VTxDetectionMethod) {
+        Write-Host "  Last Check: $($hwStatus.VTxDetectionMethod)" -ForegroundColor $Colors['Warning']
+    }
 }
 
 # IOMMU Status
