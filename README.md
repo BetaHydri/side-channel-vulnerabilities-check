@@ -1,25 +1,18 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A comprehensive PowerShell tool for checking and configuring Windows side-channel vulnerability mitigations according to Microsoft's security guidance (KB4073119), enhanced with modern CVE support and **intelligent categorization system** for accurate security scoring.
+A comprehensive PowerShell tool for **checking, applying, and reverting** Windows side-channel vulnerability mitigations with **intelligent security categorization**, **VMware ESXi integration**, and **enterprise-grade interactive features**.
 
 ## 🔒 Overview
 
-This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks with **intelligent security categorization**, **full PowerShell 5.1+ compatibility** and **enterprise-grade interactive features**.
+This tool provides **complete side-channel vulnerability management** for Windows environments, including **interactive mitigation selection**, **safe revert functionality**, and **comprehensive VMware ESXi security integration**. Features intelligent security categorization with accurate scoring and professional-grade reporting capabilities.
 
-### 🎯 **NEW in v2.8: Intelligent Security Categorization**
-The tool now separates security assessments into three distinct categories with **visual emoji-based organization**:
-
-- **🛡️ Software Mitigations** (Primary Score): Registry-configurable protections that determine your main security score
-- **🔐 Security Features**: Windows security services (VBS, HVCI, Credential Guard, etc.)
-- **🔧 Hardware Prerequisites**: Platform readiness checks (UEFI, TPM, CPU virtualization)
-
-Each category shows:
-- **Individual tables** with detailed mitigation information
-- **Category scores** (e.g., "10/12 enabled (83.3%)")
-- **Color-coded progress indicators** for quick visual assessment
-- **PowerShell 5.1 compatible progress bars** using ASCII characters (`[=======---]`)
-
-This provides **more accurate and meaningful security assessments** by focusing the primary score on actionable configurations rather than hardware capabilities.
+### 🎯 **Key Features:**
+- **🛡️ Intelligent Security Assessment**: Categorized scoring system with software mitigations, security features, and hardware prerequisites
+- **🎮 Interactive Apply Mode**: Granular control over which mitigations to apply with performance impact assessment
+- **🔄 Enterprise Revert System**: Safely remove specific mitigations causing performance issues
+- **🏢 VMware ESXi Integration**: Complete security guide for VMware environments with ESXi host configuration
+- **📊 Professional Reporting**: CSV export with compliance documentation capabilities
+- **⚠️ Performance Impact Warnings**: Clear guidance on L1TF/MDS mitigations that may require SMT disable
 
 ### 🛡️ Classic Vulnerabilities (2017-2018):
 - **Spectre** (Variants 1, 2, and 4) - CVE-2017-5753, CVE-2017-5715
