@@ -1959,12 +1959,12 @@ $Results += [PSCustomObject]@{
 $Results += [PSCustomObject]@{
     Name           = "IOMMU/VT-d Support"
     Description    = "Input/Output Memory Management Unit for secure DMA isolation"
-    Status         = if ($hwRequirements.IOMMUSupport -match "Available") { "Hardware Feature Available" } else { "Unknown - Check BIOS/UEFI" }
+    Status         = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "Enabled and Active" } elseif ($hwRequirements.IOMMUSupport -match "Available") { "Hardware Available" } else { "Unknown - Check BIOS/UEFI" }
     CurrentValue   = $hwRequirements.IOMMUSupport
-    ExpectedValue  = "Enabled in BIOS/UEFI"
+    ExpectedValue  = "Enabled and Active"
     RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
     RegistryName   = "Intel VT-d / AMD IOMMU"
-    Recommendation = "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection"
+    Recommendation = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "IOMMU/VT-d is enabled and being used by Hyper-V - optimal configuration" } else { "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection" }
     Impact         = "Provides DMA isolation and enhanced security for VBS"
     CanBeEnabled   = $false
 }
