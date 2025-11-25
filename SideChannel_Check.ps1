@@ -718,7 +718,13 @@ function Test-SideChannelMitigation {
         
         # Add current value for context
         if ($currentValue -ne $null -and $currentValue -ne "Not Set") {
-            Write-Host " (Value: $currentValue)" -ForegroundColor Gray
+            # Special formatting for Hardware Security Mitigations (MitigationOptions) to show hex
+            if ($Name -eq "Hardware Security Mitigations" -and $currentValue -is [uint64]) {
+                Write-Host " (Value: 0x$($currentValue.ToString('X16')))" -ForegroundColor Gray
+            }
+            else {
+                Write-Host " (Value: $currentValue)" -ForegroundColor Gray
+            }
         }
         else {
             Write-Host ""
