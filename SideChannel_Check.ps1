@@ -161,7 +161,17 @@ function Write-ColorOutput {
         [string]$Message,
         [string]$Color = 'White'
     )
-    Write-Host $Message -ForegroundColor $Colors[$Color]
+    
+    # Handle missing colors gracefully
+    if ($Colors.ContainsKey($Color)) {
+        Write-Host $Message -ForegroundColor $Colors[$Color]
+    } elseif ($Color -in @('Black','DarkBlue','DarkGreen','DarkCyan','DarkRed','DarkMagenta','DarkYellow','Gray','DarkGray','Blue','Green','Cyan','Red','Magenta','Yellow','White')) {
+        # Direct color name
+        Write-Host $Message -ForegroundColor $Color
+    } else {
+        # Fallback to white if color not found
+        Write-Host $Message -ForegroundColor White
+    }
 }
 
 function Set-RegistryValue {
@@ -1954,7 +1964,7 @@ $Results += [PSCustomObject]@{
     RegistryName   = "IOMMU Support"
     Recommendation = "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection"
     Impact         = "Provides DMA isolation and enhanced security for VBS"
-    CanBeEnabled   = $true
+    CanBeEnabled   = $false
 }
 
 # 2. Hypervisor-protected Code Integrity (HVCI)
@@ -2513,7 +2523,7 @@ if ($Apply) {
                     { $_ -match "Hardware" } { "Hardware-dependent performance impact" }
                     default { "Performance impact varies" }
                 }
-                Write-ColorOutput "  Expected Impact: $impact" -Color Yellow
+                Write-ColorOutput "  Expected Impact: $impact" -Color Warning
             }
             
             Write-ColorOutput "`nWhatIf Summary:" -Color Header
