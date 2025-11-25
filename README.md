@@ -1,6 +1,6 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A PowerShell tool for checking, applying, and reverting Windows side-channel vulnerability mitigations with VMware ESXi integration.
+A PowerShell tool for checking, applying, and reverting Windows side-channel vulnerability mitigations with VMware ESXi and Hyper-V integration.
 
 ## 🎯 What This Tool Does
 
