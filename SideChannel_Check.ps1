@@ -1046,9 +1046,9 @@ function Calculate-SecurityScore {
     
     return [PSCustomObject]@{
         EnabledCount = $enabledCount
-        TotalCount = $totalCount
-        Percentage = $percentage
-        BarDisplay = $barDisplay
+        TotalCount   = $totalCount
+        Percentage   = $percentage
+        BarDisplay   = $barDisplay
     }
 }
 
