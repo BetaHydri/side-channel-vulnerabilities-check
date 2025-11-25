@@ -1262,7 +1262,8 @@ function Invoke-MitigationRevert {
                     foreach ($cmd in $mitigation.ESXiCommands) {
                         if ($cmd.StartsWith("#")) {
                             Write-ColorOutput "    $cmd" -Color Good
-                        } else {
+                        }
+                        else {
                             Write-ColorOutput "    $cmd" -Color Warning
                         }
                     }
@@ -2246,7 +2247,7 @@ if ($Revert) {
                 Write-ColorOutput "  [$($i + 1)] $($mitigation.Name) (Impact: $($mitigation.Impact))" -Color Warning
                 Write-ColorOutput "      $($mitigation.Description)" -Color Info
                 Write-ColorOutput "      Security Risk: $($mitigation.SecurityRisk)" -Color Error
-                Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\\$($mitigation.RegistryName)" -Color Gray
+                Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
                 Write-ColorOutput "" -Color Info
             }
             
