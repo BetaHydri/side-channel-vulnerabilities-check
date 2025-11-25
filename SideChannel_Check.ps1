@@ -502,12 +502,21 @@ function Show-ResultsTable {
         Get-CategorizedResults -Results $uncategorized -CategoryNames ($uncategorized | Select-Object -ExpandProperty Name) -CategoryTitle "OTHER MITIGATIONS" -CategoryEmoji $Emojis.Gear
     }
     
-    # Overall summary
+    # Overall summary - calculate from predefined category lists
     Write-ColorOutput ("`n" + $Emojis.Chart + " OVERALL SECURITY SUMMARY") -Color Header
     Write-ColorOutput ("=" * 60) -Color Header
     
-    $totalEnabled = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
-    $totalCount = $Results.Count
+    # Use the predefined category name lists for totals
+    $swMitigations = $Results | Where-Object { $_.Name -in $softwareMitigations }
+    $secFeatures = $Results | Where-Object { $_.Name -in $securityFeatures }
+    $hwPrereqs = $Results | Where-Object { $_.Name -in $hardwarePrerequisites }
+    
+    $swEnabled = ($swMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
+    $sfEnabled = ($secFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
+    $hwReady = ($hwPrereqs | Where-Object { $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" }).Count
+    
+    $totalEnabled = $swEnabled + $sfEnabled + $hwReady
+    $totalCount = $swMitigations.Count + $secFeatures.Count + $hwPrereqs.Count
     $overallPercentage = if ($totalCount -gt 0) { [math]::Round(($totalEnabled / $totalCount) * 100, 1) } else { 0 }
     
     $overallColor = switch ($overallPercentage) {
