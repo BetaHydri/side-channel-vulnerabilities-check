@@ -27,9 +27,33 @@ This tool helps system administrators assess and configure their Windows systems
 - **🎯 Granular Control** - Select individual, ranges, or all mitigations
 - **🖥️ PowerShell 5.1 Compatibility** - Works seamlessly on Windows Server default installations
 
+## 🏢 Enterprise Features
+
+**Advanced Security Management**: Professional-grade features for enterprise environments:
+
+### 🎮 Interactive Apply Mode
+- **Granular Control** - Select specific mitigations to apply using numbered interface
+- **Impact Assessment** - Shows performance impact for each mitigation (Low/Medium/High)
+- **Smart Selection** - Individual numbers, ranges (1-3), or 'all' options
+- **CVE Mapping** - Links mitigations to specific vulnerabilities
+- **Safe Operation** - Preview changes before applying with WhatIf integration
+
+### 🔄 Intelligent Revert System
+- **Selective Revert** - Remove specific mitigations causing performance issues
+- **Security Risk Assessment** - Clear warnings about security implications
+- **WhatIf Preview** - See what would be reverted before making changes
+- **Interactive Safety** - Requires confirmation for each revert operation
+- **Performance Recovery** - Targeted removal of problematic mitigations
+
+### 🔍 Advanced Analysis
+- **Hardware Mitigation Matrix** - Decode complex registry values in human-readable format
+- **OS Version Intelligence** - Automatic adaptation to Windows capabilities
+- **CSV Export** - Professional reporting for compliance and documentation
+- **Detailed Diagnostics** - Comprehensive security assessment with recommendations
+
 ## 🖥️ Virtualization Support
 
-**NEW**: Enhanced support for virtualized environments:
+**Enhanced support for virtualized environments:**
 
 - ✅ **VM Detection** - Automatic identification of host/guest systems
 - ✅ **Hypervisor-specific Checks** - Special checks for Hyper-V, VMware, KVM
@@ -39,24 +63,34 @@ This tool helps system administrators assess and configure their Windows systems
 
 ## 🚀 Enterprise Features
 
-- ✅ **Comprehensive Security Assessment** - Checks 21+ critical security mitigations including modern CVEs (2018-2023)
-- 🎮 **Interactive Mode** - **NEW**: Choose specific mitigations to apply with numbered selection interface
-- 🔍 **WhatIf Preview** - **NEW**: See registry changes before applying them
-- 🎯 **Granular Control** - **NEW**: Apply individual mitigations, ranges (1-3), or all at once
-- ✅ **Extended CVE Support** - Based on Microsoft's SpeculationControl tool analysis
-- ✅ **Virtualization-Aware** - Detects VM/host environment and provides specific recommendations
-- 🧠 **OS Version-Aware** - Automatic adaptation to Windows version (Core Scheduler Detection)
-- 🔍 **Hardware Mitigation Matrix** - Decodes MitigationOptions registry values in `-Detailed` mode
-- 📊 **Professional Table Display** - Formatted output with visual status indicators
-- ⚙️ **Automated Configuration** - One-click application of security settings with `-Apply`
-- 🔬 **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
-- 📈 **Enterprise Reporting** - Export results as CSV for documentation and compliance
-- 🎯 **Safe Operation** - Read-only by default, only modifies system on explicit request
-- 🖥️ **System Information** - Shows CPU and OS details relevant for vulnerabilities
-- 🔄 **VBS/HVCI Support** - Checks virtualization-based security features
-- 🛡️ **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
-- 🏢 **VMware Host Security** - **NEW**: Comprehensive ESXi security configuration guide
-- 🔄 **Mitigation Revert** - **NEW**: Safely remove individual mitigations causing performance issues
+### 🎮 **Interactive Apply System** - **FLAGSHIP FEATURE**
+- **Smart Selection Interface** - Choose specific mitigations with numbered menu (1,3,5 or 1-3 or 'all')
+- **Impact Assessment** - Performance impact ratings (Low/Medium/High) for informed decisions
+- **WhatIf Integration** - Preview all registry changes before applying
+- **CVE Mapping** - Clear links between mitigations and specific vulnerabilities
+- **Granular Control** - Apply individual, ranges, or all mitigations with precision
+
+### 🔄 **Intelligent Revert System** - **ENTERPRISE EXCLUSIVE**
+- **Selective Mitigation Removal** - Safely remove specific mitigations causing performance issues
+- **Security Risk Warnings** - Clear assessment of security implications for each revert
+- **Interactive Safety Mode** - Requires confirmation with detailed impact analysis
+- **WhatIf Preview** - See exactly what would be reverted before making changes
+- **Performance Recovery** - Targeted approach to resolve application compatibility issues
+
+### 🔍 **Advanced Analysis & Reporting**
+- **Comprehensive Security Assessment** - Checks 21+ critical security mitigations including modern CVEs (2018-2023)
+- **Hardware Mitigation Matrix** - Decodes complex MitigationOptions registry values in human-readable format
+- **OS Version Intelligence** - Automatic adaptation to Windows capabilities with intelligent Core Scheduler detection (Build 20348+)
+- **Professional CSV Export** - Enterprise reporting for documentation and compliance
+- **Virtualization-Aware** - Detects VM/host environment with specific recommendations
+
+### 🛡️ **Security & Compatibility**
+- **Extended CVE Support** - Based on Microsoft's SpeculationControl tool analysis (2017-2023)
+- **CPU-specific Validation** - Intel vs AMD specific mitigation recommendations
+- **Safe Operation** - Read-only by default, only modifies system on explicit request
+- **PowerShell 5.1+ Compatible** - **Full compatibility** with Windows Server default PowerShell
+- **VBS/HVCI Support** - Comprehensive virtualization-based security features
+- **VMware Host Security** - Complete ESXi security configuration guide
 
 ## 📋 Requirements
 
@@ -112,6 +146,8 @@ Get-SpeculationControlSettings             # Hardware-level analysis
 
 ## 📖 Usage
 
+> **🏢 ENTERPRISE HIGHLIGHT**: This tool features advanced **Interactive Apply** and **Intelligent Revert** systems for professional security management. Use `-Apply -Interactive` for granular control and `-Revert -Interactive` for safe mitigation removal.
+
 ### Basic Security Assessment
 ```powershell
 .\SideChannel_Check.ps1
@@ -142,11 +178,58 @@ Automatically configures all missing security mitigations. **System restart requ
 ```
 **NEW**: Shows exactly what registry changes would be made without actually applying them. Must be combined with `-Interactive` mode for security.
 
-### 🎮 Combined Interactive WhatIf (Recommended)
+### 🎮 **Combined Interactive WhatIf** (Enterprise Standard)
 ```powershell
 .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
 ```
-**Enterprise Workflow**: Select specific mitigations, see detailed registry changes, and apply only after careful review.
+**🏢 ENTERPRISE WORKFLOW**: Select specific mitigations, see detailed registry changes, and apply only after careful review.
+
+## 🏢 Enterprise Workflows
+
+### 📋 **Standard Enterprise Deployment**
+```powershell
+# 1. Assess current security posture
+.\SideChannel_Check.ps1 -Detailed
+
+# 2. Plan changes with WhatIf preview
+.\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+
+# 3. Apply selected mitigations
+.\SideChannel_Check.ps1 -Apply -Interactive
+
+# 4. Export compliance report
+.\SideChannel_Check.ps1 -ExportPath "C:\Reports\SecurityCompliance.csv"
+```
+
+### 🔄 **Performance Issue Resolution**
+```powershell
+# 1. Identify problematic mitigations
+.\SideChannel_Check.ps1 -Detailed
+
+# 2. Preview revert options with risk assessment
+.\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+
+# 3. Selectively remove problematic mitigations
+.\SideChannel_Check.ps1 -Revert -Interactive
+
+# 4. Verify system performance and security
+.\SideChannel_Check.ps1
+```
+
+### 🎯 **Granular Security Management**
+```powershell
+# Apply only low-impact mitigations first
+.\SideChannel_Check.ps1 -Apply -Interactive
+# Select: 1,4,7,9 (low-impact options)
+
+# Later, apply medium-impact after testing
+.\SideChannel_Check.ps1 -Apply -Interactive
+# Select: 2,5,8 (medium-impact options)
+
+# Finally, apply high-impact in maintenance window
+.\SideChannel_Check.ps1 -Apply -Interactive
+# Select: 3,6,10 (high-impact options)
+```
 
 ### Export Results
 ```powershell
@@ -165,17 +248,17 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 ```
 **For VMware Administrators**: Displays comprehensive ESXi host security configuration guide with specific commands and settings for protecting VMs against side-channel attacks.
 
-### 🔄 Revert Individual Mitigations
+### 🔄 **Enterprise Revert System** - Safely Remove Mitigations
 ```powershell
 .\SideChannel_Check.ps1 -Revert -Interactive
 ```
-**NEW**: Safely remove specific side-channel mitigations that may be causing performance issues. Always use interactive mode for safety.
+**🏢 ENTERPRISE FEATURE**: Intelligently remove specific side-channel mitigations causing performance issues. Interactive mode provides safety confirmations with detailed security impact analysis.
 
-### 🔍 Preview Revert Changes
+### 🔍 **Preview Revert Changes** - Risk-Free Planning
 ```powershell
 .\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
 ```
-**Recommended Workflow**: Preview which mitigations would be reverted and their security implications before making changes.
+**🎯 RECOMMENDED ENTERPRISE WORKFLOW**: Preview which mitigations would be reverted, their security implications, and registry changes before making any modifications.
 
 ## 🎯 Interactive Mitigation Selection
 
@@ -189,6 +272,7 @@ Exports detailed results to CSV file for documentation and compliance reporting.
 - **⚡ Smart Defaults** - Automatic type detection and error handling
 - **🛡️ CVE Mapping** - Links mitigations to specific vulnerabilities
 - **🎛️ Flexible Selection** - Individual numbers, ranges, or 'all'
+- **📍 Accurate Registry Paths** - Properly formatted registry paths without formatting errors
 
 ### 🎛️ Selection Methods:
 - **Individual Numbers**: `1,3,5` - Apply specific numbered mitigations (e.g., only mitigation 1, 3, and 5)
@@ -408,13 +492,18 @@ Speculative Store Bypass Disable        [+] Enabled               72            
 SSBD Feature Mask                       [+] Enabled                3                 3    Works in conjunction with FeatureSettingsOverride
 Branch Target Injection Mitigation      [?] Not Set          Not Set                 0    Required for proper security policy
 Hardware Security Mitigations           [+] Enabled    0x2000000000000100  0x2000000000000000    Hardware-dependent, modern CPUs
-Intel TSX Disable                       [-] Disabled             0                 1    May affect applications that rely on TSX
-BHB Mitigation                          [?] Not Set          Not Set                 1    Minimal performance impact on recent CPUs
-GDS Mitigation                          [?] Not Set          Not Set                 1    Performance impact varies by workload
+Intel TSX Disable                       [+] Enabled                1                 1    May affect applications that rely on TSX
+BHB Mitigation                          [+] Enabled                1                 1    Minimal performance impact on recent CPUs
+GDS Mitigation                          [+] Enabled                1                 1    Performance impact varies by workload
 SRSO Mitigation                         [?] Not Set          Not Set                 1    Minor performance impact on AMD Zen
+RFDS Mitigation                         [+] Enabled                1                 1    Minimal performance overhead
+L1TF Mitigation                         [+] Enabled                1                 1    High performance impact in virtualized environments
+MDS Mitigation                          [+] Enabled                1                 1    Moderate performance impact on Intel CPUs
 Windows Defender Exploit Guard ASLR     [?] Not Set          Not Set                 1    Improves resistance to memory corruption
 Virtualization Based Security (VBS)     [+] Enabled                1                 1    Requires UEFI, Secure Boot
 Hypervisor-protected Code Integrity     [+] Enabled                1                 1    May cause compatibility issues
+Credential Guard                        [+] Enabled                1                 1    Requires VBS and may affect applications
+Hyper-V Core Scheduler                  [+] Enabled         OS Default             Built-in No action needed - already optimized
 
 Status Legend:
 [+] Enabled - Mitigation is active and properly configured
@@ -425,12 +514,12 @@ Status Legend:
 
 Security Status Overview:
 =========================
-[+] ENABLED:       8 / 21 mitigations
-[?] NOT SET:       12 / 21 mitigations
-[-] DISABLED:      1 / 21 mitigations
+[+] ENABLED:       20 / 22 mitigations
+[?] NOT SET:       2 / 22 mitigations
+[-] DISABLED:      0 / 22 mitigations
 
-Overall Security Level: 38.1%
-Security Bar:     [####------] 38.1%
+Overall Security Level: 90.9%
+Security Bar:     [#########-] 90.9%
 
 DETAILED SECURITY ANALYSIS
 ================================================================================
@@ -510,9 +599,9 @@ Enabled: 2 of 25 known flags
 - **Guest Integration** - Security-relevant integration services
 
 ### For Hypervisor Hosts:
-- **Hyper-V Core Scheduler** - OS version-aware SMT scheduler configuration
-  - **Windows 10/Server 2016/2019**: Manual activation required
-  - **Windows 11/Server 2022+**: Automatically enabled (Build 20348+)
+- **Hyper-V Core Scheduler** - Intelligent OS version-aware SMT scheduler configuration
+  - **Windows 10/Server 2016/2019 (Build < 20348)**: Manual activation required and included in recommendations
+  - **Windows 11/Server 2022+ (Build 20348+)**: Automatically enabled by default, excluded from recommendations unless explicitly disabled
 - **Nested Virtualization** - Security considerations for nested VMs
 - **VM Isolation Policies** - Configuration for secure multi-tenant environments
 - **Modern CVE Support** - CPU-specific mitigation based on manufacturer
@@ -699,9 +788,9 @@ vmware-toolbox-cmd -v
 - **Performance analysis** - Modern mitigations have variable performance impacts
 
 ### OS Version-specific Considerations:
-- **Core Scheduler** - Automatic in Windows 11/Server 2022+ (Build 20348+)
-- **Legacy Support** - Windows 10/Server 2016/2019 need manual configuration
-- **Build Detection** - Tool automatically detects required vs. already active features
+- **Core Scheduler** - Intelligent detection: automatically enabled in Windows 11/Server 2022+ (Build 20348+) and excluded from recommendations unless explicitly disabled
+- **Legacy Support** - Windows 10/Server 2016/2019 (Build < 20348) require manual configuration and are included in recommendations when not configured
+- **Build Detection** - Enhanced logic automatically detects OS capabilities and only recommends actions when actually needed
 
 ### Virtualization-specific Considerations:
 - **Secure host system first** before configuring guests
@@ -879,10 +968,11 @@ Contributions are welcome! Please:
 
 ---
 
-**Version:** 2.3  
+**Version:** 2.4  
 **Last Update:** November 2025  
 **PowerShell Compatibility:** 5.1+ (Fully Compatible with Windows Server defaults)  
 **CVE Coverage:** 2017-2023 (Complete compatibility with Microsoft SpeculationControl 1.0.19)  
-**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert  
+**Enterprise Features:** Interactive Mode, WhatIf Preview, Granular Control, Mitigation Revert, Intelligent OS Detection  
+**New in 2.4:** Enhanced Hyper-V Core Scheduler detection, improved registry path formatting, smarter recommendations  
 **Compatibility:** Windows 10/11, Windows Server 2016/2019/2022/2025  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
