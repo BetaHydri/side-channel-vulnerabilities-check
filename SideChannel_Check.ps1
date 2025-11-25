@@ -1391,14 +1391,14 @@ function Get-RevertableMitigations {
     }
 
     # 10. CVE-2019-11135 Mitigation
-    $tsx = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "TSXAsyncAbortLevel"
-    if ($tsx -ne $null -and $tsx -eq 1) {
+    $tsxAsync = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "TSXAsyncAbortLevel"
+    if ($tsxAsync -ne $null -and $tsxAsync -eq 1) {
         $revertableMitigations += @{
             Name          = "CVE-2019-11135 Mitigation"
             Description   = "Disable Windows Kernel Information Disclosure protection"
             RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
             RegistryName  = "TSXAsyncAbortLevel"
-            CurrentValue  = $tsx
+            CurrentValue  = $tsxAsync
             RevertValue   = 0
             Impact        = "Medium"
             CanBeReverted = $true
@@ -2474,15 +2474,15 @@ else {
         # 7. Nested Virtualization Security
         $Results += [PSCustomObject]@{
             Name           = "Nested Virtualization Security"
-            Description    = "Security considerations for nested hypervisors"
+            Description    = "Enable nested virtualization on Hyper-V VMs"
             Status         = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Not Configured" }
             CurrentValue   = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
-            ExpectedValue  = "Carefully configured"
-            RegistryPath   = "N/A"
-            RegistryName   = "N/A"
-            Recommendation = "Use nested virtualization carefully - additional attack surface"
-            Impact         = "Nested VMs may have reduced side-channel protection"
-            CanBeEnabled   = $false
+            ExpectedValue  = "Enabled (with security considerations)"
+            RegistryPath   = "Hyper-V Feature"
+            RegistryName   = "ExposeVirtualizationExtensions"
+            Recommendation = "Enable nested virtualization if required for development"
+            Impact         = "Reduces security score but enables nested hypervisors in VMs"
+            CanBeEnabled   = $virtInfo.HyperVStatus -eq "Enabled"
         }
     }
 }
@@ -2824,6 +2824,7 @@ function Select-Mitigations {
             { $_ -match "L1TF|MDS" } { "High" }
             { $_ -match "TSX|Hardware" } { "Variable" }
             { $_ -match "VBS|HVCI" } { "High" }
+            { $_ -eq "Nested Virtualization Security" } { "Security Risk" }
             default { "Unknown" }
         }
         
@@ -2842,13 +2843,20 @@ function Select-Mitigations {
             "DRPW Mitigation" { "Device Register Partial Write protection (Intel)" }
             "VBS" { "Virtualization Based Security" }
             "HVCI" { "Hypervisor-protected Code Integrity" }
+            "Nested Virtualization Security" { "Enable nested virtualization (reduces security score)" }
             default { $mitigation.Description -replace "^CVE-[^:]+: ", "" }
         }
         
         Write-Host "  [$index] " -NoNewline -ForegroundColor Yellow
         Write-Host $mitigation.Name -NoNewline -ForegroundColor White
-        Write-Host " (Impact: $impact)" -ForegroundColor Gray
-        Write-Host "      $description" -ForegroundColor Gray
+        Write-Host " (Impact: $impact)" -ForegroundColor $(if ($impact -eq "Security Risk") { "Red" } else { "Gray" })
+        Write-Host "      $description" -ForegroundColor $(if ($mitigation.Name -eq "Nested Virtualization Security") { "Yellow" } else { "Gray" })
+        
+        # Special warning for nested virtualization
+        if ($mitigation.Name -eq "Nested Virtualization Security") {
+            Write-Host "      WARNING: This will REDUCE your security score by enabling attack surface" -ForegroundColor Red
+        }
+        
         $index++
     }
     
@@ -2969,19 +2977,31 @@ if ($Apply) {
         $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
     }
     
-    # Filter out hardware/firmware settings that cannot be configured via registry
+    # Handle nested virtualization as a special case and filter out other hardware/firmware settings
     if ($notConfigured.Count -gt 0) {
         Write-ColorOutput "Filtering hardware/firmware settings..." -Color Info
+        
+        # Extract nested virtualization for special handling
+        $nestedVirtualization = $notConfigured | Where-Object { $_.Name -eq "Nested Virtualization Security" }
+        
+        # Filter out other hardware settings but keep registry-configurable ones
         $notConfigured = $notConfigured | Where-Object { 
             $_.RegistryPath -notmatch "Hardware/UEFI|BIOS/UEFI" -and
-            $_.RegistryPath -notmatch "Hardware Feature" 
+            $_.RegistryPath -notmatch "Hardware Feature" -and
+            $_.Name -ne "Nested Virtualization Security"
         }
         
-        # Show which hardware settings were filtered out
+        # Add nested virtualization back as a configurable option if available
+        if ($nestedVirtualization -and $nestedVirtualization.CanBeEnabled) {
+            $notConfigured = @($notConfigured) + $nestedVirtualization
+        }
+        
+        # Show which hardware settings were filtered out (excluding nested virtualization)
         $hardwareSettings = $Results | Where-Object { 
             $_.Status -ne "Enabled" -and 
             $_.CanBeEnabled -and 
-            ($_.RegistryPath -match "Hardware/UEFI|BIOS/UEFI" -or $_.RegistryPath -match "Hardware Feature") 
+            ($_.RegistryPath -match "Hardware/UEFI|BIOS/UEFI" -or $_.RegistryPath -match "Hardware Feature") -and
+            $_.Name -ne "Nested Virtualization Security"
         }
         
         if ($hardwareSettings.Count -gt 0) {
@@ -3011,25 +3031,36 @@ if ($Apply) {
         
         if ($WhatIf) {
             Write-ColorOutput "`n=== WhatIf: Changes that would be made ===" -Color Header
-            Write-ColorOutput "The following registry changes would be applied:" -Color Info
+            Write-ColorOutput "The following changes would be applied:" -Color Info
             
             foreach ($item in $mitigationsToApply) {
                 Write-ColorOutput "`nMitigation: $($item.Name)" -Color Info
-                Write-ColorOutput "  Registry Path: $($item.RegistryPath)" -Color Gray
-                Write-ColorOutput "  Registry Name: $($item.RegistryName)" -Color Gray  
-                Write-ColorOutput "  New Value: $($item.ExpectedValue)" -Color Gray
-                $valueType = if ($item.ValueType) { $item.ValueType } else { "REG_DWORD" }
-                Write-ColorOutput "  Value Type: $valueType" -Color Gray
                 
-                # Show impact assessment
-                $impact = switch ($item.Name) {
-                    { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Minimal performance impact" }
-                    { $_ -match "Meltdown|KVAS" } { "Low-medium performance impact" }
-                    { $_ -match "TSX" } { "May affect TSX-dependent applications" }
-                    { $_ -match "Hardware" } { "Hardware-dependent performance impact" }
-                    default { "Performance impact varies" }
+                # Special display for nested virtualization
+                if ($item.Name -eq "Nested Virtualization Security") {
+                    Write-ColorOutput "  Action: Enable nested virtualization on Hyper-V VMs" -Color Gray
+                    Write-ColorOutput "  Method: Set-VMProcessor -ExposeVirtualizationExtensions $true" -Color Gray
+                    Write-ColorOutput "  Scope: All VMs (will be stopped if running)" -Color Gray
+                    Write-ColorOutput "  Security Impact: REDUCES security score - enables VM attack surface" -Color Red
                 }
-                Write-ColorOutput "  Expected Impact: $impact" -Color Warning
+                else {
+                    # Regular registry changes
+                    Write-ColorOutput "  Registry Path: $($item.RegistryPath)" -Color Gray
+                    Write-ColorOutput "  Registry Name: $($item.RegistryName)" -Color Gray  
+                    Write-ColorOutput "  New Value: $($item.ExpectedValue)" -Color Gray
+                    $valueType = if ($item.ValueType) { $item.ValueType } else { "REG_DWORD" }
+                    Write-ColorOutput "  Value Type: $valueType" -Color Gray
+                    
+                    # Show impact assessment
+                    $impact = switch ($item.Name) {
+                        { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Minimal performance impact" }
+                        { $_ -match "Meltdown|KVAS" } { "Low-medium performance impact" }
+                        { $_ -match "TSX" } { "May affect TSX-dependent applications" }
+                        { $_ -match "Hardware" } { "Hardware-dependent performance impact" }
+                        default { "Performance impact varies" }
+                    }
+                    Write-ColorOutput "  Expected Impact: $impact" -Color Warning
+                }
             }
             
             Write-ColorOutput "`nWhatIf Summary:" -Color Header
@@ -3044,8 +3075,57 @@ if ($Apply) {
             
             foreach ($item in $mitigationsToApply) {
                 Write-ColorOutput "`nConfiguring: $($item.Name)" -Color Info
-                if (Set-RegistryValue -Path $item.RegistryPath -Name $item.RegistryName -Value $item.ExpectedValue) {
-                    $successCount++
+                
+                # Special handling for nested virtualization
+                if ($item.Name -eq "Nested Virtualization Security") {
+                    try {
+                        # Get all VMs
+                        $vms = Get-VM -ErrorAction Stop
+                        if ($vms.Count -eq 0) {
+                            Write-ColorOutput "  No VMs found to configure" -Color Warning
+                            continue
+                        }
+                        
+                        Write-ColorOutput "  Found $($vms.Count) VMs. Enabling nested virtualization..." -Color Info
+                        $vmSuccessCount = 0
+                        
+                        foreach ($vm in $vms) {
+                            try {
+                                # Only enable on stopped VMs
+                                if ($vm.State -eq "Running") {
+                                    Write-ColorOutput "  Stopping VM '$($vm.Name)' to enable nested virtualization..." -Color Warning
+                                    Stop-VM -Name $vm.Name -Force -ErrorAction Stop
+                                    # Wait a moment for VM to fully stop
+                                    Start-Sleep -Seconds 3
+                                }
+                                
+                                # Enable nested virtualization
+                                Set-VMProcessor -VMName $vm.Name -ExposeVirtualizationExtensions $true -ErrorAction Stop
+                                Write-ColorOutput "  Enabled nested virtualization for VM '$($vm.Name)'" -Color Good
+                                $vmSuccessCount++
+                            }
+                            catch {
+                                Write-ColorOutput "  Failed to configure VM '$($vm.Name)': $($_.Exception.Message)" -Color Bad
+                            }
+                        }
+                        
+                        if ($vmSuccessCount -eq $vms.Count) {
+                            Write-ColorOutput "  Successfully enabled nested virtualization on all $vmSuccessCount VMs" -Color Good
+                            $successCount++
+                        }
+                        else {
+                            Write-ColorOutput "  Enabled nested virtualization on $vmSuccessCount of $($vms.Count) VMs" -Color Warning
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "  Failed to configure nested virtualization: $($_.Exception.Message)" -Color Bad
+                    }
+                }
+                else {
+                    # Regular registry-based configuration
+                    if (Set-RegistryValue -Path $item.RegistryPath -Name $item.RegistryName -Value $item.ExpectedValue) {
+                        $successCount++
+                    }
                 }
             }
             
