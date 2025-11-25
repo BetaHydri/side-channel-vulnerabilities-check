@@ -106,14 +106,14 @@ param(
     [switch]$Detailed,
     
     [ValidateScript({
-        if (-not (Test-Path (Split-Path $_ -Parent) -PathType Container)) {
-            throw "Export directory does not exist: $(Split-Path $_ -Parent)"
-        }
-        if ($_ -notmatch '\.(csv|txt)$') {
-            throw "Export file must have .csv or .txt extension"
-        }
-        return $true
-    })]
+            if (-not (Test-Path (Split-Path $_ -Parent) -PathType Container)) {
+                throw "Export directory does not exist: $(Split-Path $_ -Parent)"
+            }
+            if ($_ -notmatch '\.(csv|txt)$') {
+                throw "Export file must have .csv or .txt extension"
+            }
+            return $true
+        })]
     [string]$ExportPath,
     
     # VMware Security Guide (can be combined with assessment parameters)
