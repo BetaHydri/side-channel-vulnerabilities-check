@@ -2674,7 +2674,22 @@ if ($Apply) {
 else {
     # Recommendations when not applying
     Write-ColorOutput "`n=== Recommendations ===" -Color Header
-    $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" }
+    
+    # Filter out items that are already properly configured
+    # This includes "Enabled", but also hardware features that are working properly
+    $notConfigured = $Results | Where-Object { 
+        $status = $_.Status
+        $canBeEnabled = $_.CanBeEnabled
+        
+        # Exclude if already enabled/working properly OR if it's an informational item that can't be configured
+        -not ($status -eq "Enabled" -or 
+              $status -match "^UEFI Firmware Active" -or
+              $status -match "^TPM 2.0 Enabled" -or
+              $status -match "^Enabled and Active" -or
+              $status -match "Running" -or
+              $status -match "Enforced" -or
+              ($status -eq "Information" -and $canBeEnabled -eq $false))
+    }
     
     # Filter CPU-specific mitigations in recommendations too
     if ($notConfigured.Count -gt 0) {
