@@ -1025,6 +1025,94 @@ function Get-RevertableMitigations {
     return $revertableMitigations
 }
 
+function Calculate-SecurityScore {
+    <#
+    .SYNOPSIS
+    Calculates the overall security score based on mitigation results.
+    
+    .DESCRIPTION
+    Analyzes security check results and returns a score with percentage and visual bar.
+    #>
+    param([array]$Results)
+    
+    $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
+    $totalCount = $Results.Count
+    $percentage = if ($totalCount -gt 0) { [math]::Round(($enabledCount / $totalCount) * 100, 1) } else { 0 }
+    
+    # Create security bar
+    $filledBlocks = [math]::Floor($percentage / 10)
+    $emptyBlocks = 10 - $filledBlocks
+    $barDisplay = ("[" + ("#" * $filledBlocks) + ("-" * $emptyBlocks) + "]")
+    
+    return [PSCustomObject]@{
+        EnabledCount = $enabledCount
+        TotalCount = $totalCount
+        Percentage = $percentage
+        BarDisplay = $barDisplay
+    }
+}
+
+function Get-CurrentSecurityResults {
+    <#
+    .SYNOPSIS
+    Re-runs all security checks to get current state for scoring.
+    #>
+    $currentResults = @()
+    
+    # Re-run the same checks as in main script
+    $currentResults += Test-SideChannelMitigation -Name "Speculative Store Bypass Disable" `
+        -Description "Mitigates Speculative Store Bypass (Variant 4) attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "FeatureSettingsOverride" `
+        -ExpectedValue 72 `
+        -Recommendation "Enable to mitigate SSB attacks. Set FeatureSettingsOverride to 72" `
+        -Impact "Minimal performance impact on most workloads"
+
+    $currentResults += Test-SideChannelMitigation -Name "SSBD Feature Mask" `
+        -Description "Feature mask for Speculative Store Bypass Disable" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "FeatureSettingsOverrideMask" `
+        -ExpectedValue 3 `
+        -Recommendation "Set FeatureSettingsOverrideMask to 3" `
+        -Impact "Works in conjunction with FeatureSettingsOverride"
+
+    # Add other key checks for scoring (abbreviated for performance)
+    $currentResults += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
+        -Description "CPU-level hardware security mitigations" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "MitigationOptions" `
+        -ExpectedValue "2000000000000000" `
+        -Recommendation "Enable hardware-level CPU security mitigations" `
+        -Impact "Hardware-dependent, modern CPUs have better performance"
+
+    $currentResults += Test-SideChannelMitigation -Name "Intel TSX Disable" `
+        -Description "Disables Intel TSX to prevent TSX-based attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DisableTsx" `
+        -ExpectedValue 1 `
+        -Recommendation "Disable Intel TSX for security" `
+        -Impact "May affect applications that rely on TSX, but improves security"
+
+    # Add modern CVE mitigations
+    $currentResults += Test-SideChannelMitigation -Name "BHB Mitigation" `
+        -Description "CVE-2022-0001/0002 mitigation (Branch History Buffer)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "BranchHistoryBufferEnabled" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable BHB mitigation for CVE-2022-0001/0002" `
+        -Impact "Minimal performance impact on recent CPUs"
+
+    $currentResults += Test-SideChannelMitigation -Name "L1TF Mitigation" `
+        -Description "CVE-2018-3620 mitigation (L1 Terminal Fault)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "L1TerminalFaultMitigation" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable L1TF mitigation for CVE-2018-3620" `
+        -Impact "High performance impact in virtualized environments"
+
+    return $currentResults
+}
+
 function Invoke-MitigationRevert {
     <#
     .SYNOPSIS
@@ -1033,6 +1121,7 @@ function Invoke-MitigationRevert {
     .DESCRIPTION
     Allows users to interactively or automatically revert side-channel mitigations
     that are causing performance issues. Includes safety checks and warnings.
+    Shows before/after security scores to understand the impact.
     #>
     param(
         [array]$SelectedMitigations,
@@ -1044,6 +1133,11 @@ function Invoke-MitigationRevert {
         return
     }
     
+    # Calculate current security score before revert
+    Write-ColorOutput "Calculating current security score..." -Color Info
+    $beforeResults = Get-CurrentSecurityResults
+    $beforeScore = Calculate-SecurityScore -Results $beforeResults
+    
     Write-ColorOutput "`n=== Mitigation Revert Operation ===" -Color Header
     
     if ($WhatIf) {
@@ -1053,6 +1147,10 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "WARNING: This will REMOVE security protections from your system!" -Color Error
         Write-ColorOutput "Only proceed if you understand the security implications.`n" -Color Error
     }
+    
+    # Show current security score
+    Write-ColorOutput "Current Security Score: $($beforeScore.Percentage)%" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+    Write-ColorOutput "Security Bar: $($beforeScore.BarDisplay) $($beforeScore.Percentage)%`n" -Color Info
     
     $successCount = 0
     $errorCount = 0
@@ -1093,9 +1191,32 @@ function Invoke-MitigationRevert {
     }
     
     if ($WhatIf) {
+        # Calculate projected security score after revert for WhatIf preview
+        Write-ColorOutput "Calculating security impact..." -Color Info
+        $projectedResults = Get-CurrentSecurityResults
+        
+        # Simulate the impact of selected mitigations being reverted
+        foreach ($mitigation in $SelectedMitigations) {
+            $matchingResult = $projectedResults | Where-Object { 
+                $_.RegistryPath -eq $mitigation.RegistryPath -and $_.RegistryName -eq $mitigation.RegistryName 
+            }
+            if ($matchingResult) {
+                $matchingResult.Status = "Disabled"
+                $matchingResult.CurrentValue = $mitigation.RevertValue
+            }
+        }
+        
+        $projectedScore = Calculate-SecurityScore -Results $projectedResults
+        $scoreDifference = $beforeScore.Percentage - $projectedScore.Percentage
+        
         Write-ColorOutput "WhatIf Summary:" -Color Header
         Write-ColorOutput "  Mitigations that would be reverted: $($SelectedMitigations.Count)" -Color Warning
         Write-ColorOutput "  System restart would be required: Yes" -Color Warning
+        Write-ColorOutput "" -Color Info
+        Write-ColorOutput "Security Score Impact:" -Color Header
+        Write-ColorOutput "  Current Score:   $($beforeScore.Percentage)% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        Write-ColorOutput "  After Revert:    $($projectedScore.Percentage)% $($projectedScore.BarDisplay)" -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        Write-ColorOutput "  Score Change:    -$([math]::Round($scoreDifference, 1))% (Security Reduction)" -Color Error
         Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
     }
     else {
@@ -1103,7 +1224,19 @@ function Invoke-MitigationRevert {
         Write-ColorOutput "  Successfully reverted: $successCount" -Color Good
         Write-ColorOutput "  Failed: $errorCount" -Color Bad
         
+        # Calculate security score after revert (for actual revert operations)
         if ($successCount -gt 0) {
+            Write-ColorOutput "`nRecalculating security score..." -Color Info
+            $afterResults = Get-CurrentSecurityResults
+            $afterScore = Calculate-SecurityScore -Results $afterResults
+            $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
+            
+            Write-ColorOutput "" -Color Info
+            Write-ColorOutput "Security Score Impact:" -Color Header
+            Write-ColorOutput "  Before Revert:  $($beforeScore.Percentage)% $($beforeScore.BarDisplay)" -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput "  After Revert:   $($afterScore.Percentage)% $($afterScore.BarDisplay)" -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            Write-ColorOutput "  Score Change:   -$([math]::Round($scoreDifference, 1))% (Security Reduction)" -Color Error
+            
             Write-ColorOutput "`n⚠️  IMPORTANT: System restart required for changes to take effect!" -Color Error
             Write-ColorOutput "Your system now has REDUCED security protection." -Color Error
             Write-ColorOutput "Monitor system performance and re-enable mitigations if possible." -Color Warning
