@@ -2790,9 +2790,9 @@ Write-Host "] $configuredPercent%" -ForegroundColor Gray
 
 # Show what the score means
 Write-Host "`nScore Explanation:" -ForegroundColor $Colors['Info']
-Write-Host "• Mitigation Score: Based on registry-configurable side-channel protections" -ForegroundColor Gray
-Write-Host "• Security Features: Windows security services (VBS, HVCI, etc.)" -ForegroundColor Gray  
-Write-Host "• Hardware Prerequisites: Platform readiness for advanced security" -ForegroundColor Gray
+Write-Host "* Mitigation Score: Based on registry-configurable side-channel protections" -ForegroundColor Gray
+Write-Host "* Security Features: Windows security services (VBS, HVCI, etc.)" -ForegroundColor Gray  
+Write-Host "* Hardware Prerequisites: Platform readiness for advanced security" -ForegroundColor Gray
 
 # Interactive mitigation selection function
 function Select-Mitigations {
