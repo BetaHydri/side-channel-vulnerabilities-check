@@ -724,7 +724,8 @@ function Get-HardwareRequirements {
                     if ($cpuFeatures.Name -match "Intel") {
                         # Check if we can detect Intel VT-x flags
                         if ($cpuFeatures.Description -match "VT-x|Virtualization" -or 
-                            $cpuFeatures.Characteristics -contains 32) { # 32 = supports virtualization
+                            $cpuFeatures.Characteristics -contains 32) {
+                            # 32 = supports virtualization
                             $hwInfo.VTxSupport = $true
                             $vtxStatus = "Available (Intel VT-x)"
                         }
@@ -757,7 +758,7 @@ function Get-HardwareRequirements {
             # Method 6: Check WMIC for processor features (last resort)
             if (-not $hwInfo.VTxSupport) {
                 try {
-                    $wmicOutput = wmic cpu get Name,VirtualizationFirmwareEnabled /format:list 2>$null | Out-String
+                    $wmicOutput = wmic cpu get Name, VirtualizationFirmwareEnabled /format:list 2>$null | Out-String
                     if ($wmicOutput -match "VirtualizationFirmwareEnabled=TRUE") {
                         $hwInfo.VTxSupport = $true
                         $vtxStatus = "Enabled (WMIC)"
