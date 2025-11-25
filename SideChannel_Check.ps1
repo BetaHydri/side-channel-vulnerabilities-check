@@ -382,46 +382,147 @@ function Show-ResultsTable {
     
     Write-ColorOutput "`n=== Side-Channel Vulnerability Mitigation Status ===" -Color Header
     
-    # Create table data
-    $tableData = @()
-    foreach ($result in $Results) {
-        $status = switch ($result.Status) {
-            "Enabled" { "[+] Enabled" }
-            "Disabled" { "[-] Disabled" }
-            "Not Configured" { "[-] Not Set" }
-            default { $result.Status }
-        }
+    # Define categories for mitigation grouping
+    $softwareMitigations = @(
+        "Speculative Store Bypass Disable",
+        "SSBD Feature Mask", 
+        "Branch Target Injection Mitigation",
+        "Kernel VA Shadow (Meltdown Protection)",
+        "Enhanced IBRS",
+        "Intel TSX Disable",
+        "L1TF Mitigation",
+        "MDS Mitigation",
+        "CVE-2019-11135 Mitigation",
+        "SBDR/SBDS Mitigation",
+        "SRBDS Update Mitigation",
+        "DRPW Mitigation"
+    )
+    
+    $securityFeatures = @(
+        "Hardware Security Mitigations",
+        "Exception Chain Validation",
+        "Supervisor Mode Access Prevention",
+        "Windows Defender Exploit Guard ASLR",
+        "Virtualization Based Security",
+        "Hypervisor Code Integrity",
+        "Credential Guard",
+        "Windows Defender Application Guard"
+    )
+    
+    $hardwarePrerequisites = @(
+        "UEFI Firmware",
+        "Secure Boot",
+        "TPM 2.0",
+        "Virtualization Technology",
+        "IOMMU Support",
+        "CPU Microcode"
+    )
+    
+    # Helper function to categorize and format results
+    function Get-CategorizedResults {
+        param([array]$Results, [array]$CategoryNames, [string]$CategoryTitle, [string]$CategoryEmoji)
         
-        # Format current value for display
-        $currentValueDisplay = $result.CurrentValue
-        if ($result.CurrentValue -is [uint64] -and $result.CurrentValue -gt 0xFFFFFFFF) {
-            # For large QWORD values, show only hex
-            $currentValueDisplay = "0x{0:X}" -f $result.CurrentValue
-        }
-        elseif ($result.CurrentValue -eq "Not Set" -or $null -eq $result.CurrentValue) {
-            $currentValueDisplay = "Not Set"
-        }
-        
-        $tableData += [PSCustomObject]@{
-            'Mitigation Name' = $result.Name
-            'Status'          = $status
-            'Current Value'   = $currentValueDisplay
-            'Expected Value'  = $result.ExpectedValue
-            'Impact'          = $result.Impact
+        $categoryResults = $Results | Where-Object { $_.Name -in $CategoryNames }
+        if ($categoryResults.Count -gt 0) {
+            Write-ColorOutput "`n$CategoryEmoji $CategoryTitle" -Color Header
+            Write-ColorOutput ("=" * 60) -Color Header
+            
+            $tableData = @()
+            foreach ($result in $categoryResults) {
+                $status = switch ($result.Status) {
+                    "Enabled" { "[+] Enabled" }
+                    "Disabled" { "[-] Disabled" }
+                    "Not Configured" { "[-] Not Set" }
+                    default { $result.Status }
+                }
+                
+                # Format current value for display
+                $currentValueDisplay = $result.CurrentValue
+                if ($result.CurrentValue -is [uint64] -and $result.CurrentValue -gt 0xFFFFFFFF) {
+                    # For large QWORD values, show only hex
+                    $currentValueDisplay = "0x{0:X}" -f $result.CurrentValue
+                }
+                elseif ($result.CurrentValue -eq "Not Set" -or $null -eq $result.CurrentValue) {
+                    $currentValueDisplay = "Not Set"
+                }
+                
+                $tableData += [PSCustomObject]@{
+                    'Mitigation Name' = $result.Name
+                    'Status'          = $status
+                    'Current Value'   = $currentValueDisplay
+                    'Expected Value'  = $result.ExpectedValue
+                    'Impact'          = $result.Impact
+                }
+            }
+            
+            # Display the table for this category
+            $tableData | Format-Table -AutoSize -Wrap
+            
+            # Category summary
+            $enabled = ($categoryResults | Where-Object { $_.Status -eq "Enabled" }).Count
+            $total = $categoryResults.Count
+            $percentage = if ($total -gt 0) { [math]::Round(($enabled / $total) * 100, 1) } else { 0 }
+            
+            $summaryColor = switch ($percentage) {
+                {$_ -ge 80} { $Colors['Good'] }
+                {$_ -ge 60} { $Colors['Warning'] }
+                default { $Colors['Bad'] }
+            }
+            
+            Write-Host "Category Score: " -NoNewline
+            Write-Host "$enabled/$total enabled ($percentage%)" -ForegroundColor $summaryColor
         }
     }
     
-    # Display the table
-    $tableData | Format-Table -AutoSize -Wrap
+    # Display results by category
+    Get-CategorizedResults -Results $Results -CategoryNames $softwareMitigations -CategoryTitle "SOFTWARE MITIGATIONS" -CategoryEmoji "🛡️"
+    Get-CategorizedResults -Results $Results -CategoryNames $securityFeatures -CategoryTitle "SECURITY FEATURES" -CategoryEmoji "🔐"
+    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji "🔧"
     
-    # Display color-coded summary
-    Write-Host "`nStatus Legend:" -ForegroundColor $Colors['Header']
+    # Display any uncategorized results
+    $allCategorized = $softwareMitigations + $securityFeatures + $hardwarePrerequisites
+    $uncategorized = $Results | Where-Object { $_.Name -notin $allCategorized }
+    if ($uncategorized.Count -gt 0) {
+        Get-CategorizedResults -Results $uncategorized -CategoryNames ($uncategorized | Select-Object -ExpandProperty Name) -CategoryTitle "OTHER MITIGATIONS" -CategoryEmoji "⚙️"
+    }
+    
+    # Overall summary
+    Write-ColorOutput "`n📊 OVERALL SECURITY SUMMARY" -Color Header
+    Write-ColorOutput ("=" * 60) -Color Header
+    
+    $totalEnabled = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
+    $totalCount = $Results.Count
+    $overallPercentage = if ($totalCount -gt 0) { [math]::Round(($totalEnabled / $totalCount) * 100, 1) } else { 0 }
+    
+    $overallColor = switch ($overallPercentage) {
+        {$_ -ge 80} { $Colors['Good'] }
+        {$_ -ge 60} { $Colors['Warning'] }
+        default { $Colors['Bad'] }
+    }
+    
+    Write-Host "Overall Protection Level: " -NoNewline
+    Write-Host "$totalEnabled/$totalCount mitigations enabled ($overallPercentage%)" -ForegroundColor $overallColor
+    
+    # Create visual progress bar (PowerShell 5.1 compatible)
+    $filledBlocks = [math]::Floor($overallPercentage / 10)
+    $emptyBlocks = 10 - $filledBlocks
+    $progressBar = "[" + ("=" * $filledBlocks) + ("-" * $emptyBlocks) + "]"
+    Write-Host "Security Level: " -NoNewline
+    Write-Host $progressBar -ForegroundColor $overallColor
+    
+    # Display color-coded status legend
+    Write-ColorOutput "`n📋 STATUS LEGEND" -Color Header
     Write-Host "[+] Enabled" -ForegroundColor $Colors['Good'] -NoNewline
     Write-Host " - Mitigation is active and properly configured"
     Write-Host "[-] Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
     Write-Host " - Mitigation is explicitly disabled"
     Write-Host "[-] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
+    
+    Write-ColorOutput "`n🎯 CATEGORY DESCRIPTIONS" -Color Header
+    Write-ColorOutput "🛡️  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities" -Color Info
+    Write-ColorOutput "🔐 SECURITY FEATURES: Advanced Windows security technologies" -Color Info
+    Write-ColorOutput "🔧 HARDWARE PREREQUISITES: Required hardware security capabilities" -Color Info
 }
 
 function Get-RegistryValue {
