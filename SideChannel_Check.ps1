@@ -2952,11 +2952,11 @@ Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
 # TPM Status
 Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-                $tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
-                $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
-                Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
+$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
+$tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
                 
-                # CPU Virtualization Status
+# CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
 $vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "+" } elseif ($vtxResult.Status -match "Available|Unknown") { "?" } else { "-" }
 $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }

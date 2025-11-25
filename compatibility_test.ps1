@@ -10,8 +10,8 @@ Write-Host $test1
 # Test 2: Nested if statements with colors
 Write-Host "`nTest 2: Nested if with color arrays" -ForegroundColor Green
 $Colors = @{
-    'Good' = 'Green'
-    'Bad' = 'Red'
+    'Good'    = 'Green'
+    'Bad'     = 'Red'
     'Warning' = 'Yellow'
 }
 $hwStatus = @{ IsUEFI = $true }
