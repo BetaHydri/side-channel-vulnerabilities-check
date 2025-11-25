@@ -7,10 +7,17 @@ A comprehensive PowerShell tool for checking and configuring Windows side-channe
 This tool helps system administrators assess and configure their Windows systems against CPU-based side-channel attacks with **intelligent security categorization**, **full PowerShell 5.1+ compatibility** and **enterprise-grade interactive features**.
 
 ### 🎯 **NEW in v2.8: Intelligent Security Categorization**
-The tool now separates security assessments into three distinct categories:
+The tool now separates security assessments into three distinct categories with **visual emoji-based organization**:
+
 - **🛡️ Software Mitigations** (Primary Score): Registry-configurable protections that determine your main security score
 - **🔐 Security Features**: Windows security services (VBS, HVCI, Credential Guard, etc.)
 - **🔧 Hardware Prerequisites**: Platform readiness checks (UEFI, TPM, CPU virtualization)
+
+Each category shows:
+- **Individual tables** with detailed mitigation information
+- **Category scores** (e.g., "10/12 enabled (83.3%)")
+- **Color-coded progress indicators** for quick visual assessment
+- **PowerShell 5.1 compatible progress bars** using ASCII characters (`[=======---]`)
 
 This provides **more accurate and meaningful security assessments** by focusing the primary score on actionable configurations rather than hardware capabilities.
 
@@ -118,10 +125,11 @@ This provides **more accurate and meaningful security assessments** by focusing 
 - **Architecture**: x64 systems (Intel/AMD processors)
 
 ### ✅ PowerShell Compatibility:
-- **PowerShell 5.1**: ✅ **Fully Supported** - All features work perfectly
+- **PowerShell 5.1**: ✅ **Fully Supported** - All features work perfectly, including ASCII progress bars
 - **PowerShell 7+**: ✅ **Fully Supported** - Enhanced performance and features
-- **Cross-Version Tested**: Both versions display identical output and functionality
+- **Cross-Version Tested**: Both versions display identical categorized output and functionality
 - **Windows Server Default**: PowerShell 5.1 compatibility ensures seamless operation
+- **Visual Elements**: ASCII-based progress bars (`[=======---]`) compatible with all console environments
 
 ## 🔄 Compatibility with Microsoft Tools
 
@@ -746,6 +754,20 @@ Copy-Item "VMware_Security_Report_$Date.csv" "\\vcenter\reports\"
 
 ## 🎨 Interpreting Terminal Output
 
+### 🎯 New Categorized Display Format
+
+The tool now organizes results into **visual categories** with emoji headers:
+
+- **🛡️ SOFTWARE MITIGATIONS**: Registry-configurable protections (primary security score)
+- **🔐 SECURITY FEATURES**: Windows security services and advanced protections
+- **🔧 HARDWARE PREREQUISITES**: Platform readiness and hardware capabilities
+- **⚙️ OTHER MITIGATIONS**: Additional security features and informational items
+
+Each category displays:
+- **Detailed table** with mitigation names, status, values, and impact
+- **Category score** showing enabled/total count and percentage
+- **Color-coded summary** (Green ≥80%, Yellow ≥60%, Red <60%)
+
 ### 📊 Status Symbols & Color Guide
 
 The tool uses **color-coded status symbols** for quick visual assessment:
@@ -860,50 +882,64 @@ Nested Virtualization: Disabled
 
 Checking Side-Channel Vulnerability Mitigations...
 
-Speculative Store Bypass Disable              : [+] ENABLED (Value: 72)
-SSBD Feature Mask                             : [+] ENABLED (Value: 3)
-Branch Target Injection Mitigation            : [+] ENABLED (Value: 0)
-Kernel VA Shadow (Meltdown Protection)        : [+] ENABLED (Value: 1)
-Hardware Security Mitigations                 : [+] ENABLED (Value: 2305843009213694208)
-Exception Chain Validation                    : [+] ENABLED (Value: 0)
-Supervisor Mode Access Prevention             : [+] ENABLED (Value: 1)
-Intel TSX Disable                             : [+] ENABLED (Value: 1)
-Enhanced IBRS                                 : [+] ENABLED (Value: 1)
+=== Side-Channel Vulnerability Mitigation Status ===
 
-Checking Additional CVE Mitigations (Performance Impact Warning)...
-L1TF Mitigation                               : [-] NOT SET
-MDS Mitigation                                : [-] NOT SET
-CVE-2019-11135 Mitigation                     : [+] ENABLED (Value: 1)
-SBDR/SBDS Mitigation                          : [+] ENABLED (Value: 1)
-SRBDS Update Mitigation                       : [+] ENABLED (Value: 1)
-DRPW Mitigation                               : [+] ENABLED (Value: 1)
+🛡️ SOFTWARE MITIGATIONS
+============================================================
 
-Checking Windows Security Features...
+Mitigation Name                        Status      Current Value Expected Value Impact
+---------------                        ------      ------------- -------------- ------
+Speculative Store Bypass Disable       [+] Enabled            72             72 Minimal performance impact
+SSBD Feature Mask                      [+] Enabled             3              3 Works in conjunction with FeatureSettingsOverride
+Branch Target Injection Mitigation     [+] Enabled             0              0 Minimal performance impact on modern CPUs
+Kernel VA Shadow (Meltdown Protection) [+] Enabled             1              1 Medium performance impact, essential for Meltdown protection
+Intel TSX Disable                      [+] Enabled             1              1 May affect applications that rely on TSX
+Enhanced IBRS                          [+] Enabled             1              1 Minimal performance impact
+L1TF Mitigation                        [-] Not Set       Not Set              1 HIGH - May require disabling hyperthreading
+MDS Mitigation                         [-] Not Set       Not Set              1 MODERATE-HIGH - 3-8% performance impact
+CVE-2019-11135 Mitigation              [+] Enabled             1              1 MODERATE - Application-dependent
+SBDR/SBDS Mitigation                   [+] Enabled             1              1 LOW-MODERATE - Performance impact varies
+SRBDS Update Mitigation                [+] Enabled             1              1 LOW - Minimal performance impact
+DRPW Mitigation                        [+] Enabled             1              1 LOW - Typically minimal performance impact
 
-Checking Virtualization-Specific Security Features...
+Category Score: 10/12 enabled (83.3%)
 
-Status Legend:
+🔐 SECURITY FEATURES
+============================================================
+
+Mitigation Name                     Status      Current Value      Expected Value   Impact
+---------------                     ------      -------------      --------------   ------
+Hardware Security Mitigations       [+] Enabled 0x2000000000000100 2000000000000000 Hardware-dependent, modern CPUs have better performance
+Exception Chain Validation          [+] Enabled 0                  0                Prevents SEH exploitation techniques
+Supervisor Mode Access Prevention   [+] Enabled 1                  1                Improves resistance to memory corruption attacks
+Windows Defender Exploit Guard ASLR [-] Not Set Not Set            1                Improves resistance to memory corruption attacks
+Credential Guard                    [+] Enabled 1                  1                Requires VBS and may affect some applications
+
+Category Score: 4/5 enabled (80%)
+
+🔧 HARDWARE PREREQUISITES
+============================================================
+
+Mitigation Name Status      Current Value Expected Value Impact
+--------------- ------      ------------- -------------- ------
+Secure Boot     [+] Enabled Active        Enabled        Essential for VBS and prevents boot-level malware
+
+Category Score: 1/1 enabled (100%)
+
+📊 OVERALL SECURITY SUMMARY
+============================================================
+Overall Protection Level: 19/27 mitigations enabled (70.4%)
+Security Level: [=======---]
+
+📋 STATUS LEGEND
 [+] Enabled - Mitigation is active and properly configured
 [-] Disabled - Mitigation is explicitly disabled
 [-] Not Set - Registry value not configured (using defaults)
-[?] Not Set - Registry value not configured (using defaults) (YELLOW in terminal)
 
-### 🎨 Color Coding in Terminal Output:
-- **🟢 GREEN [+]**: Security feature is properly enabled and working
-- **🔴 RED [-]**: Security feature is disabled or not working (requires attention)
-- **🟡 YELLOW [?]**: Security feature status is unknown or using default values (may need configuration)
-- **🔵 BLUE**: Informational messages and system details
-- **🟣 MAGENTA**: Section headers and important status summaries
-- **🟠 CYAN**: Virtualization-specific recommendations and host security guidance
-
-### 📋 Understanding the Output:
-**Main Security Table**: Each mitigation shows its current status with color-coded symbols for quick visual assessment.
-
-**Virtualization Security Recommendations**: 
-- Use the status symbols and colors to quickly identify which features need attention
-- GREEN items are properly configured and secure
-- YELLOW/RED items may require configuration or updates
-- Follow the specific recommendations provided for your environment type
+🎯 CATEGORY DESCRIPTIONS
+🛡️  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
+🔐 SECURITY FEATURES: Advanced Windows security technologies
+🔧 HARDWARE PREREQUISITES: Required hardware security capabilities
 
 === SECURITY CONFIGURATION SUMMARY ===
 
@@ -927,7 +963,7 @@ Security Status Overview:
 [+] READY:         3 / 4 components
 
 Overall Mitigation Score: 82.6%
-Mitigation Progress: [########--] 82.6%
+Mitigation Progress: [========--] 82.6%
 
 Score Explanation:
 • Mitigation Score: Based on registry-configurable side-channel protections
