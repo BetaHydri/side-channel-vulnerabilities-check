@@ -1704,14 +1704,14 @@ else {
             if ($coreScheduler -eq 1) { "Enabled" } else { "Not Configured" }
         }
         else {
-            "Default (OS Built-in)"  # Newer OS versions have it enabled by default
+            "Enabled"  # Newer OS versions have it enabled by default - mark as Enabled to exclude from recommendations
         }
         
         $coreSchedulerRecommendation = if ($needsCoreSchedulerConfig) {
             "Enable Core Scheduler for SMT security: bcdedit /set hypervisorschedulertype core"
         }
         else {
-            "Core Scheduler is enabled by default in this Windows version (Build $osBuildNumber)"
+            "Core Scheduler is enabled by default in this Windows version (Build $osBuildNumber) - no action required"
         }
         
         $Results += [PSCustomObject]@{
