@@ -2765,20 +2765,48 @@ $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
 $notConfiguredCount = ($Results | Where-Object { $_.Status -eq "Not Configured" }).Count
 $disabledCount = ($Results | Where-Object { $_.Status -eq "Disabled" }).Count
 
-# Categorize results into different types
-$softwareMitigations = $Results | Where-Object { 
-    $_.Status -in @("Enabled", "Not Configured", "Disabled") -and
-    $_.Name -notmatch "UEFI|TPM|CPU Virtualization|Retpoline Support|Information"
-}
+# Define categories for result filtering (must match the categorization at line 401-428)
+$softwareMitigationNames = @(
+    "Speculative Store Bypass Disable",
+    "SSBD Feature Mask", 
+    "Branch Target Injection Mitigation",
+    "Kernel VA Shadow (Meltdown Protection)",
+    "Enhanced IBRS",
+    "Intel TSX Disable",
+    "L1TF Mitigation",
+    "MDS Mitigation",
+    "CVE-2019-11135 Mitigation",
+    "SBDR/SBDS Mitigation",
+    "SRBDS Update Mitigation",
+    "DRPW Mitigation"
+)
 
-$hardwarePrerequisites = $Results | Where-Object { 
-    $_.Name -match "UEFI|TPM|CPU Virtualization" -or $_.Status -eq "Information"
-}
+$securityFeatureNames = @(
+    "Hardware Security Mitigations",
+    "Exception Chain Validation",
+    "Supervisor Mode Access Prevention",
+    "Windows Defender Exploit Guard ASLR",
+    "Virtualization Based Security",
+    "Hypervisor Code Integrity",
+    "Credential Guard",
+    "Windows Defender Application Guard"
+)
 
-$securityFeatures = $Results | Where-Object {
-    $_.Status -in @("Enabled", "Not Configured", "Disabled") -and
-    $_.Name -match "VBS|HVCI|Credential Guard|Windows Defender|Hyper-V Core Scheduler"
-}
+$hardwarePrerequisiteNames = @(
+    "UEFI Firmware",
+    "Secure Boot",
+    "TPM 2.0",
+    "Virtualization Technology",
+    "IOMMU Support",
+    "CPU Microcode"
+)
+
+# Categorize results using the predefined name lists
+$softwareMitigations = $Results | Where-Object { $_.Name -in $softwareMitigationNames }
+
+$hardwarePrerequisites = $Results | Where-Object { $_.Name -in $hardwarePrerequisiteNames }
+
+$securityFeatures = $Results | Where-Object { $_.Name -in $securityFeatureNames }
 
 # Count software mitigations for scoring (the main security score)
 $enabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
