@@ -2683,12 +2683,12 @@ else {
         
         # Exclude if already enabled/working properly OR if it's an informational item that can't be configured
         -not ($status -eq "Enabled" -or 
-              $status -match "^UEFI Firmware Active" -or
-              $status -match "^TPM 2.0 Enabled" -or
-              $status -match "^Enabled and Active" -or
-              $status -match "Running" -or
-              $status -match "Enforced" -or
-              ($status -eq "Information" -and $canBeEnabled -eq $false))
+            $status -match "^UEFI Firmware Active" -or
+            $status -match "^TPM 2.0 Enabled" -or
+            $status -match "^Enabled and Active" -or
+            $status -match "Running" -or
+            $status -match "Enforced" -or
+            ($status -eq "Information" -and $canBeEnabled -eq $false))
     }
     
     # Filter CPU-specific mitigations in recommendations too
