@@ -2453,12 +2453,12 @@ function Filter-CPUSpecificMitigations {
         # Skip Intel-specific mitigations on non-Intel CPUs
         if ($mitigation.Name -in $intelSpecificMitigations -and $CPUManufacturer -ne "GenuineIntel") {
             $shouldInclude = $false
-            $reason = "Intel-specific mitigation on non-Intel CPU"
+            $reason = "Intel-specific mitigation not applicable on $($CPUManufacturer -replace 'Genuine|Authentic','')"
         }
         # Skip AMD-specific mitigations on non-AMD CPUs
         elseif ($mitigation.Name -in $amdSpecificMitigations -and $CPUManufacturer -ne "AuthenticAMD") {
             $shouldInclude = $false
-            $reason = "AMD-specific mitigation on non-AMD CPU"
+            $reason = "AMD-specific mitigation not applicable on $($CPUManufacturer -replace 'Genuine|Authentic','')"
         }
         
         if ($shouldInclude) {
@@ -2471,7 +2471,7 @@ function Filter-CPUSpecificMitigations {
     }
     
     if ($skippedCount -gt 0) {
-        Write-ColorOutput "`nFiltered out $skippedCount CPU-incompatible mitigation(s) for $CPUManufacturer CPU." -Color Info
+        Write-ColorOutput "`nFiltered out $skippedCount CPU-incompatible mitigation(s) because you have a $CPUManufacturer CPU." -Color Info
     }
     
     return $filteredMitigations
