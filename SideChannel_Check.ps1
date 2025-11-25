@@ -1900,57 +1900,157 @@ $Results += [PSCustomObject]@{
 $hwRequirements = Get-HardwareRequirements
 
 # 1a. UEFI Firmware Check
+$uefiStatus = "Unknown - Check System Information"
+$uefiValue = "Manual verification required"
+$uefiRecommendation = "Check system information or BIOS settings to determine firmware type"
+
+if ($hwRequirements.IsUEFI) {
+    $uefiStatus = "UEFI Firmware Active"
+    $uefiValue = "Modern UEFI firmware"
+    $uefiRecommendation = "UEFI firmware is active - supports modern security features"
+}
+else {
+    $uefiStatus = "Legacy BIOS Mode"
+    $uefiValue = "Legacy BIOS or CSM mode"
+    $uefiRecommendation = "Upgrade to UEFI mode for advanced security (may require OS reinstall in UEFI mode)"
+}
+
 $Results += [PSCustomObject]@{
     Name           = "UEFI Firmware (not Legacy BIOS)"
     Description    = "Modern firmware interface required for advanced security features"
-    Status         = if ($hwRequirements.IsUEFI) { "Enabled" } else { "Legacy BIOS Detected" }
-    CurrentValue   = if ($hwRequirements.IsUEFI) { "UEFI" } else { "Legacy BIOS" }
-    ExpectedValue  = "UEFI"
-    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control"
-    RegistryName   = "PEFirmwareType"
-    Recommendation = "Upgrade to UEFI firmware for modern security features"
+    Status         = $uefiStatus
+    CurrentValue   = $uefiValue
+    ExpectedValue  = "UEFI Firmware Active"
+    RegistryPath   = "System Firmware (Hardware)"
+    RegistryName   = "Firmware Type"
+    Recommendation = $uefiRecommendation
     Impact         = "Required for Secure Boot, VBS, and other security features"
     CanBeEnabled   = $false
 }
 
 # 1b. Secure Boot Check
+$secureBootStatus = "Unknown - Check UEFI Settings"
+$secureBootValue = "Manual verification required"
+$secureBootRecommendation = "Access UEFI firmware settings to verify Secure Boot status"
+$canEnableSecureBoot = $false
+
+if ($hwRequirements.SecureBootEnabled) {
+    $secureBootStatus = "Enabled"
+    $secureBootValue = "Active"
+    $secureBootRecommendation = "Secure Boot is properly enabled - no action required"
+    $canEnableSecureBoot = $true
+}
+elseif ($hwRequirements.SecureBootCapable) {
+    $secureBootStatus = "Available but Disabled"
+    $secureBootValue = "Hardware supports but not enabled"
+    $secureBootRecommendation = "Enable Secure Boot in UEFI firmware settings (requires UEFI mode, not Legacy BIOS)"
+    $canEnableSecureBoot = $true
+}
+elseif ($hwRequirements.IsUEFI) {
+    $secureBootStatus = "UEFI Present - Secure Boot Unknown"
+    $secureBootValue = "Check UEFI firmware manually"
+    $secureBootRecommendation = "Access UEFI setup during boot to enable Secure Boot if available"
+    $canEnableSecureBoot = $true
+}
+else {
+    $secureBootStatus = "Not Available (Legacy BIOS)"
+    $secureBootValue = "Requires UEFI firmware"
+    $secureBootRecommendation = "Upgrade to UEFI firmware to support Secure Boot (requires reinstall in UEFI mode)"
+    $canEnableSecureBoot = $false
+}
+
 $Results += [PSCustomObject]@{
     Name           = "Secure Boot"
     Description    = "Prevents unauthorized bootloaders and ensures boot integrity"
-    Status         = if ($hwRequirements.SecureBootEnabled) { "Enabled" } elseif ($hwRequirements.SecureBootCapable) { "Available but Disabled" } else { "Not Available" }
-    CurrentValue   = $hwRequirements.SecureBootStatus
+    Status         = $secureBootStatus
+    CurrentValue   = $secureBootValue
     ExpectedValue  = "Enabled"
-    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State"
-    RegistryName   = "UEFISecureBootEnabled"
-    Recommendation = if ($hwRequirements.SecureBootCapable) { "Enable Secure Boot in UEFI firmware settings" } else { "Upgrade firmware to support Secure Boot" }
+    RegistryPath   = "UEFI Firmware Setting"
+    RegistryName   = "Secure Boot"
+    Recommendation = $secureBootRecommendation
     Impact         = "Essential for VBS and prevents boot-level malware"
-    CanBeEnabled   = $hwRequirements.SecureBootCapable
+    CanBeEnabled   = $canEnableSecureBoot
 }
 
 # 1c. TPM 2.0 Check
+$tpmStatus = "Unknown - Check Hardware"
+$tpmValue = "Manual verification required"
+$tpmRecommendation = "Check BIOS/UEFI for TPM settings or hardware installation"
+$canEnableTPM = $false
+
+if ($hwRequirements.TPMPresent) {
+    if ($hwRequirements.TPMVersion -match "2\.0") {
+        $tpmStatus = "TPM 2.0 Enabled"
+        $tpmValue = "Version $($hwRequirements.TPMVersion) - Active"
+        $tpmRecommendation = "TPM 2.0 is properly enabled and functioning"
+        $canEnableTPM = $true
+    }
+    elseif ($hwRequirements.TPMVersion -match "1\.") {
+        $tpmStatus = "TPM 1.x Present (Upgrade Needed)"
+        $tpmValue = "Version $($hwRequirements.TPMVersion) - Insufficient"
+        $tpmRecommendation = "TPM 1.x detected - upgrade to TPM 2.0 chip or enable TPM 2.0 mode in UEFI if available"
+        $canEnableTPM = $false
+    }
+    else {
+        $tpmStatus = "TPM Present (Version Unknown)"
+        $tpmValue = "Version: $($hwRequirements.TPMVersion)"
+        $tpmRecommendation = "TPM detected but version unclear - verify TPM 2.0 compatibility"
+        $canEnableTPM = $true
+    }
+}
+else {
+    $tpmStatus = "Not Detected"
+    $tpmValue = "No TPM found"
+    $tpmRecommendation = "Enable TPM in BIOS/UEFI if available, or install TPM 2.0 hardware module"
+    $canEnableTPM = $false
+}
+
 $Results += [PSCustomObject]@{
     Name           = "TPM 2.0 (Trusted Platform Module)"
     Description    = "Hardware security chip for cryptographic operations and key storage"
-    Status         = if ($hwRequirements.TPMPresent -and $hwRequirements.TPMVersion -match "2\.0") { "Enabled" } elseif ($hwRequirements.TPMPresent) { "TPM Present (Version: $($hwRequirements.TPMVersion))" } else { "Not Available" }
-    CurrentValue   = if ($hwRequirements.TPMPresent) { "Present (Version: $($hwRequirements.TPMVersion))" } else { "Not Detected" }
-    ExpectedValue  = "TPM 2.0"
-    RegistryPath   = "WMI Query"
-    RegistryName   = "Win32_Tpm"
-    Recommendation = if ($hwRequirements.TPMPresent) { "Ensure TPM 2.0 is enabled and functioning" } else { "Install or enable TPM 2.0 hardware" }
+    Status         = $tpmStatus
+    CurrentValue   = $tpmValue
+    ExpectedValue  = "TPM 2.0 Enabled"
+    RegistryPath   = "Hardware/UEFI Setting"
+    RegistryName   = "TPM 2.0"
+    Recommendation = $tpmRecommendation
     Impact         = "Required for Credential Guard, BitLocker, and VBS features"
-    CanBeEnabled   = $hwRequirements.TPMPresent
+    CanBeEnabled   = $canEnableTPM
 }
 
 # 1d. CPU Virtualization Support Check
+$vtxStatus = "Unknown - Manual BIOS Check Required"
+$vtxValue = "Check BIOS/UEFI Settings"
+$vtxRecommendation = "Verify VT-x (Intel) or AMD-V (AMD) is enabled in BIOS/UEFI firmware settings"
+
+if ($hwRequirements.VTxSupport) {
+    # Additional check to see if Hyper-V is actually working
+    if ($virtInfo.HyperVStatus -eq "Enabled" -or (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue).State -eq "Enabled") {
+        $vtxStatus = "Enabled and Active"
+        $vtxValue = "Hardware virtualization active"
+        $vtxRecommendation = "CPU virtualization is enabled and functioning properly"
+    }
+    else {
+        $vtxStatus = "Hardware Available but Inactive"
+        $vtxValue = "Enable Hyper-V to verify full functionality"
+        $vtxRecommendation = "CPU virtualization detected - enable Hyper-V role to verify complete functionality"
+    }
+}
+else {
+    $vtxStatus = "Not Detected or Disabled"
+    $vtxValue = "Enable in BIOS/UEFI"
+    $vtxRecommendation = "Enable VT-x (Intel) or AMD-V (AMD) in BIOS/UEFI firmware settings - required for VBS/HVCI"
+}
+
 $Results += [PSCustomObject]@{
     Name           = "CPU Virtualization Support (VT-x/AMD-V)"
     Description    = "Hardware virtualization extensions required for hypervisor-based security"
-    Status         = if ($hwRequirements.VTxSupport) { "Enabled" } else { "Not Detected" }
-    CurrentValue   = if ($hwRequirements.VTxSupport) { "Available" } else { "Not Available" }
-    ExpectedValue  = "Enabled"
-    RegistryPath   = "Hardware Feature"
-    RegistryName   = "CPU Virtualization Extensions"
-    Recommendation = if ($hwRequirements.VTxSupport) { "CPU virtualization is available" } else { "Enable VT-x (Intel) or AMD-V (AMD) in BIOS/UEFI" }
+    Status         = $vtxStatus
+    CurrentValue   = $vtxValue
+    ExpectedValue  = "Enabled and Active"
+    RegistryPath   = "BIOS/UEFI Setting (Hardware Feature)"
+    RegistryName   = "Intel VT-x / AMD-V"
+    Recommendation = $vtxRecommendation
     Impact         = "Essential for Hyper-V, VBS, and virtualization-based security"
     CanBeEnabled   = $true
 }
@@ -2121,15 +2221,15 @@ if ($vbsStatus) {
     
     Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($vbsHwReady) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($vbsHwReady) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
     Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray  
-    Write-Host "$(if ($vbsRunning) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($vbsRunning) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] })
     
     Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
     Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciHwReady) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($hvciHwReady) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] })
     Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
-    Write-Host "$(if ($hvciRunning) { '[+] Yes' } else { '[-] No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
+    Write-Host "$(if ($hvciRunning) { '`[+`] Yes' } else { '`[-`] No' })" -ForegroundColor $(if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] })
     
     # Explanation of the difference
     if (!$vbsHwReady -and $vbsRunning) {
@@ -2254,7 +2354,7 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
         $false 
     }
     
-    $statusIcon = if ($isEnabled) { "[+]" } else { "[?]" }
+    $statusIcon = if ($isEnabled) { "`[+`]" } else { "`[?`]" }
     $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
     
     Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
@@ -2348,7 +2448,7 @@ function Select-Mitigations {
     Write-ColorOutput "Note: Only CPU-compatible mitigations are shown." -Color Info
     
     Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
-    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or `'all`' for all mitigations):`n" -Color Info
+    Write-ColorOutput "Use numbers to select (e.g., 1,3,5 or 1-3 or 'all' for all mitigations):`n" -Color Info
     
     # Display available mitigations with numbers
     $index = 1
@@ -2810,65 +2910,44 @@ Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ==="
 $hwStatus = Get-HardwareRequirements
 
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
+Write-ColorOutput "(Symbols: [+] Enabled/Good, [?] Needs Verification, [-] Disabled/Missing)" -Color Info
+
+# Get updated hardware status from our Results array for consistency
+$uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
+$secureBootResult = $Results | Where-Object { $_.Name -eq "Secure Boot" }
+$tpmResult = $Results | Where-Object { $_.Name -match "TPM 2.0" }
+$vtxResult = $Results | Where-Object { $_.Name -match "CPU Virtualization" }
+$iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
 
 # UEFI Status
 Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
-if ($hwStatus.IsUEFI) {
-    Write-Host "[+] Present" -ForegroundColor $Colors['Good']
-}
-else {
-    Write-Host "[-] Legacy BIOS Detected - Upgrade Required" -ForegroundColor $Colors['Bad']
-}
+$uefiStatusIcon = if ($uefiResult.Status -match "Active") { "`[+`]" } else { "`[-`]" }
+$uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
+Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
 
 # Secure Boot Status
 Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
-if ($hwStatus.SecureBootEnabled) {
-    Write-Host "[+] Enabled" -ForegroundColor $Colors['Good']
-}
-elseif ($hwStatus.SecureBootCapable) {
-    Write-Host "[?] Available but Disabled - Enable in UEFI" -ForegroundColor $Colors['Warning']
-}
-else {
-    Write-Host "[-] Not Available - Firmware Upgrade Required" -ForegroundColor $Colors['Bad']
-}
+$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "`[+`]" } elseif ($secureBootResult.Status -match "Available|Unknown") { "`[?`]" } else { "`[-`]" }
+$sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
 # TPM Status
 Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-if ($hwStatus.TPMPresent) {
-    if ($hwStatus.TPMVersion -match "2\.0") {
-        Write-Host "[+] TPM 2.0 Present" -ForegroundColor $Colors['Good']
-    }
-    else {
-        Write-Host "[?] TPM Present ($($hwStatus.TPMVersion)) - Verify version" -ForegroundColor $Colors['Warning']
-    }
-}
-else {
-    Write-Host "[-] Not Detected - Enable or Install TPM" -ForegroundColor $Colors['Bad']
-}
+$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[?]" } else { "[-]" }
+$tmpColor = if ($tmpResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tmpResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tmpColor
 
 # CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
-if ($hwStatus.VTxSupport) {
-    Write-Host "[+] Available" -ForegroundColor $Colors['Good']
-    if ($hwStatus.VTxDetectionMethod) {
-        Write-Host "  Method: $($hwStatus.VTxDetectionMethod)" -ForegroundColor $Colors['Info']
-    }
-}
-else {
-    Write-Host "[-] Not Detected - Enable in BIOS/UEFI" -ForegroundColor $Colors['Bad']
-    if ($hwStatus.VTxDetectionMethod) {
-        Write-Host "  Last Check: $($hwStatus.VTxDetectionMethod)" -ForegroundColor $Colors['Warning']
-    }
-}
+$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "`[+`]" } elseif ($vtxResult.Status -match "Available|Unknown") { "`[?`]" } else { "`[-`]" }
+$vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
 # IOMMU Status
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-if ($hwStatus.IOMMUSupport -match "Available") {
-    Write-Host "[+] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Good']
-}
-else {
-    Write-Host "[?] $($hwStatus.IOMMUSupport)" -ForegroundColor $Colors['Warning']
-}
+$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "`[+`]" } else { "`[?`]" }
+$iommuColor = if ($iommuResult.Status -match "Enabled and Active") { $Colors['Good'] } else { $Colors['Warning'] }
+Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
 
 Write-ColorOutput "`nRequired CPU Features:" -Color Info
 Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
@@ -2876,11 +2955,60 @@ Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Info
 Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
 Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color $(if ($hwStatus.TPMPresent -and $hwStatus.SecureBootEnabled -and $hwStatus.IsUEFI) { 'Good' } else { 'Warning' })
 
+Write-ColorOutput "`nAdministrator Action Items:" -Color Header
+Write-ColorOutput "===========================" -Color Header
+
+# Generate specific action items based on current status
+$actionItems = @()
+
+if (!$hwStatus.IsUEFI) {
+    $actionItems += "• CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
+}
+
+if ($hwStatus.IsUEFI -and !$hwStatus.SecureBootEnabled) {
+    $actionItems += "• Access UEFI firmware settings and enable Secure Boot"
+}
+
+if (!$hwStatus.TPMPresent) {
+    $actionItems += "• Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
+}
+elseif ($hwStatus.TPMVersion -notmatch "2\.0") {
+    $actionItems += "• Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
+}
+
+if (!$hwStatus.VTxSupport) {
+    $actionItems += "• Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
+}
+
+if ($hwStatus.IOMMUSupport -notmatch "Available.*Hyper-V") {
+    $actionItems += "• Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
+}
+
+# Always include firmware update recommendation
+$actionItems += "• Update system firmware/BIOS to latest version for security fixes"
+$actionItems += "• Update CPU microcode through Windows Update or vendor tools"
+
+if ($actionItems.Count -gt 0) {
+    Write-ColorOutput "`nRequired Actions for Optimal Security:" -Color Warning
+    foreach ($item in $actionItems) {
+        Write-ColorOutput $item -Color Warning
+    }
+}
+else {
+    Write-ColorOutput "`nHardware Security Status: All critical components properly configured!" -Color Good
+}
+
+Write-ColorOutput "`nManual Verification Steps:" -Color Info
+Write-ColorOutput "• Boot into UEFI/BIOS setup to verify settings" -Color Info
+Write-ColorOutput "• Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
+Write-ColorOutput "• Use 'tpm.msc' to verify TPM status and version" -Color Info
+Write-ColorOutput "• Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
+
 Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
-Write-ColorOutput "- UEFI firmware (not legacy BIOS): $(if ($hwStatus.IsUEFI) { '[+] Met' } else { '[-] Not Met' })" -Color $(if ($hwStatus.IsUEFI) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- Secure Boot capability: $(if ($hwStatus.SecureBootCapable) { '[+] Available' } else { '[-] Not Available' })" -Color $(if ($hwStatus.SecureBootCapable) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- TPM 2.0: $(if ($hwStatus.TPMPresent) { '[+] Present' } else { '[-] Missing' })" -Color $(if ($hwStatus.TPMPresent) { 'Good' } else { 'Bad' })
-Write-ColorOutput "- Latest firmware updates: [?] Check with manufacturer" -Color Warning
+Write-ColorOutput "- UEFI firmware (not legacy BIOS): $(if ($hwStatus.IsUEFI) { '`[+`] Met' } else { '`[-`] Not Met' })" -Color $(if ($hwStatus.IsUEFI) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- Secure Boot capability: $(if ($hwStatus.SecureBootCapable) { '`[+`] Available' } else { '`[-`] Not Available' })" -Color $(if ($hwStatus.SecureBootCapable) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- TPM 2.0: $(if ($hwStatus.TPMPresent) { '`[+`] Present' } else { '`[-`] Missing' })" -Color $(if ($hwStatus.TPMPresent) { 'Good' } else { 'Bad' })
+Write-ColorOutput "- Latest firmware updates: `[?`] Check with manufacturer" -Color Warning
 
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
