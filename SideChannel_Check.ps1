@@ -682,7 +682,24 @@ function Test-SideChannelMitigation {
         Write-ColorOutput "Status: $status" -Color $statusColor
         Write-ColorOutput "Current Value: $(if ($null -ne $currentValue) { $currentValue } else { 'Not Set' })" -Color Info
         Write-ColorOutput "Expected Value: $ExpectedValue" -Color Info
-        Write-ColorOutput "Registry: $RegistryPath\$RegistryName" -Color Info
+        
+        # Show appropriate configuration type based on RegistryPath
+        if ($RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
+            Write-ColorOutput "Registry: $RegistryPath\$RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "Hardware|UEFI|BIOS") {
+            Write-ColorOutput "Hardware/UEFI: $RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "Hyper-V") {
+            Write-ColorOutput "Hyper-V: $RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "VMware") {
+            Write-ColorOutput "VMware: $RegistryName" -Color Info
+        }
+        else {
+            Write-ColorOutput "Configuration: $RegistryPath\$RegistryName" -Color Info
+        }
+        
         Write-ColorOutput "Recommendation: $Recommendation" -Color Info
         Write-ColorOutput "Impact: $Impact" -Color Info
     }
@@ -3186,22 +3203,37 @@ else {
         Write-ColorOutput "`nOr manually use these registry commands:" -Color Info
         Write-ColorOutput "(Filtered for $($cpuInfo.Manufacturer) CPU compatibility)" -Color Info
         foreach ($item in $notConfigured | Where-Object { $_.CanBeEnabled }) {
-            # Special handling for different registry value types
-            $regType = "REG_DWORD"
-            $regValue = $item.ExpectedValue
-            
-            # Handle large hex values (like MitigationOptions)
-            if ($item.ExpectedValue -is [string] -and $item.ExpectedValue.Length -gt 10 -and $item.ExpectedValue -match "^[0-9A-Fa-f]+$") {
-                try {
-                    $regValue = [Convert]::ToUInt64($item.ExpectedValue, 16)
-                    $regType = "REG_QWORD"
+            # Only show registry commands for actual registry configurations
+            if ($item.RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
+                # Special handling for different registry value types
+                $regType = "REG_DWORD"
+                $regValue = $item.ExpectedValue
+                
+                # Handle large hex values (like MitigationOptions)
+                if ($item.ExpectedValue -is [string] -and $item.ExpectedValue.Length -gt 10 -and $item.ExpectedValue -match "^[0-9A-Fa-f]+$") {
+                    try {
+                        $regValue = [Convert]::ToUInt64($item.ExpectedValue, 16)
+                        $regType = "REG_QWORD"
+                    }
+                    catch {
+                        $regValue = $item.ExpectedValue
+                    }
                 }
-                catch {
-                    $regValue = $item.ExpectedValue
-                }
+                
+                Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t $regType /d $regValue /f" -Color Info
             }
-            
-            Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t $regType /d $regValue /f" -Color Info
+            elseif ($item.RegistryPath -match "Hardware|UEFI|BIOS") {
+                Write-ColorOutput "# Hardware/UEFI: $($item.Name) - Configure in BIOS/UEFI settings" -Color Warning
+            }
+            elseif ($item.RegistryPath -match "Hyper-V") {
+                Write-ColorOutput "# Hyper-V: $($item.Name) - Use Hyper-V PowerShell commands or GUI" -Color Warning
+            }
+            elseif ($item.RegistryPath -match "VMware") {
+                Write-ColorOutput "# VMware: $($item.Name) - Configure on ESXi host" -Color Warning
+            }
+            else {
+                Write-ColorOutput "# Configuration: $($item.Name) - Manual configuration required" -Color Warning
+            }
         }
         Write-ColorOutput "`nNote: A system restart may be required after making registry changes." -Color Warning
         Write-ColorOutput "These are the core KB4073119 documented mitigations. For additional modern CVE mitigations," -Color Info
@@ -3253,8 +3285,20 @@ if ($Revert) {
                 if ($mitigation.Name -eq "Nested Virtualization Security") {
                     Write-ColorOutput "      Configuration: Hyper-V VM Processor Settings" -Color Gray
                 }
-                else {
+                elseif ($mitigation.RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
                     Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "Hardware|UEFI|BIOS") {
+                    Write-ColorOutput "      Hardware/UEFI: $($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "Hyper-V") {
+                    Write-ColorOutput "      Hyper-V: $($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "VMware") {
+                    Write-ColorOutput "      VMware: $($mitigation.RegistryName)" -Color Gray
+                }
+                else {
+                    Write-ColorOutput "      Configuration: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
                 }
                 
                 Write-ColorOutput "" -Color Info
