@@ -90,7 +90,7 @@
     
 .NOTES
     Author: Jan Tiedemann
-    Version: 2.7
+    Version: 2.8
     Requires: PowerShell 5.1+ and Administrator privileges
     Based on: Microsoft KB4073119
     GitHub: https://github.com/BetaHydri/side-channel-vulnerabilities-check
@@ -1007,7 +1007,7 @@ function Show-VMwareHostSecurity {
     Write-ColorOutput "`n=== VMware Host Security Configuration Guide ===" -Color Header
     Write-ColorOutput "ESXi/vSphere Security Hardening for Side-Channel Vulnerability Protection`n" -Color Warning
     
-    Write-ColorOutput "🔧 CRITICAL ESXi HOST SETTINGS:" -Color Header
+    Write-ColorOutput "[*] CRITICAL ESXi HOST SETTINGS:" -Color Header
     
     Write-ColorOutput "`n1. Side-Channel Aware Scheduler (SCAS):" -Color Info
     Write-ColorOutput "   # Enable Side-Channel Aware Scheduler (ESXi 6.7 U2+)" -Color Success
@@ -1032,7 +1032,7 @@ function Show-VMwareHostSecurity {
     Write-ColorOutput "   # Enable SSBD (Speculative Store Bypass Disable)" -Color Success
     Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/enableSSBD -i true" -Color Success
     
-    Write-ColorOutput "`n⚙️ VM-LEVEL CONFIGURATION:" -Color Header
+    Write-ColorOutput "`n[*] VM-LEVEL CONFIGURATION:" -Color Header
     
     Write-ColorOutput "`nVM Hardware Requirements:" -Color Info
     Write-ColorOutput "   - VM Hardware Version: 14+ (required for CPU security features)" -Color Success
@@ -1053,7 +1053,7 @@ function Show-VMwareHostSecurity {
     Write-ColorOutput "   monitor.phys_bits_used = `"40`"" -Color Success
     Write-ColorOutput "   featMask.vm.hv.capable = `"Min:1`"" -Color Success
     
-    Write-ColorOutput "`n🔍 VERIFICATION COMMANDS:" -Color Header
+    Write-ColorOutput "`n[*] VERIFICATION COMMANDS:" -Color Header
     
     Write-ColorOutput "`nESXi Security Status Checks:" -Color Info
     Write-ColorOutput "   # Verify Side-Channel Aware Scheduler" -Color Success
@@ -1069,7 +1069,7 @@ function Show-VMwareHostSecurity {
     Write-ColorOutput "   # Check microcode version" -Color Success
     Write-ColorOutput "   esxcli hardware cpu global get | grep -i microcode" -Color Success
     
-    Write-ColorOutput "`n⚡ PERFORMANCE IMPACT SUMMARY:" -Color Header
+    Write-ColorOutput "`n[*] PERFORMANCE IMPACT SUMMARY:" -Color Header
     
     $performanceTable = @(
         @{ Mitigation = "Side-Channel Aware Scheduler"; Impact = "2-5%"; Recommendation = "Enable for multi-tenant environments" }
@@ -1081,31 +1081,31 @@ function Show-VMwareHostSecurity {
     
     $performanceTable | Format-Table -AutoSize
     
-    Write-ColorOutput "`n📋 SECURITY CHECKLIST:" -Color Header
+    Write-ColorOutput "`n[*] SECURITY CHECKLIST:" -Color Header
     
     Write-ColorOutput "`nHost Level (ESXi):" -Color Info
-    Write-ColorOutput "   □ Update ESXi to 6.7 U2+ or 7.0+" -Color Warning
-    Write-ColorOutput "   □ Apply latest CPU microcode updates" -Color Warning
-    Write-ColorOutput "   □ Enable Side-Channel Aware Scheduler" -Color Warning
-    Write-ColorOutput "   □ Configure L1TF protection" -Color Warning
-    Write-ColorOutput "   □ Enable MDS/TAA mitigations" -Color Warning
-    Write-ColorOutput "   □ Verify Spectre/Meltdown host protections" -Color Warning
+    Write-ColorOutput "   - Update ESXi to 6.7 U2+ or 7.0+" -Color Warning
+    Write-ColorOutput "   - Apply latest CPU microcode updates" -Color Warning
+    Write-ColorOutput "   - Enable Side-Channel Aware Scheduler" -Color Warning
+    Write-ColorOutput "   - Configure L1TF protection" -Color Warning
+    Write-ColorOutput "   - Enable MDS/TAA mitigations" -Color Warning
+    Write-ColorOutput "   - Verify Spectre/Meltdown host protections" -Color Warning
     
     Write-ColorOutput "`nVM Level:" -Color Info
-    Write-ColorOutput "   □ Update to VM Hardware Version 14+" -Color Warning
-    Write-ColorOutput "   □ Install latest VMware Tools" -Color Warning
-    Write-ColorOutput "   □ Configure VM security parameters" -Color Warning
-    Write-ColorOutput "   □ Enable CPU performance counter virtualization" -Color Warning
-    Write-ColorOutput "   □ Reserve guest memory (for critical VMs)" -Color Warning
-    Write-ColorOutput "   □ Apply guest OS mitigations (using this script)" -Color Warning
+    Write-ColorOutput "   - Update to VM Hardware Version 14+" -Color Warning
+    Write-ColorOutput "   - Install latest VMware Tools" -Color Warning
+    Write-ColorOutput "   - Configure VM security parameters" -Color Warning
+    Write-ColorOutput "   - Enable CPU performance counter virtualization" -Color Warning
+    Write-ColorOutput "   - Reserve guest memory (for critical VMs)" -Color Warning
+    Write-ColorOutput "   - Apply guest OS mitigations (using this script)" -Color Warning
     
     Write-ColorOutput "`nNetwork Security:" -Color Info
-    Write-ColorOutput "   □ Isolate management network" -Color Warning
-    Write-ColorOutput "   □ Use encrypted vMotion" -Color Warning
-    Write-ColorOutput "   □ Enable VM communication encryption" -Color Warning
-    Write-ColorOutput "   □ Configure distributed firewall rules" -Color Warning
+    Write-ColorOutput "   - Isolate management network" -Color Warning
+    Write-ColorOutput "   - Use encrypted vMotion" -Color Warning
+    Write-ColorOutput "   - Enable VM communication encryption" -Color Warning
+    Write-ColorOutput "   - Configure distributed firewall rules" -Color Warning
     
-    Write-ColorOutput "`n🔗 Additional Resources:" -Color Header
+    Write-ColorOutput "`n[*] Additional Resources:" -Color Header
     Write-ColorOutput "   - VMware Security Advisories: https://www.vmware.com/security/advisories.html" -Color Info
     Write-ColorOutput "   - Side-Channel Attack Mitigations: https://kb.vmware.com/s/article/55636" -Color Info
     Write-ColorOutput "   - ESXi Security Configuration Guide: https://docs.vmware.com/en/VMware-vSphere/" -Color Info
@@ -1635,12 +1635,12 @@ Write-ColorOutput "For comprehensive analysis including modern CVEs (2022-2023),
 Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
 
 # Performance Impact Warning
-Write-ColorOutput "⚠️  PERFORMANCE IMPACT WARNING ⚠️" -Color Error
+Write-ColorOutput "*** PERFORMANCE IMPACT WARNING ***" -Color Error
 Write-ColorOutput "Some mitigations may significantly impact system performance:" -Color Warning
-Write-ColorOutput "• L1TF & MDS Mitigations: May require disabling hyperthreading" -Color Warning
-Write-ColorOutput "• Older Hyper-V (pre-2016): Higher performance impact" -Color Warning
-Write-ColorOutput "• VBS/Credential Guard: Requires UEFI, Secure Boot, TPM 2.0" -Color Warning
-Write-ColorOutput "• Build servers/shared hosting: May need SMT disabled" -Color Warning
+Write-ColorOutput "- L1TF & MDS Mitigations: May require disabling hyperthreading" -Color Warning
+Write-ColorOutput "- Older Hyper-V (pre-2016): Higher performance impact" -Color Warning
+Write-ColorOutput "- VBS/Credential Guard: Requires UEFI, Secure Boot, TPM 2.0" -Color Warning
+Write-ColorOutput "- Build servers/shared hosting: May need SMT disabled" -Color Warning
 Write-ColorOutput "Test performance impact in non-production first!`n" -Color Error
 
 # System Information
