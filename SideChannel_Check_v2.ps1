@@ -17,6 +17,9 @@
 .PARAMETER Mode
     Operation mode: 'Assess' (default), 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore'
 
+.PARAMETER WhatIf
+    Preview changes without applying them (available with ApplyInteractive, RevertInteractive, and Backup modes)
+
 .PARAMETER ShowDetails
     Display detailed technical information
 
@@ -33,6 +36,10 @@
 .EXAMPLE
     .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
     Interactively select and apply mitigations
+
+.EXAMPLE
+    .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
+    Preview mitigation changes without applying them
 
 .EXAMPLE
     .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
@@ -57,7 +64,7 @@
     Compatible:     PowerShell 5.1, 7.x
 #>
 
-[CmdletBinding(DefaultParameterSetName = 'Assess')]
+[CmdletBinding(DefaultParameterSetName = 'Assess', SupportsShouldProcess)]
 param(
     [Parameter(Mandatory)]
     [ValidateSet('Assess', 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore')]
@@ -1345,6 +1352,12 @@ function Set-MitigationValue {
         [hashtable]$Mitigation
     )
     
+    if ($WhatIfPreference) {
+        Write-Log "[WhatIf] Would apply: $($Mitigation.Name)" -Level Info
+        Write-Host "  [WhatIf] Would set: $($Mitigation.RegistryPath)\$($Mitigation.RegistryName) = $($Mitigation.EnabledValue)" -ForegroundColor Cyan
+        return $true
+    }
+    
     Write-Log "Applying: $($Mitigation.Name)" -Level Info
     
     try {
@@ -1374,6 +1387,24 @@ function Set-MitigationValue {
 
 function Restore-Configuration {
     param([object]$Backup)
+    
+    if ($WhatIfPreference) {
+        Write-Host "`n=== WhatIf: Configuration Restore Preview ===" -ForegroundColor Cyan
+        Write-Host "Would restore configuration from: $($Backup.Timestamp)" -ForegroundColor Yellow
+        Write-Host "`nChanges that would be made:" -ForegroundColor White
+        
+        foreach ($item in $Backup.Mitigations) {
+            if ($null -eq $item.Value) {
+                Write-Host "  [-] Would remove: $($item.RegistryPath)\$($item.RegistryName)" -ForegroundColor Red
+            } else {
+                Write-Host "  [+] Would set: $($item.RegistryPath)\$($item.RegistryName) = $($item.Value)" -ForegroundColor Green
+            }
+        }
+        
+        Write-Host "`nTotal changes that would be made: $($Backup.Mitigations.Count)" -ForegroundColor Cyan
+        Write-Host "System restart would be required: Yes" -ForegroundColor Yellow
+        return
+    }
     
     Write-Log "Restoring configuration from $($Backup.Timestamp)" -Level Info
     
@@ -1413,6 +1444,9 @@ function Invoke-InteractiveApply {
     param([array]$Results)
     
     Write-Host "`n=== Interactive Mitigation Application ===" -ForegroundColor Cyan
+    if ($WhatIfPreference) {
+        Write-Host "[WhatIf Mode] Changes will be previewed but not applied`n" -ForegroundColor Yellow
+    }
     Write-Host "Select mitigations to apply (or 'all' for recommended, 'critical' for critical only)`n"
     
     $actionable = @($Results | Where-Object { $_.ActionNeeded -match 'Yes|Consider' })
@@ -1475,6 +1509,29 @@ function Invoke-InteractiveApply {
     # Confirm
     Write-Host "`nYou have selected $($selectedItems.Count) mitigation(s):" -ForegroundColor Cyan
     $selectedItems | ForEach-Object { Write-Host "  • $($_.Name)" -ForegroundColor White }
+    
+    if ($WhatIfPreference) {
+        Write-Host "`n=== WhatIf: Changes Preview ===" -ForegroundColor Cyan
+        Write-Host "The following changes would be made:`n" -ForegroundColor Yellow
+        
+        $mitigations = Get-MitigationDefinitions
+        foreach ($item in $selectedItems) {
+            $mitigation = $mitigations | Where-Object { $_.Id -eq $item.Id }
+            if ($mitigation) {
+                Write-Host "[$($mitigation.Id)] $($mitigation.Name)" -ForegroundColor White
+                Write-Host "  Registry Path: $($mitigation.RegistryPath)" -ForegroundColor Gray
+                Write-Host "  Registry Name: $($mitigation.RegistryName)" -ForegroundColor Gray
+                Write-Host "  New Value: $($mitigation.EnabledValue)" -ForegroundColor Green
+                Write-Host "  Impact: $($mitigation.Impact)`n" -ForegroundColor Gray
+            }
+        }
+        
+        Write-Host "WhatIf Summary:" -ForegroundColor Cyan
+        Write-Host "Total changes that would be made: $($selectedItems.Count)" -ForegroundColor White
+        Write-Host "Backup would be created: Yes" -ForegroundColor White
+        Write-Host "System restart would be required: Yes" -ForegroundColor Yellow
+        return
+    }
     
     Write-Host "`nA backup will be created before applying changes."
     Write-Host "Do you want to proceed? (Y/N): " -NoNewline -ForegroundColor Yellow
@@ -1607,6 +1664,20 @@ function Start-SideChannelCheck {
             
             'Backup' {
                 Write-Host "`n=== Create Configuration Backup ===" -ForegroundColor Cyan
+                
+                if ($WhatIfPreference) {
+                    Write-Host "`n[WhatIf Mode] Would create backup of current mitigation settings..." -ForegroundColor Yellow
+                    $mitigations = Get-MitigationDefinitions
+                    $applicableMitigations = @($mitigations | Where-Object { $_.RegistryPath -and $_.RegistryName })
+                    
+                    Write-Host "`nBackup would include:" -ForegroundColor Cyan
+                    Write-Host "Computer:    $env:COMPUTERNAME" -ForegroundColor White
+                    Write-Host "User:        $env:USERNAME" -ForegroundColor White
+                    Write-Host "Mitigations: $($applicableMitigations.Count)" -ForegroundColor White
+                    Write-Host "`nWould save to: $script:BackupPath\Backup_<timestamp>.json" -ForegroundColor Gray
+                    return
+                }
+                
                 Write-Host "`nCreating backup of current mitigation settings..." -ForegroundColor Yellow
                 
                 $mitigations = Get-MitigationDefinitions

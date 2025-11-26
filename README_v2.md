@@ -1,454 +1,539 @@
-# Side-Channel Vulnerability Mitigation Tool v2.0
+# Side-Channel Vulnerability Mitigation Tool v2.1.0
 
-## Overview
+Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
-**Version 2.0** is a complete architectural redesign of the Side-Channel Vulnerability Assessment and Remediation Tool, featuring a modular, class-based architecture for improved maintainability, clearer output, and enhanced functionality.
+## 🎯 What's New in v2.1.0
 
-### Key Improvements Over v1.x
+### Major Enhancements
+- **✨ Simplified Mode Structure** - Dedicated modes replace parameter combinations
+- **🛡️ Comprehensive Coverage** - 24 mitigations (100% parity with v1)
+- **🔍 Hardware Detection** - Automatic detection of UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU
+- **📊 Intelligent Scoring** - Excludes prerequisites and N/A items from security score
+- **💾 Advanced Backup System** - Dedicated Backup and Restore modes
+- **👁️ WhatIf Support** - Preview all changes before applying
+- **🎨 Visual Progress Bar** - Color-coded security score visualization
+- **🖥️ Platform-Aware** - Automatically adapts to Physical/Hyper-V/VMware environments
 
-✅ **Modular Architecture**: Clean separation of concerns with dedicated classes for detection, assessment, configuration, and output  
-✅ **Simplified Output**: Focused on actionable intelligence, removing confusing technical details from main view  
-✅ **Enhanced Platform Detection**: Automatically detects Physical/Hyper-V Host/Guest/VMware scenarios  
-✅ **Kernel Runtime Detection**: Direct Windows API integration for authoritative protection status  
-✅ **Interactive Apply Mode**: Guided mitigation selection with clear categorization and impact warnings  
-✅ **Backup & Revert**: Automatic backup before changes with one-command rollback capability  
-✅ **Comprehensive Logging**: Detailed audit trail of all operations  
-✅ **Centralized Mitigation Registry**: Single source of truth for all mitigation definitions
+### Version Comparison
 
----
+| Feature | v1 (Legacy) | v2.1.0 (Current) |
+|---------|-------------|------------------|
+| Mitigations Covered | 28 checks | 24 checks (streamlined) |
+| Architecture | Monolithic | Modular functions |
+| Hardware Detection | Basic | Comprehensive (5 prerequisites) |
+| Scoring | All-inclusive | Intelligent (excludes N/A) |
+| Modes | Assess/Apply/Revert | 5 dedicated modes |
+| Backup System | Auto-backup only | Dedicated management |
+| WhatIf Support | ❌ No | ✅ Yes |
+| PowerShell Support | 5.1+ | 5.1 & 7.x |
 
-## Architecture
+## 🚀 Quick Start
 
-### Component Overview
-
-```
-SideChannel_Check_v2.ps1
-│
-├── Logger Module
-│   └── Centralized logging (console + file)
-│
-├── KernelRuntimeDetector Class
-│   ├── NtQuerySystemInformation API wrapper
-│   ├── Real-time kernel mitigation state
-│   └── Hardware immunity detection
-│
-├── PlatformDetector Class
-│   ├── Environment detection (Physical/Hyper-V/VMware)
-│   ├── CPU and OS information
-│   └── Platform-specific filtering
-│
-├── MitigationDefinition Class
-│   └── Structured mitigation metadata
-│
-├── Mitigation Registry Function
-│   └── Centralized definitions (no code duplication)
-│
-├── AssessmentEngine Class
-│   ├── Runs mitigation assessments
-│   ├── Compares registry vs runtime state
-│   └── Determines action needed
-│
-├── OutputFormatter Class
-│   ├── Platform information display
-│   ├── Security assessment summary
-│   ├── Simplified mitigation tables
-│   └── Actionable recommendations
-│
-└── ConfigurationManager Class
-    ├── Backup creation (JSON format)
-    ├── Mitigation application
-    └── Configuration revert
-```
-
----
-
-## Usage
-
-### Basic Assessment
+### Prerequisites
+- Windows 10/11 or Windows Server 2016+
+- PowerShell 5.1 or higher
+- Administrator privileges
+- Execution policy allowing script execution
 
 ```powershell
-# Run security assessment (default mode)
+# Set execution policy (if needed)
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### Basic Usage
+
+```powershell
+# 1. Assessment (default mode)
 .\SideChannel_Check_v2.ps1
 
-# Show detailed technical information
+# 2. Apply mitigations interactively
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
+
+# 3. Preview changes first (recommended)
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
+
+# 4. Revert to most recent backup
+.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+
+# 5. Restore from specific backup
+.\SideChannel_Check_v2.ps1 -Mode Restore
+```
+
+## 📋 Available Modes
+
+### 1. **Assess** (Default)
+Evaluate current security posture without making changes.
+
+```powershell
+# Standard assessment
+.\SideChannel_Check_v2.ps1
+
+# With detailed output
 .\SideChannel_Check_v2.ps1 -ShowDetails
+
+# Export results
+.\SideChannel_Check_v2.ps1 -ExportPath "security_assessment.csv"
 ```
 
-**Output**: Displays current platform, protection status, and clear recommendations
+**Output:**
+- Platform Information (CPU, OS, Hypervisor status)
+- Hardware Prerequisites Status (5 checks)
+- Security Mitigations Status (19 mitigations)
+- Visual Security Score Bar
+- Categorized Recommendations
 
-### Interactive Apply Mode (Recommended)
+### 2. **ApplyInteractive**
+Interactively select and apply security mitigations.
 
 ```powershell
-# Apply mitigations with guided selection
-.\SideChannel_Check_v2.ps1 -Mode Apply -Interactive
+# Interactive application
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
+
+# Preview changes first (recommended)
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 ```
 
-**Features**:
-- Numbered list of actionable mitigations
-- Color-coded priority (Red=Critical, Yellow=Recommended, Cyan=Optional)
-- Performance impact warnings
-- Automatic backup before changes
-- Flexible selection: `1,2,5` or `1-3` or `all` or `critical`
+**Features:**
+- ✅ Automatic backup creation before changes
+- ✅ Interactive selection (individual, ranges, or all)
+- ✅ WhatIf preview support
+- ✅ Impact warnings
+- ✅ System restart notification
 
-### Export Assessment
+**Selection Syntax:**
+- `1,3,5` - Apply specific mitigations
+- `1-4` - Apply range of mitigations
+- `all` - Apply all recommended
+- `critical` - Apply only critical mitigations
+
+### 3. **RevertInteractive**
+Restore most recent backup configuration.
 
 ```powershell
-# Export to CSV for compliance/reporting
-.\SideChannel_Check_v2.ps1 -Mode Export -ExportPath ".\Assessment.csv"
+# Revert to last backup
+.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
 
-# Export with default timestamped filename
-.\SideChannel_Check_v2.ps1 -Mode Export
+# Preview revert operation
+.\SideChannel_Check_v2.ps1 -Mode RevertInteractive -WhatIf
 ```
 
-**Output**: CSV file with complete mitigation status including registry, runtime state, and recommendations
+**Features:**
+- ✅ Shows backup metadata (timestamp, computer, user)
+- ✅ Confirmation prompt before reverting
+- ✅ WhatIf preview of changes
+- ✅ Detailed restore summary
 
-### Revert Configuration
+### 4. **Backup**
+Create a backup of current mitigation settings.
 
 ```powershell
-# Restore previous configuration
-.\SideChannel_Check_v2.ps1 -Mode Revert
+# Create backup
+.\SideChannel_Check_v2.ps1 -Mode Backup
+
+# Preview backup operation
+.\SideChannel_Check_v2.ps1 -Mode Backup -WhatIf
 ```
 
-**Process**:
-1. Displays latest backup information
-2. Prompts for confirmation
-3. Restores all registry values
-4. Logs all changes
+**Backup Contents:**
+- Timestamp (ISO 8601 format)
+- Computer name
+- User name
+- All mitigation registry values (24 settings)
+
+**Backup Location:** `.\Backups\Backup_YYYYMMDD_HHMMSS.json`
+
+### 5. **Restore**
+Browse and restore from any available backup.
+
+```powershell
+# Interactive restore
+.\SideChannel_Check_v2.ps1 -Mode Restore
+```
+
+**Features:**
+- ✅ Lists all available backups with age
+- ✅ Shows backup metadata (computer, user, timestamp)
+- ✅ Interactive selection
+- ✅ Detailed restore preview
 
 ---
 
-## Sample Output
+## 🔍 Comprehensive Assessment Output
 
-### Assessment Mode
+### Sample Output - v2.1.0
 
 ```
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.0.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
 ================================================================================
 
-
 --- Platform Information ---
-Type:        Physical
+Type:        HyperVHost
 CPU:         11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS:          Microsoft Windows 11 Enterprise (Build 26200)
 
 --- Security Assessment Summary ---
-Total Mitigations Evaluated:  10
-Protected:                    7 (70.0%)
-Vulnerable:                   3
+Total Mitigations Evaluated:  19
+Protected:                    19 (100.0%)
 
-Security Level: Good
+Security Score: [========================================] 100%
+Security Level: Excellent
+
+--- Hardware Prerequisites ---
+Prerequisites Met:    5 / 5
 
 --- Mitigation Status ---
-Speculative Store Bypass Disable             Protected       No                   Low       
-Branch Target Injection Mitigation           Protected       No                   Low       
-Kernel VA Shadow                             Protected       No                   Medium    
-Enhanced IBRS                                Protected       No                   Low       
-Intel TSX Disable                            Protected       No                   Low       
-L1 Terminal Fault Mitigation                 Vulnerable      Yes - Recommended    High      
-MDS Mitigation                               Protected       No                   Medium    
-TSX Asynchronous Abort Mitigation            Vulnerable      Yes - Recommended    Medium    
-Hardware Security Mitigations                Protected       No                   Low       
+Mitigation                                    Status               Action Needed             Impact
+--------------------------------------------  -------------------  ------------------------  ---------
+Speculative Store Bypass Disable             Protected            No                        Low
+SSBD Feature Mask                            Protected            No                        Low
+Branch Target Injection Mitigation           Protected            No                        Low
+Kernel VA Shadow (Meltdown Protection)       Protected            No                        Medium
+Enhanced IBRS                                Protected            No                        Low
+Intel TSX Disable                            Protected            No                        Low
+L1 Terminal Fault Mitigation                 Not Applicable       No                        High
+MDS Mitigation (ZombieLoad)                  Protected            No                        Medium
+TSX Asynchronous Abort Mitigation            Protected            No                        Medium
+Hardware Security Mitigations                Protected            No                        Low
+SBDR/SBDS Mitigation                         Protected            No                        Low
+SRBDS Update Mitigation                      Protected            No                        Low
+DRPW Mitigation                              Protected            No                        Low
+Exception Chain Validation                   Protected            No                        Low
+Supervisor Mode Access Prevention            Protected            No                        Low
+Virtualization Based Security                Not Applicable       No                        Low
+Hypervisor-protected Code Integrity          Not Applicable       No                        Low
+Credential Guard                             Not Applicable       No                        Low
+Hyper-V Core Scheduler                       Protected            No                        Medium
 
---- Recommendations ---
-
-🟡 RECOMMENDED - Apply for enhanced security:
-   • L1 Terminal Fault Mitigation
-     High performance impact; primarily for multi-tenant virtualization environments
-   • TSX Asynchronous Abort Mitigation
-     Enable if TSX cannot be disabled; moderate performance impact
-
-To apply mitigations, run:
-   .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive
-```
-
-### Interactive Apply Mode
-
-```
-=== Interactive Mitigation Application ===
-Select mitigations to apply (or 'all' for automatic selection)
-
-[1] L1 Terminal Fault Mitigation
-    High performance impact; primarily for multi-tenant virtualization environments
-    Impact: High | CVE: CVE-2018-3620
-
-[2] TSX Asynchronous Abort Mitigation
-    Enable if TSX cannot be disabled; moderate performance impact
-    Impact: Medium | CVE: CVE-2019-11135
-
-Enter selections (e.g., '1,2,5' or '1-3' or 'all' or 'critical'): 2
-
-You have selected 1 mitigation(s):
-  • TSX Asynchronous Abort Mitigation
-
-A backup will be created before applying changes.
-Do you want to proceed? (Y/N): Y
-
-[INFO] Creating configuration backup...
-[SUCCESS] Backup created: C:\...\Backups\Backup_20251126_143022.json
-
-Applying mitigations...
-[INFO] Applying: TSX Asynchronous Abort Mitigation
-[SUCCESS] Applied: TSX Asynchronous Abort Mitigation
-
-=== Summary ===
-Successfully applied: 1
-
-⚠ A system restart is required for changes to take effect.
+✓ All critical mitigations are properly configured!
 ```
 
 ---
 
-## Mitigation Categories
+## 🛡️ Mitigation Coverage
 
-### Critical (Apply Immediately)
-- **Speculative Store Bypass Disable (SSBD)** - CVE-2018-3639
-- **Branch Target Injection (BTI)** - CVE-2017-5715 (Spectre v2)
-- **Kernel VA Shadow (KVAS)** - CVE-2017-5754 (Meltdown)
-- **Enhanced IBRS** - CVE-2017-5715
-- **Hardware Security Mitigations** - Core hardware protections
+### Critical Mitigations (6)
+- **SSBD** (Speculative Store Bypass Disable) - CVE-2018-3639
+- **SSBD Mask** (Required companion setting)
+- **BTI** (Branch Target Injection) - CVE-2017-5715 (Spectre v2)
+- **KVAS** (Kernel VA Shadow) - CVE-2017-5754 (Meltdown)
+- **Enhanced IBRS** - Hardware Spectre v2 protection
+- **Hardware Security Mitigations** - Core CPU protections
 
-**Impact**: Low to Medium  
-**When**: Always enable unless hardware has native immunity
+### Recommended Mitigations (8)
+- **TSX Disable** - Prevents TAA vulnerabilities
+- **MDS** (Microarchitectural Data Sampling) - CVE-2018-12130
+- **TAA** (TSX Asynchronous Abort) - CVE-2019-11135
+- **SBDR/SBDS** - CVE-2022-21123, CVE-2022-21125
+- **SRBDS** - CVE-2022-21127
+- **DRPW** - CVE-2022-21166
+- **Exception Chain Validation** - SEH protection
+- **SMAP** (Supervisor Mode Access Prevention)
 
-### Recommended (Enhanced Security)
-- **Intel TSX Disable** - CVE-2019-11135
-- **MDS Mitigation** - CVE-2018-12130 (ZombieLoad)
-- **TSX Asynchronous Abort (TAA)** - CVE-2019-11135
+### Optional Mitigations (5)
+- **L1TF** (L1 Terminal Fault) - High performance impact
+- **VBS** (Virtualization Based Security) - Requires hardware
+- **HVCI** (Hypervisor-protected Code Integrity) - Requires VBS
+- **Credential Guard** - Requires VBS + TPM
+- **Hyper-V Core Scheduler** - For Hyper-V hosts
 
-**Impact**: Low to Medium  
-**When**: Enable for production environments; modern CPUs may have hardware immunity
-
-### Optional (Evaluate Carefully)
-- **L1 Terminal Fault (L1TF)** - CVE-2018-3620 (Foreshadow)
-
-**Impact**: High (may require disabling hyperthreading)  
-**When**: Multi-tenant virtualization environments, compliance requirements
-
----
-
-## Platform-Specific Behavior
-
-### Physical Hardware
-- All mitigations evaluated
-- Focus on core OS and hardware protections
-- No hypervisor-specific checks
-
-### Hyper-V Host
-- All mitigations evaluated
-- Additional focus on L1TF (critical for VM isolation)
-- Hypervisor Core Scheduler recommendations
-
-### Hyper-V Guest
-- Standard mitigations evaluated
-- Host-level mitigations noted as informational
-- Guest-specific recommendations
-
-### VMware Guest
-- Standard mitigations evaluated
-- VMware Tools update recommendations
-- Platform-aware filtering
+### Hardware Prerequisites (5)
+- **UEFI Firmware** - Required for modern security
+- **Secure Boot** - Boot integrity protection
+- **TPM 2.0** - Hardware cryptographic security
+- **CPU Virtualization (VT-x/AMD-V)** - For Hyper-V and VBS
+- **IOMMU/VT-d** - DMA protection and HVCI optimization
 
 ---
 
-## Logging
+## 🧪 Testing & Validation
 
-All operations are logged to:
-```
-Logs\SideChannelCheck_YYYYMMDD_HHMMSS.log
-```
+### Automated Test Script
 
-Log levels:
-- **INFO**: Operational messages
-- **SUCCESS**: Completed actions
-- **WARNING**: Non-critical issues
-- **ERROR**: Critical failures
-- **DEBUG**: Verbose diagnostics (requires `-Verbose`)
+Save as `Test-SideChannelTool.ps1`:
 
----
+```powershell
+#Requires -RunAsAdministrator
 
-## Backup & Restore
+Write-Host "=== Side-Channel Tool v2 Test Suite ===" -ForegroundColor Cyan
 
-### Backup Location
-```
-Backups\Backup_YYYYMMDD_HHMMSS.json
-```
+# Test 1: Basic Assessment
+Write-Host "`n[Test 1] Basic Assessment..." -ForegroundColor Yellow
+try {
+    $result = & ".\SideChannel_Check_v2.ps1" 2>&1
+    Write-Host "✅ PASS: Assessment completed" -ForegroundColor Green
+} catch {
+    Write-Host "❌ FAIL: Assessment failed - $_" -ForegroundColor Red
+}
 
-### Backup Format
-```json
-{
-  "Timestamp": "2025-11-26T14:30:22",
-  "Computer": "WORKSTATION01",
-  "User": "Administrator",
-  "Mitigations": [
-    {
-      "Name": "Speculative Store Bypass Disable",
-      "RegistryPath": "HKLM:\\SYSTEM\\...",
-      "RegistryName": "FeatureSettingsOverride",
-      "Value": 72
+# Test 2: WhatIf Mode
+Write-Host "`n[Test 2] WhatIf Mode..." -ForegroundColor Yellow
+try {
+    $result = & ".\SideChannel_Check_v2.ps1" -Mode ApplyInteractive -WhatIf 2>&1
+    if ($result -match "WhatIf") {
+        Write-Host "✅ PASS: WhatIf mode working" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  WARN: WhatIf indicator not found" -ForegroundColor Yellow
     }
-  ]
+} catch {
+    Write-Host "❌ FAIL: WhatIf test failed - $_" -ForegroundColor Red
+}
+
+# Test 3: Backup Creation
+Write-Host "`n[Test 3] Backup Creation..." -ForegroundColor Yellow
+try {
+    $backupsBefore = @(Get-ChildItem ".\Backups\Backup_*.json" -ErrorAction SilentlyContinue).Count
+    & ".\SideChannel_Check_v2.ps1" -Mode Backup | Out-Null
+    $backupsAfter = @(Get-ChildItem ".\Backups\Backup_*.json" -ErrorAction SilentlyContinue).Count
+    
+    if ($backupsAfter -gt $backupsBefore) {
+        Write-Host "✅ PASS: Backup created successfully" -ForegroundColor Green
+    } else {
+        Write-Host "❌ FAIL: Backup not created" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "❌ FAIL: Backup test failed - $_" -ForegroundColor Red
+}
+
+# Test 4: CSV Export
+Write-Host "`n[Test 4] CSV Export..." -ForegroundColor Yellow
+$testCsvPath = ".\test_export.csv"
+try {
+    & ".\SideChannel_Check_v2.ps1" -ExportPath $testCsvPath | Out-Null
+    
+    if (Test-Path $testCsvPath) {
+        $csv = Import-Csv $testCsvPath
+        if ($csv.Count -gt 0) {
+            Write-Host "✅ PASS: CSV export successful ($($csv.Count) rows)" -ForegroundColor Green
+        } else {
+            Write-Host "❌ FAIL: CSV is empty" -ForegroundColor Red
+        }
+        Remove-Item $testCsvPath -Force
+    } else {
+        Write-Host "❌ FAIL: CSV file not created" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "❌ FAIL: CSV export test failed - $_" -ForegroundColor Red
+}
+
+# Test 5: WhatIf - No Changes Made
+Write-Host "`n[Test 5] WhatIf Safety Check..." -ForegroundColor Yellow
+try {
+    $backupsBefore = @(Get-ChildItem ".\Backups\*.json" -ErrorAction SilentlyContinue).Count
+    & ".\SideChannel_Check_v2.ps1" -Mode Backup -WhatIf | Out-Null
+    $backupsAfter = @(Get-ChildItem ".\Backups\*.json" -ErrorAction SilentlyContinue).Count
+    
+    if ($backupsAfter -eq $backupsBefore) {
+        Write-Host "✅ PASS: WhatIf prevented changes" -ForegroundColor Green
+    } else {
+        Write-Host "❌ FAIL: WhatIf did not prevent changes" -ForegroundColor Red
+    }
+} catch {
+    Write-Host "❌ FAIL: WhatIf safety test failed - $_" -ForegroundColor Red
+}
+
+# Test 6: Restore Mode Browse
+Write-Host "`n[Test 6] Restore Mode..." -ForegroundColor Yellow
+try {
+    # Create a test backup first
+    & ".\SideChannel_Check_v2.ps1" -Mode Backup | Out-Null
+    
+    # Attempt to browse (won't actually restore without selection)
+    $result = & ".\SideChannel_Check_v2.ps1" -Mode Restore 2>&1
+    
+    if ($result -match "available backup") {
+        Write-Host "✅ PASS: Restore mode lists backups" -ForegroundColor Green
+    } else {
+        Write-Host "⚠️  WARN: No backups found or unexpected output" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "❌ FAIL: Restore mode test failed - $_" -ForegroundColor Red
+}
+
+Write-Host "`n=== Test Suite Complete ===" -ForegroundColor Cyan
+```
+
+### Manual Test Scenarios
+
+#### Test 1: Basic Assessment
+```powershell
+.\SideChannel_Check_v2.ps1
+
+# Expected: 
+# ✅ No errors or exceptions
+# ✅ Security score displayed (0-100%)
+# ✅ All mitigations evaluated
+# ✅ Prerequisites shown separately
+```
+
+#### Test 2: WhatIf Preview
+```powershell
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
+
+# Expected:
+# ✅ No registry changes made
+# ✅ Preview of all selected changes displayed
+# ✅ "WhatIf Mode" clearly indicated
+```
+
+#### Test 3: Interactive Apply
+```powershell
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
+# Select: 1,2
+
+# Expected:
+# ✅ Backup created before changes
+# ✅ Only selected mitigations applied
+# ✅ Success/failure count displayed
+# ✅ System restart warning shown
+```
+
+#### Test 4: Backup & Restore
+```powershell
+# Create backup
+.\SideChannel_Check_v2.ps1 -Mode Backup
+
+# Browse backups
+.\SideChannel_Check_v2.ps1 -Mode Restore
+
+# Expected:
+# ✅ Backup file created in .\Backups\
+# ✅ All backups listed with timestamps
+# ✅ Age calculation correct (e.g., "2h ago")
+```
+
+#### Test 5: WhatIf with Revert
+```powershell
+.\SideChannel_Check_v2.ps1 -Mode RevertInteractive -WhatIf
+
+# Expected:
+# ✅ Lists latest backup
+# ✅ Shows all changes that would be made
+# ✅ No actual restore performed
+```
+
+---
+
+## 📊 Performance Considerations
+
+### Low Impact (<5% performance loss)
+- SSBD, BTI, Enhanced IBRS, TSX Disable
+- SBDR/SBDS, SRBDS, DRPW
+- Exception Chain Validation, SMAP
+
+### Medium Impact (5-15% performance loss)
+- KVAS (Kernel VA Shadow / Meltdown)
+- MDS (Microarchitectural Data Sampling)
+- TAA (TSX Asynchronous Abort)
+- Hyper-V Core Scheduler
+
+### High Impact (15%+ performance loss)
+- L1TF (L1 Terminal Fault)
+- **⚠️ Test in non-production first!**
+
+---
+
+## 🔒 Security Best Practices
+
+### Recommended Workflow
+
+1. **Assessment** → `.\SideChannel_Check_v2.ps1`
+2. **Planning** → `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf`
+3. **Backup** → `.\SideChannel_Check_v2.ps1 -Mode Backup`
+4. **Apply** → `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive`
+5. **Validate** → Restart system, re-run assessment
+6. **Rollback** → `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` (if issues)
+
+### Enterprise Deployment
+
+```powershell
+# Assess multiple systems
+$computers = @("SERVER01", "SERVER02")
+$computers | ForEach-Object {
+    Invoke-Command -ComputerName $_ -ScriptBlock {
+        & "C:\Scripts\SideChannel_Check_v2.ps1" -ExportPath "C:\Reports\$env:COMPUTERNAME.csv"
+    }
 }
 ```
 
-### Restore Process
-1. Latest backup is automatically identified
-2. User confirms restore operation
-3. All registry values are restored to backup state
-4. System restart required
-
 ---
 
-## Migration from v1.x
+## 🐛 Troubleshooting
 
-### Key Differences
-
-| Feature | v1.x | v2.0 |
-|---------|------|------|
-| **Architecture** | Monolithic script | Modular classes |
-| **Output** | Detailed technical view | Simplified actionable view |
-| **Mode Selection** | Multiple switches | Single `-Mode` parameter |
-| **Backup** | Manual | Automatic |
-| **Revert** | Not available | Built-in |
-| **Platform Detection** | Basic | Advanced with filtering |
-| **Logging** | Console only | File + Console |
-
-### Migration Steps
-
-1. **Run v1.x assessment** and export current state:
-   ```powershell
-   .\SideChannel_Check.ps1 -ExportPath ".\v1_state.csv"
-   ```
-
-2. **Run v2.0 assessment** to compare:
-   ```powershell
-   .\SideChannel_Check_v2.ps1 -Mode Export -ExportPath ".\v2_state.csv"
-   ```
-
-3. **Apply new mitigations** (if any) using interactive mode:
-   ```powershell
-   .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive
-   ```
-
-### Parameter Mapping
-
-| v1.x Parameter | v2.0 Equivalent |
-|----------------|-----------------|
-| `-Apply` | `-Mode Apply` |
-| `-Interactive` | `-Interactive` (with `-Mode Apply`) |
-| `-Detailed` | `-ShowDetails` |
-| `-ExportPath` | `-ExportPath` (with `-Mode Export`) |
-| `-ShowVMwareHostSecurity` | Automatic based on platform |
-
----
-
-## Troubleshooting
-
-### Issue: "Kernel runtime detection not available"
-
-**Cause**: Windows API call failed (rare on modern Windows)  
-**Impact**: Assessment falls back to registry-only mode  
-**Solution**: No action needed; registry status is still accurate
-
-### Issue: "Access denied" errors
-
-**Cause**: Script not running as Administrator  
-**Solution**: Right-click PowerShell, "Run as Administrator"
-
-### Issue: Mitigations show "Unknown" status
-
-**Cause**: Registry values not configured (default Windows state)  
-**Solution**: Apply recommended mitigations via interactive mode
-
-### Issue: Revert fails
-
-**Cause**: No backup exists or backup file corrupted  
-**Solution**: Check `Backups\` folder; re-apply mitigations manually if needed
-
----
-
-## Advanced Usage
-
-### Custom Log Location
-
+### Access Denied
 ```powershell
-.\SideChannel_Check_v2.ps1 -LogPath "C:\Logs\CustomLog.log"
+# Solution: Run as Administrator
+Start-Process powershell -Verb RunAs
 ```
 
-### Batch Apply (Future Feature)
-
+### Backups not found
 ```powershell
-# Coming soon: Non-interactive apply with config file
-.\SideChannel_Check_v2.ps1 -Mode Apply -ConfigFile ".\config.json"
+# Check backup directory
+Test-Path ".\Backups\"
+Get-ChildItem ".\Backups\Backup_*.json"
 ```
 
-### Verbose Debugging
-
+### Export fails
 ```powershell
-.\SideChannel_Check_v2.ps1 -Verbose
+# Create export directory
+$exportDir = Split-Path $ExportPath -Parent
+New-Item -ItemType Directory -Path $exportDir -Force
+```
+
+### WhatIf not working
+```powershell
+# Verify PowerShell supports ShouldProcess
+Get-Help about_Functions_CmdletBindingAttribute
 ```
 
 ---
 
-## Requirements
+## ⚠️ Important Warnings
 
-- **PowerShell**: 5.1 or higher
-- **Privileges**: Administrator
-- **Platform**: Windows 10/11, Windows Server 2016+
-- **CPU**: Intel or AMD (platform-specific mitigations auto-detected)
-
----
-
-## Security Considerations
-
-1. **Always create backups** before applying mitigations (automatic in v2.0)
-2. **Test in non-production** first, especially high-impact mitigations
-3. **Review performance impact** on critical workloads
-4. **Keep logs** for audit and compliance purposes
-5. **Restart required** for most mitigations to take effect
+- ⚠️ **Always use -WhatIf first**
+- ⚠️ **System restart required** after changes
+- ⚠️ **Create backups** before modifications
+- ⚠️ **Test in non-production** first
 
 ---
 
-## Support & Contribution
+## 📝 Changelog
 
-- **GitHub**: [BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
-- **Issues**: Report bugs via GitHub Issues
-- **Branch**: `feature/v2-redesign` (development), `main` (stable v1.x)
+### v2.1.0 (2025-11-26)
+- ✨ Simplified mode structure (5 dedicated modes)
+- ✨ Removed standalone -Interactive switch (ApplyInteractive/RevertInteractive modes)
+- ✨ WhatIf support for all modification modes (ApplyInteractive, RevertInteractive, Backup)
+- ✨ Get-AllBackups function for Restore mode
+- ✨ Comprehensive hardware detection (5 prerequisites)
+- ✨ Intelligent scoring system (excludes N/A and prerequisites)
+- ✨ Visual security score bar
+- ✨ Dedicated Backup and Restore modes
 
----
-
-## Changelog
-
-### v2.0.0 (November 2025)
-
-**New Features**:
-- Complete architectural redesign with class-based modules
-- Simplified, actionable output format
-- Interactive apply mode with categorized recommendations
-- Automatic backup and revert functionality
-- Comprehensive audit logging
-- Platform-aware mitigation filtering
-- Enhanced kernel runtime detection
-
-**Improvements**:
-- Eliminated code duplication with centralized mitigation registry
-- Clear separation of concerns (detection, assessment, configuration, output)
-- Better error handling and logging
-- More intuitive parameter naming
-
-**Breaking Changes**:
-- New parameter structure (use `-Mode` instead of multiple switches)
-- Different output format (simplified table view)
-- CSV export now requires `-Mode Export`
+### v2.0.0 (2025-11-20)
+- 🎉 Initial v2 release
+- Modular function-based architecture
+- PowerShell 5.1 & 7.x compatibility
+- Runtime kernel detection
+- Interactive modes
+- Automatic backup creation
+- JSON-based restore system
 
 ---
 
-## License
+## 📄 License
 
-Same as v1.x - See main repository LICENSE file
+MIT License
 
 ---
 
-## Acknowledgments
+## 👤 Author
 
-Built upon the foundation of v1.x with lessons learned from production deployments and administrator feedback. Special thanks to the security community for ongoing research into side-channel vulnerabilities.
+**Jan Tiedemann**
+- GitHub: [@BetaHydri](https://github.com/BetaHydri)
+
+---
+
+**Version:** 2.1.0  
+**Last Updated:** 2025-11-26  
+**PowerShell:** 5.1, 7.x  
+**Platform:** Windows 10/11, Server 2016+
