@@ -224,6 +224,19 @@ Config/                                      # Reserved for future use
 
 ## v2.1.0 Enhancements (2025-11-26)
 
+### Enhanced Platform Information Display
+- **Hardware Security Features Section**
+  - Comprehensive detection of 7 security capabilities
+  - Color-coded status indicators (green/yellow/red)
+  - Intelligent prerequisite hints for VBS/HVCI
+  - Clean TPM version display (major version only)
+  - Firmware type detection (UEFI vs Legacy BIOS)
+  - Secure Boot status with capability check
+  - CPU virtualization (VT-x/AMD-V) detection
+  - IOMMU/VT-d support detection
+  - VBS and HVCI capability assessment
+  - User-friendly guidance for missing requirements
+
 ### Documentation & References
 - **22 Authoritative URL References**
   - Added URL property to all 22 mitigation definitions (11 CVEs, 6 security features, 5 prerequisites)
@@ -327,6 +340,48 @@ Config/                                      # Reserved for future use
     * "CVE-2018-12130 (ZombieLoad)" - MDS Mitigation
     * "CVE-2019-11135 (TAA)" - TSX Asynchronous Abort
   - Clearer vulnerability identification for users unfamiliar with CVE numbers
+
+### Enhanced Hardware Detection Display
+- **Comprehensive Hardware Security Features Section**:
+  - Displays firmware type (UEFI vs Legacy BIOS)
+  - Secure Boot status (Enabled/Capable/Not Supported)
+  - TPM presence and version (e.g., "Present (2.0)")
+  - CPU virtualization status (VT-x/AMD-V)
+  - IOMMU/VT-d detection
+  - VBS capability assessment
+  - HVCI capability assessment
+
+- **Color-Coded Status Indicators**:
+  - **Green**: Enabled or present (UEFI, Secure Boot enabled, TPM present, VT-x enabled, IOMMU detected, VBS/HVCI capable)
+  - **Yellow**: Capable but disabled (Secure Boot capable but not enabled, Legacy BIOS)
+  - **Red**: Missing or not supported (No TPM, VT-x disabled, IOMMU not detected, VBS/HVCI not capable)
+  - **Gray**: Contextual hints for missing prerequisites (e.g., "(Requires: UEFI)" when VBS not capable)
+
+- **Intelligent Prerequisite Hints**:
+  - When VBS/HVCI is not capable, displays specific missing requirement:
+    * "(Requires: UEFI)" if firmware is Legacy BIOS
+    * "(Requires: Secure Boot)" if UEFI but Secure Boot not capable
+    * "(Requires: CPU Virtualization)" if VT-x/AMD-V disabled
+    * "(Requires: IOMMU/VT-d)" if IOMMU not detected
+  - Helps users identify exact BIOS/firmware changes needed
+
+- **TPM Version Display Enhancement**:
+  - Extracts major version from multi-part version string
+  - Example: "2.0, 0, 1.38" → "2.0"
+  - Regex pattern: `^(\d+\.\d+)` captures first version number
+  - Fallback to full string if pattern doesn't match
+  - Clean display: "Present (2.0)" instead of "Present (2.0, 0, 1.38)"
+
+- **Implementation**:
+  - Enhanced `Initialize-HardwareDetection` function (lines 390-495)
+  - Updated `Show-PlatformInfo` function (lines 1211-1300)
+  - Detection methods:
+    * UEFI: Registry check at `HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State`
+    * Secure Boot: `UEFISecureBootEnabled` registry value (0/1 and capability check)
+    * TPM: CIM/WMI query with version extraction
+    * VT-x: `Win32_Processor.VirtualizationFirmwareEnabled` or Hyper-V feature check
+    * IOMMU: Registry service check and `Win32_DeviceGuard` capability
+    * VBS/HVCI: Composite check of UEFI + Secure Boot + VT-x + IOMMU
 
 ### Implementation Details
 - **Safe Property Access**: All URL and PrerequisiteFor access uses `ContainsKey()` checks to prevent errors

@@ -113,11 +113,24 @@ Evaluate current security posture without making changes.
 
 **Output:**
 - Platform Information (CPU, OS, Hypervisor status)
+- Hardware Security Features (Firmware, Secure Boot, TPM, VT-x, IOMMU, VBS/HVCI capability)
 - Hardware Prerequisites Status (5 checks)
 - Security Mitigations Status (19 mitigations)
 - Enhanced Visual Security Score Bar with block characters (█░)
 - Color-coded recommendations with emoji indicators
 - Detailed mitigation table with impact assessment
+
+**Hardware Security Features Display:**
+The platform information section now includes comprehensive hardware capability detection:
+- **Firmware** - UEFI (green) or Legacy BIOS (yellow)
+- **Secure Boot** - Enabled (green), Capable but Disabled (yellow), or Not Supported (red)
+- **TPM** - Present with version (green) or Not Detected (red)
+- **VT-x/AMD-V** - CPU virtualization status (green enabled, red disabled)
+- **IOMMU/VT-d** - I/O memory management detection (green detected, red not detected)
+- **VBS Capable** - Hardware prerequisites met for Virtualization Based Security (green yes, red no with hints)
+- **HVCI Capable** - Hardware prerequisites met for Hypervisor-protected Code Integrity
+
+Color coding helps quickly identify missing security prerequisites and provides contextual hints for missing requirements (e.g., "Requires: UEFI" when VBS is not capable).
 
 **Detailed Output** (`-ShowDetails` flag):
 When using `-ShowDetails`, each mitigation displays comprehensive educational information:
@@ -331,6 +344,15 @@ Skipped (hardware-only): 3
 Type:        HyperVHost
 CPU:         11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS:          Microsoft Windows 11 Enterprise (Build 26200)
+
+--- Hardware Security Features ---
+Firmware:    UEFI
+Secure Boot: Enabled
+TPM:         Present (2.0)
+VT-x/AMD-V:  Enabled
+IOMMU/VT-d:  Detected
+VBS Capable: Yes
+HVCI Capable:Yes
 [Info] Starting mitigation assessment...
 [Success] Assessment complete: 24 mitigations evaluated
 
