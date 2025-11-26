@@ -89,6 +89,11 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+
+# Validate parameter combinations
+if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
+    Write-Warning "The -ShowDetails parameter only applies to Assess and ApplyInteractive modes. It will be ignored for $Mode mode."
+}
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
@@ -1552,8 +1557,12 @@ function Restore-Configuration {
     
     $success = 0
     $failed = 0
+    $skipped = 0
     
-    foreach ($item in $Backup.Mitigations) {
+    # Filter out hardware-only items (no registry path)
+    $restorableItems = @($Backup.Mitigations | Where-Object { -not [string]::IsNullOrEmpty($_.RegistryPath) })
+    
+    foreach ($item in $restorableItems) {
         try {
             if ($null -eq $item.Value) {
                 Remove-ItemProperty -Path $item.RegistryPath -Name $item.RegistryName -ErrorAction SilentlyContinue
@@ -1569,13 +1578,19 @@ function Restore-Configuration {
         }
     }
     
+    # Count skipped hardware items
+    $skipped = $Backup.Mitigations.Count - $restorableItems.Count
+    
     Write-Host "`n=== Restore Summary ===" -ForegroundColor Cyan
     Write-Host "Successfully restored: $success" -ForegroundColor Green
     if ($failed -gt 0) {
         Write-Host "Failed: $failed" -ForegroundColor Red
     }
+    if ($skipped -gt 0) {
+        Write-Host "Skipped (hardware-only): $skipped" -ForegroundColor Gray
+    }
     
-    Write-Log "Configuration restored: $success successful, $failed failed" -Level Success
+    Write-Log "Configuration restored: $success successful, $failed failed, $skipped skipped" -Level Success
 }
 
 function Invoke-InteractiveRestore {
@@ -1587,9 +1602,17 @@ function Invoke-InteractiveRestore {
     }
     Write-Host "Select mitigations to restore (or 'all' for all settings)`n"
     
-    # Display all mitigations from backup
-    for ($i = 0; $i -lt $Backup.Mitigations.Count; $i++) {
-        $item = $Backup.Mitigations[$i]
+    # Filter to only restorable items (exclude hardware-only)
+    $restorableItems = @($Backup.Mitigations | Where-Object { -not [string]::IsNullOrEmpty($_.RegistryPath) })
+    
+    if ($restorableItems.Count -eq 0) {
+        Write-Host "No restorable mitigations found in backup (hardware-only items)." -ForegroundColor Yellow
+        return
+    }
+    
+    # Display restorable mitigations from backup
+    for ($i = 0; $i -lt $restorableItems.Count; $i++) {
+        $item = $restorableItems[$i]
         $valueDisplay = if ($null -eq $item.Value) { "[DELETE]" } else { $item.Value }
         
         Write-Host "[$($i+1)] " -NoNewline -ForegroundColor Cyan
@@ -1608,13 +1631,13 @@ function Invoke-InteractiveRestore {
     $selectedItems = @()
     
     if ($selection -eq 'all' -or $selection -eq 'All') {
-        $selectedItems = $Backup.Mitigations
+        $selectedItems = $restorableItems
     } else {
         $numbers = $selection -split ',' | ForEach-Object { $_.Trim() }
         foreach ($num in $numbers) {
             $index = $null
-            if ([int]::TryParse($num, [ref]$index) -and $index -ge 1 -and $index -le $Backup.Mitigations.Count) {
-                $selectedItems += $Backup.Mitigations[$index - 1]
+            if ([int]::TryParse($num, [ref]$index) -and $index -ge 1 -and $index -le $restorableItems.Count) {
+                $selectedItems += $restorableItems[$index - 1]
             }
         }
     }
