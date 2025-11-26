@@ -959,26 +959,55 @@ function Test-Prerequisite {
     
     $status = 'Not Met'
     $currentValue = $null
+    $overallStatus = 'Missing'
     
     switch ($Mitigation.Id) {
         'UEFI' {
-            $status = if ($script:HardwareInfo.IsUEFI) { 'Met' } else { 'Not Met' }
+            $status = if ($script:HardwareInfo.IsUEFI) { 'Active' } else { 'Not Present' }
+            $overallStatus = if ($script:HardwareInfo.IsUEFI) { 'Active' } else { 'Missing' }
             $currentValue = $script:HardwareInfo.IsUEFI
         }
         'SecureBoot' {
-            $status = if ($script:HardwareInfo.SecureBootEnabled) { 'Met' } else { 'Not Met' }
+            if ($script:HardwareInfo.SecureBootEnabled) {
+                $status = 'Enabled'
+                $overallStatus = 'Protected'
+            } elseif ($script:HardwareInfo.SecureBootCapable) {
+                $status = 'Disabled (Capable)'
+                $overallStatus = 'Vulnerable'
+            } else {
+                $status = 'Not Supported'
+                $overallStatus = 'Missing'
+            }
             $currentValue = $script:HardwareInfo.SecureBootEnabled
         }
         'TPM' {
-            $status = if ($script:HardwareInfo.TPMPresent) { 'Met' } else { 'Not Met' }
+            if ($script:HardwareInfo.TPMPresent) {
+                $status = "Active ($($script:HardwareInfo.TPMVersion))"
+                $overallStatus = 'Protected'
+            } else {
+                $status = 'Not Present'
+                $overallStatus = 'Missing'
+            }
             $currentValue = $script:HardwareInfo.TPMVersion
         }
         'VTx' {
-            $status = if ($script:HardwareInfo.VTxEnabled) { 'Met' } else { 'Not Met' }
+            if ($script:HardwareInfo.VTxEnabled) {
+                $status = 'Enabled'
+                $overallStatus = 'Protected'
+            } else {
+                $status = 'Disabled or Not Supported'
+                $overallStatus = 'Missing'
+            }
             $currentValue = $script:HardwareInfo.VTxEnabled
         }
         'IOMMU' {
-            $status = if ($script:HardwareInfo.IOMMUSupport) { 'Met' } else { 'Not Met' }
+            if ($script:HardwareInfo.IOMMUSupport) {
+                $status = 'Active'
+                $overallStatus = 'Protected'
+            } else {
+                $status = 'Not Detected'
+                $overallStatus = 'Missing'
+            }
             $currentValue = $script:HardwareInfo.IOMMUSupport
         }
     }
@@ -990,8 +1019,8 @@ function Test-Prerequisite {
         Category = 'Prerequisite'
         RegistryStatus = 'N/A'
         RuntimeStatus = $status
-        OverallStatus = if ($status -eq 'Met') { 'Available' } else { 'Missing' }
-        ActionNeeded = if ($status -eq 'Met') { 'No' } else { 'Configure in Firmware' }
+        OverallStatus = $overallStatus
+        ActionNeeded = if ($overallStatus -eq 'Protected' -or $overallStatus -eq 'Active') { 'No' } else { 'Configure in Firmware' }
         CurrentValue = $currentValue
         ExpectedValue = $Mitigation.EnabledValue
         Impact = 'None'
@@ -1165,15 +1194,21 @@ function Show-AssessmentSummary {
     # Show hardware prerequisites status
     if ($prerequisites.Count -gt 0) {
         Write-Host "`n--- Hardware Prerequisites ---" -ForegroundColor Yellow
-        $prereqMet = @($prerequisites | Where-Object { $_.OverallStatus -eq 'Available' }).Count
+        $prereqEnabled = @($prerequisites | Where-Object { $_.OverallStatus -in @('Protected', 'Active') }).Count
         $prereqMissing = @($prerequisites | Where-Object { $_.OverallStatus -eq 'Missing' }).Count
+        $prereqVulnerable = @($prerequisites | Where-Object { $_.OverallStatus -eq 'Vulnerable' }).Count
         
-        Write-Host "Prerequisites Met:    " -NoNewline
-        Write-Host "$prereqMet" -ForegroundColor Green -NoNewline
+        Write-Host "Prerequisites Enabled: " -NoNewline
+        Write-Host "$prereqEnabled" -ForegroundColor Green -NoNewline
         Write-Host " / $($prerequisites.Count)"
         
+        if ($prereqVulnerable -gt 0) {
+            Write-Host "Capable but Disabled:  " -NoNewline
+            Write-Host "$prereqVulnerable" -ForegroundColor Yellow
+        }
+        
         if ($prereqMissing -gt 0) {
-            Write-Host "Prerequisites Missing: " -NoNewline
+            Write-Host "Not Available:         " -NoNewline
             Write-Host "$prereqMissing" -ForegroundColor Red
         }
     }
