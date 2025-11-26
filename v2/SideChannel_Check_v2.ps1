@@ -66,7 +66,7 @@
 
 [CmdletBinding(DefaultParameterSetName = 'Assess', SupportsShouldProcess)]
 param(
-    [Parameter(Mandatory)]
+    [Parameter()]
     [ValidateSet('Assess', 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore')]
     [string]$Mode = 'Assess',
     
