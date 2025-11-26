@@ -192,19 +192,28 @@ Browse and restore from any available backup with selective restoration.
 - **[Q] Cancel** - Exit without changes
 
 **Features:**
-- ✅ Lists all available backups with age
-- ✅ Shows backup metadata (computer, user, timestamp, count)
+- ✅ Lists all available backups with age and metadata
+- ✅ Shows backup details (computer, user, timestamp, mitigation count)
 - ✅ Interactive backup selection
 - ✅ Selective restoration - restore only what you need
 - ✅ Full or partial restore support
 - ✅ WhatIf preview available
-- ✅ Detailed restore summary
+- ✅ Intelligent filtering - skips hardware-only items (TPM, CPU features)
+- ✅ Clean restore summary with success/skipped counts
+
+**Restore Summary Example:**
+```
+Successfully restored: 21
+Skipped (hardware-only): 3
+```
 
 **Use Cases:**
 - Restore entire configuration after testing
 - Selectively restore specific mitigations
 - Recover from misconfiguration
 - Rollback individual settings while keeping others
+
+**Note:** Hardware-only features (TPM 2.0, CPU Virtualization, IOMMU/VT-d) are firmware/BIOS settings and cannot be restored from registry backups. These are automatically skipped during restore operations.
 
 ---
 
@@ -461,10 +470,14 @@ Do you want to proceed? (Y/N): Y
 ... (17 more)
 
 === Restore Summary ===
-Successfully restored: 19
+Successfully restored: 21
+Skipped (hardware-only): 3
 
+✓ Configuration restored.
 ⚠ A system restart is required for changes to take effect.
 ```
+
+**Note:** Hardware-only features like TPM 2.0, CPU Virtualization, and IOMMU are automatically skipped as they are firmware/BIOS settings, not registry values.
 
 ### Sample Output - RevertInteractive Mode
 
@@ -480,28 +493,27 @@ Type:        HyperVHost
 CPU:         11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS:          Microsoft Windows 11 Enterprise (Build 26200)
 
-=== Configuration Revert (Most Recent Backup) ===
+=== Revert to Most Recent Backup ===
 
-Latest backup found:
-  File: Backup_20251126_153622.json
-  Created: 2025-11-26 15:36:22 (8m ago)
-  Computer: WORKSTATION01
-  User: Administrator
-  Mitigations: 19
+Found most recent backup:
+Timestamp: 2025-11-26T20:25:50
+Computer:  JANTIEDE-STUDIO
+User:      jantiede
 
-This will restore all mitigation settings to their state at backup time.
+Do you want to restore this backup? (Y/N): Y
 
-Do you want to proceed? (Y/N): Y
-
-[INFO] Restoring configuration from 2025-11-26T15:36:22...
-[SUCCESS] Restored: Speculative Store Bypass Disable
-[SUCCESS] Restored: SSBD Feature Mask
-... (17 more)
+[Info] Restoring configuration from 2025-11-26T20:25:50
+[Info] Restored: Speculative Store Bypass Disable
+[Info] Restored: SSBD Feature Mask
+[Info] Restored: Branch Target Injection Mitigation
+... (18 more)
 
 === Restore Summary ===
-Successfully restored: 19
+Successfully restored: 21
+Skipped (hardware-only): 3
 
-⚠ A system restart is required for changes to take effect.
+✓ Configuration restored.
+⚠ A system restart is required.
 ```
 
 ### Sample Output - CSV Export
@@ -825,18 +837,26 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ## 📝 Changelog
 
 ### v2.1.0 (2025-11-26)
-- ✨ Simplified mode structure (5 dedicated modes)
-- ✨ Removed standalone -Interactive switch (ApplyInteractive/RevertInteractive modes)
-- ✨ WhatIf support for all modification modes (ApplyInteractive, RevertInteractive, Backup)
-- ✨ Get-AllBackups function for Restore mode
-- ✨ Comprehensive hardware detection (5 prerequisites)
-- ✨ Intelligent scoring system (excludes N/A and prerequisites)
-- ✨ Enhanced visual security score bar with block characters (█░)
-- ✨ Dedicated Backup and Restore modes
-- 🔧 PowerShell 5.1 & 7.x compatibility improvements
-- 🔧 Runtime Unicode generation for cross-version compatibility
-- 🎨 Color-coded recommendations with emoji indicators
-- 🐛 Fixed UTF-8 encoding issues in PowerShell 5.1
+- ✨ Enhanced interactive modes with selective apply & restore
+  * **ApplyInteractive**: Choice between [R]ecommended (actionable only) or [A]ll mitigations view
+  * **Restore**: Support for [A]ll (complete) or [S]elective (individual) restoration
+  * Supports informed decision-making workflow after detailed assessment
+- 🔧 Fixed restore mode warnings and improved reliability
+  * Intelligent filtering of hardware-only items (TPM 2.0, CPU Virtualization, IOMMU/VT-d)
+  * Clean restore summary: "Successfully restored: 21, Skipped (hardware-only): 3"
+  * No more "Cannot bind argument to parameter 'Path'" warnings
+- 🔧 Added parameter validation for incompatible combinations
+  * ShowDetails warns when used with non-applicable modes (only works with Assess/ApplyInteractive)
+- 🎨 Enhanced visual output with Unicode block characters (█░)
+  * Security score bar: `[████████████████████████████████████████] 100%`
+  * Runtime Unicode generation for PowerShell 5.1 & 7.x compatibility
+- 📊 Intelligent security scoring system
+  * Excludes N/A items and prerequisites from score calculation
+  * Focuses on actual configurable mitigations
+- 🛡️ Comprehensive hardware detection (5 prerequisites)
+- 💾 Dedicated Backup and Restore modes with JSON-based storage
+- ✨ WhatIf support for all modification modes
+- 🐛 Fixed PowerShell 5.1 compatibility issues (array handling, DateTime parsing)
 
 ### v2.0.0 (2025-11-20)
 - 🎉 Initial v2 release
