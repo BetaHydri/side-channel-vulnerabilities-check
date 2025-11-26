@@ -1323,10 +1323,42 @@ function Test-SideChannelMitigation {
         }
     }
     
+    # Determine runtime status from kernel API
+    $runtimeStatus = "N/A"
+    if ($script:RuntimeState.APIAvailable) {
+        $runtimeActive = switch ($Name) {
+            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+            "Kernel VA Shadow (Meltdown Protection)" { 
+                if ($script:RuntimeState.RDCLHardwareProtected) { "Immune" }
+                else { $script:RuntimeKVAState.KVAShadowEnabled }
+            }
+            "MDS Mitigation" { 
+                if ($script:RuntimeState.MDSHardwareProtected) { "Immune" }
+                else { $script:RuntimeState.MBClearEnabled }
+            }
+            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+            default { $null }
+        }
+        
+        if ($null -ne $runtimeActive) {
+            if ($runtimeActive -eq "Immune") {
+                $runtimeStatus = "Hardware Immune"
+            }
+            elseif ($runtimeActive) {
+                $runtimeStatus = "Active"
+            }
+            else {
+                $runtimeStatus = "Inactive"
+            }
+        }
+    }
+    
     $result = [PSCustomObject]@{
         Name           = $Name
         Description    = $Description
         Status         = $status
+        RuntimeStatus  = $runtimeStatus
         CurrentValue   = if ($null -ne $currentValue) { $currentValue } else { "Not Set" }
         ExpectedValue  = $ExpectedValue
         RegistryPath   = $RegistryPath
