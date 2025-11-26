@@ -1,21 +1,51 @@
 side-channel-vulnerabilities-check/
-├── README.md              # Main documentation with version comparison
-├── QUICKSTART.md          # Quick reference guide
-├── LICENSE                # MIT License
-├── .gitignore            # Git ignore rules
+├── README.md                        # Main documentation (v2.1.0)
+├── QUICKSTART.md                    # Quick reference guide
+├── STRUCTURE.txt                    # This file - repository structure
+├── V2_CHANGES.md                    # Version 2 changelog
+├── LICENSE                          # MIT License
+├── .gitignore                       # Git ignore rules
 │
-├── v1/                   # Version 1.x (Legacy - Stable)
-│   ├── README.md         # v1 documentation
-│   ├── SideChannel_Check.ps1    # v1 script
-│   ├── Backups/          # Backup storage (ignored by git)
-│   ├── Logs/             # Log files (ignored by git)
-│   └── Config/           # Configuration (ignored by git)
+├── SideChannel_Check_v2.ps1        # Main tool - v2.1.0 (CURRENT)
+├── Test-SideChannelTool.ps1        # Automated test suite
 │
-└── v2/                   # Version 2.1.0 (Latest - Recommended)
-    ├── README.md                    # v2 documentation
-    ├── SideChannel_Check_v2.ps1    # v2 main script
-    ├── Test-SideChannelTool.ps1    # Automated test suite
-    ├── V2_CHANGES.md                # v2 changelog
-    ├── Backups/                     # Backup storage (ignored by git)
-    ├── Logs/                        # Log files (ignored by git)
-    └── Config/                      # Configuration (ignored by git)
+├── Backups/                         # Configuration backups (ignored by git)
+├── Logs/                            # Execution logs (ignored by git)
+├── Config/                          # Tool configuration (ignored by git)
+│
+└── archive/                         # Archived legacy versions
+    ├── README.md                    # Archive documentation
+    └── v1/                          # Version 1.x (Legacy - No longer maintained)
+        ├── README.md                # v1 documentation
+        ├── SideChannel_Check.ps1   # v1 script (archived)
+        ├── Backups/                 # v1 backup storage
+        ├── Logs/                    # v1 log files
+        └── Config/                  # v1 configuration
+
+================================================================================
+CURRENT VERSION: v2.1.0 (Main branch)
+================================================================================
+
+USAGE:
+  Run from root: .\SideChannel_Check_v2.ps1
+  Legacy v1 available in: archive\v1\
+
+KEY CHANGES FROM OLD STRUCTURE:
+  ✓ v2 files moved to repository root (main version)
+  ✓ v1 archived to archive/v1/ directory
+  ✓ Simplified structure - no more v2/ subdirectory
+  ✓ All new development happens in root directory
+
+FEATURES (v2.1.0):
+  • 5 dedicated modes (Assess, ApplyInteractive, RevertInteractive, Backup, Restore)
+  • Selective apply & restore ([R]ecommended/[A]ll, [A]ll/[S]elect)
+  • Hardware detection (UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU)
+  • Intelligent security scoring with visual progress bar
+  • WhatIf support for all modification modes
+  • PowerShell 5.1 & 7.x compatible (runtime Unicode generation)
+  • Comprehensive educational detailed view (-ShowDetails)
+
+DIRECTORY STRUCTURE NOTES:
+  - Backups/, Logs/, Config/ are created at runtime
+  - v2/ directory should NOT exist (moved to root)
+  - archive/v1/ is read-only legacy reference
