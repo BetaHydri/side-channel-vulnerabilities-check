@@ -1408,24 +1408,68 @@ function Show-MitigationTable {
         }
     }
     else {
-        # Simplified table view
+        # Simplified table view with colors
         Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
         Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
         
-        foreach ($result in $Results) {
-            # Determine colors
-            $statusColor = switch ($result.OverallStatus) {
-                'Protected' { 'Green' }
-                'Vulnerable' { 'Red' }
-                'Active' { 'Cyan' }
-                default { 'Gray' }
+        # Check PowerShell version for ANSI support
+        $useAnsi = $PSVersionTable.PSVersion.Major -ge 6
+        
+        if ($useAnsi) {
+            # PowerShell 7+ with ANSI color codes
+            $ansiReset = "`e[0m"
+            $ansiGreen = "`e[32m"
+            $ansiRed = "`e[31m"
+            $ansiCyan = "`e[36m"
+            $ansiYellow = "`e[33m"
+            $ansiGray = "`e[90m"
+            
+            foreach ($result in $Results) {
+                # Determine ANSI color for status
+                $statusAnsi = switch ($result.OverallStatus) {
+                    'Protected' { $ansiGreen }
+                    'Vulnerable' { $ansiRed }
+                    'Active' { $ansiCyan }
+                    default { $ansiGray }
+                }
+                
+                # Determine ANSI color for action
+                $actionAnsi = switch -Wildcard ($result.ActionNeeded) {
+                    '*Critical*' { $ansiRed }
+                    '*Recommended*' { $ansiYellow }
+                    'Consider' { $ansiCyan }
+                    default { $ansiGreen }
+                }
+                
+                # Format columns with exact widths
+                $nameCol = "{0,-45}" -f $result.Name
+                $statusCol = "{0,-20}" -f $result.OverallStatus
+                $actionCol = "{0,-26}" -f $result.ActionNeeded
+                $impactCol = $result.Impact
+                
+                # Build line with ANSI colors embedded
+                $line = "$nameCol $statusAnsi$statusCol$ansiReset $actionAnsi$actionCol$ansiReset $impactCol"
+                
+                # Output with colors
+                Write-Host $line
             }
-            
-            # Format the entire line as a single string
-            $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
-            
-            # Write the entire line at once (colorization won't work but alignment will)
-            Write-Host $line
+        }
+        else {
+            # PowerShell 5.1 fallback - use VT100 if available or plain text
+            foreach ($result in $Results) {
+                # Format the entire line as a single string
+                $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
+                
+                # Determine color for the line based on status
+                $lineColor = switch ($result.OverallStatus) {
+                    'Protected' { 'White' }
+                    'Vulnerable' { 'Yellow' }
+                    'Active' { 'Cyan' }
+                    default { 'Gray' }
+                }
+                
+                Write-Host $line -ForegroundColor $lineColor
+            }
         }
     }
 }
