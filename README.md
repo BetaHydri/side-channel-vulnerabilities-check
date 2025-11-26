@@ -27,6 +27,7 @@ Unlike registry-only tools, this script queries the **actual Windows kernel** to
 - ✅ **Hardware Immunity Detection** - Detects CPUs with built-in protection (e.g., RDCL for Meltdown, MDS immunity)
 - ✅ **Smart Recommendations** - Only suggests mitigations that aren't already active in kernel runtime
 - ✅ **Enhanced IBRS Awareness** - Clearly indicates when hardware protection supersedes software mitigations
+- ✅ **Dual Output Modes** - Standard mode for quick assessment, `-Detailed` mode for in-depth educational content
 - ✅ **PowerShell 5.1+ Compatible** - Works on Windows Server 2016+ without upgrades
 
 ### Example Runtime Detection Output
@@ -95,7 +96,11 @@ Category Score: 10/12 enabled (83.3%)
 
 ### Basic Security Check
 ```powershell
+# Standard check (core assessment only)
 .\SideChannel_Check.ps1
+
+# Detailed check (includes educational content and dependency matrices)
+.\SideChannel_Check.ps1 -Detailed
 ```
 
 ### Apply Security Mitigations
@@ -169,14 +174,35 @@ esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
 
 ## 📊 Sample Output
 
-**Note:** The script output is organized in three sections:
-1. **Initial Checks** - System detection and registry value queries
-2. **Educational Content** - Detailed analysis, dependency matrices, and hardware flags (can be scrolled through)
-3. **Core Security Assessment** - Mitigation status table, scores, and actionable recommendations (most important)
+**Note:** The script has two output modes:
 
-### Basic Security Assessment
+### Standard Mode (Default)
+Shows **core security assessment only** for quick analysis:
+1. **System Information** - CPU, OS, architecture, virtualization status
+2. **System Capabilities** - Early display of Secure Boot, TPM, Virtualization, IOMMU status
+3. **Mitigation Checks** - Registry values and runtime kernel state
+4. **Results Table** - Side-by-side registry vs runtime status with discrepancy detection
+5. **Security Summary** - Category scores and overall mitigation percentage
+6. **Recommendations** - Priority-sorted actionable items
+
+### Detailed Mode (`-Detailed` parameter)
+Shows **everything above PLUS educational content**:
+7. **Hardware Prerequisites Detailed Analysis** - In-depth hardware assessment and action items
+8. **Detailed Kernel Runtime Flags** - Advanced runtime mitigation details from NtQuerySystemInformation API
+9. **VBS/HVCI Analysis** - Hardware readiness vs runtime status comparison
+10. **Security Feature Dependency Matrix** - Hardware requirements and software fallback options
+11. **Hardware Security Mitigation Value Matrix** - MitigationOptions bit-field flag breakdown
+
+💡 **Use `-Detailed` when:**
+- Learning about security features and dependencies
+- Troubleshooting VBS/HVCI compatibility issues
+- Understanding hardware requirements for specific features
+- Analyzing MitigationOptions registry flags in detail
+
+### Basic Security Assessment (Standard Mode)
 ```
-=== Side-Channel Vulnerability Configuration Check ===
+Side-Channel Vulnerability Configuration Check:
+==================================================
 Based on Microsoft KB4073119 + Extended Modern CVE Coverage
 
 📊 MODE: ASSESSMENT ONLY
@@ -192,6 +218,16 @@ Running in VM: No
 Hyper-V Status: Enabled
 VBS Status: Running
 HVCI Status: Enforced
+Nested Virtualization: Enabled
+
+Your System Capabilities:
+  Secure Boot:      + Enabled
+  TPM 2.0:          + Present & Ready
+  Virtualization:   + Enabled
+  IOMMU (VT-d/Vi):  + Enabled
+
+Recommendations for Your System:
+   Your system meets all hardware requirements for full security features!
 
 Checking Side-Channel Vulnerability Mitigations...
 
@@ -220,25 +256,8 @@ Checking Virtualization-Specific Security Features...
 Hypervisor Host-Specific Security Checks:
 Checking host-level virtualization security features...
 
-================================================================================
-DETAILED SECURITY ANALYSIS
-================================================================================
-
-[... Additional informational sections appear here ...]
-
-================================================================================
-SECURITY FEATURE DEPENDENCY MATRIX
-================================================================================
-
-[... Dependency matrix and educational content ...]
-
-================================================================================
-HARDWARE SECURITY MITIGATION VALUE MATRIX
-================================================================================
-
-[... Hardware mitigation flags and explanations ...]
-
-=== Side-Channel Vulnerability Mitigation Status ===
+Side-Channel Vulnerability Mitigation Status:
+==================================================
 
 🛡  SOFTWARE MITIGATIONS
 ============================================================
@@ -316,71 +335,128 @@ Category Score: 4/5 enabled (80%)
 Overall Mitigation Score: 86.4%
 Security Level: [████████░░] 19/22 enabled
 
-[--] STATUS LEGEND
-✓ Enabled - Mitigation is active and properly configured
-✗ Disabled - Mitigation is explicitly disabled
-✗ Not Set - Registry value not configured (using defaults)
+Security Configuration Summary:
+==================================================
 
-[>>] CATEGORY DESCRIPTIONS
-🛡  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
-🔒 SECURITY FEATURES: Advanced Windows security technologies
-🔧 HARDWARE PREREQUISITES: Required hardware security capabilities
-
-ℹ KERNEL RUNTIME STATE - WHICH TO TRUST?
-  ⭐ ALWAYS TRUST: Kernel Runtime (shows actual protection status)
-  Registry Status: What you configured (may not be active yet)
-  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)
-
-  Runtime Status Meanings:
-  ✓ Active - Protection is running (you are protected)
-  ✗ Inactive - Protection is NOT running (you are vulnerable)
-  ⚠ Pending - Registry says 'Enabled' but kernel is NOT active (check compatibility)
-  ⚠ Active - Registry says 'Not Set' but kernel IS active (Windows default/policy)
-  ✓ Immune - CPU has hardware immunity (no software mitigation needed)
-  ✓ Not Needed - Hardware protection (Enhanced IBRS) supersedes software mitigation
-  ✓ Retpoline - Software mitigation active (older CPUs without Enhanced IBRS)
-
-=== SECURITY CONFIGURATION SUMMARY ===
-
-Security Assessment Categories:
 - Software Mitigations: 11/12 enabled
-- Security Features: 6/7 enabled
+- Security Features: 6/7 enabled  
 - Hardware Prerequisites: 5/5 ready
-
-Security Status Overview:
-=========================
-
-🛡  SOFTWARE MITIGATIONS (Primary Score):
-[+] ENABLED:       11 / 12 mitigations
-[-] NOT SET:       1 / 12 mitigations
-[-] DISABLED:      0 / 12 mitigations
-
-🔒 SECURITY FEATURES:
-[+] ENABLED:       6 / 7 features
-
-🔧 HARDWARE PREREQUISITES:
-[+] READY:         5 / 5 components
 
 Overall Mitigation Score: 91.7%
 Mitigation Progress: [█████████░] 91.7%
 
-Score Explanation:
-* Mitigation Score: Based on registry-configurable side-channel protections
-* Security Features: Windows security services (VBS, HVCI, etc.)
-* Hardware Prerequisites: Platform readiness for advanced security
-
-=== Recommendations ===
+==================================================
+Recommendations
+==================================================
 The following mitigations should be configured:
-- L1TF Mitigation: Enable L1TF protection. WARNING: High performance impact
-- Windows Defender Exploit Guard ASLR: Enable ASLR force relocate images
 
-Note: MDS Mitigation is NOT recommended because it's already active in the kernel runtime.
+✓ RECOMMENDED - High Security Benefit, Low Performance Impact:
+   └ Windows Defender Exploit Guard ASLR
 
-To apply these configurations automatically, run:
-.\SideChannel_Check.ps1 -Apply
+✗ EVALUATE CAREFULLY - Variable Benefit, High Performance Impact:
+   └ L1TF Mitigation
+     ⚠ May require disabling hyperthreading for full protection
 
-For interactive selection (recommended):
-.\SideChannel_Check.ps1 -Apply -Interactive
+Virtualization Security Recommendations:
+==================================================
+[... Host/guest-specific recommendations ...]
+
+For detailed technical analysis, hardware dependency matrices, and flag breakdowns,
+run with the -Detailed parameter:
+  .\SideChannel_Check.ps1 -Detailed
+
+Side-channel vulnerability check completed.
+```
+
+### Detailed Mode Output (`-Detailed` parameter)
+
+When you run with `-Detailed`, additional educational sections appear at the end:
+
+```
+================================================================================
+ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
+================================================================================
+
+================================================================================
+HARDWARE PREREQUISITES DETAILED ANALYSIS
+================================================================================
+
+Hardware Security Assessment:
+(Symbols: ✓ Enabled/Good, ❓ Needs Verification, ✗ Disabled/Missing)
+- UEFI Firmware: ✓ UEFI Firmware Active
+- Secure Boot: ✓ Enabled
+- TPM 2.0: ✓ TPM 2.0 Enabled
+- CPU Virtualization (VT-x/AMD-V): ✓ Enabled and Active
+- IOMMU/VT-d Support: ✓ Enabled
+
+Required CPU Features:
+- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)
+- Hardware support for SMEP/SMAP
+- CPU microcode with Spectre/Meltdown mitigations
+
+Administrator Action Items:
+- Update system firmware/BIOS to latest version
+- Update CPU microcode through Windows Update
+
+================================================================================
+DETAILED KERNEL RUNTIME FLAGS
+================================================================================
+
+Advanced Protections:
+  ✓ Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)
+  ✓ L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)
+
+Hardware Immunity Status:
+  ✓ RDCL Protected: Hardware immunity to Meltdown
+  ✓ MDS Protected: Hardware immunity to MDS
+
+================================================================================
+DETAILED SECURITY ANALYSIS (VBS/HVCI)
+================================================================================
+
+VBS (Virtualization Based Security):
+  Hardware Ready:  - No
+  Currently Active: + Yes
+
+HVCI (Hypervisor-protected Code Integrity):
+  Hardware Ready:  - No
+  Currently Active: + Yes
+
+NOTE: VBS/HVCI running in 'compatible mode' - protection is working!
+
+================================================================================
+SECURITY FEATURE DEPENDENCY MATRIX
+================================================================================
+
+FEATURE                                        FALLBACK     HARDWARE REQUIREMENT
+-------                                        --------     --------------------
+Secure Boot                                    [✗ No ]      UEFI firmware with Secure Boot
+VBS (Virtualization Based Security)            [✓ Yes]      CPU virtualization + SLAT/EPT
+HVCI (Hypervisor-protected Code Integrity)     [✓ Yes]      CPU virtualization + IOMMU
+Credential Guard                               [✓ Yes]      VBS + TPM 2.0 (recommended)
+Kernel DMA Protection                          [✗ No ]      IOMMU with pre-boot protection
+
+Legend:
+  ✓ Yes  = Software fallback available (reduced security/performance)
+  ✗ No   = No fallback - strict hardware requirement
+
+================================================================================
+HARDWARE SECURITY MITIGATION VALUE MATRIX
+================================================================================
+
+Current MitigationOptions Value:
+Hex:     0x2000000000000100
+Enabled: 2 of 25 known flags
+
+Flag Value          Status      Mitigation Name
+----------          ------      ---------------
+0x0000000000000100  +         High Entropy ASLR
+0x2000000000000000  +         Core Hardware Security Features
+
+Recommended Minimum Value:
+0x2000000000000000 (Core Hardware Security Features)
+
+Side-channel vulnerability check completed.
 ```
 
 ### Interactive Apply Session
