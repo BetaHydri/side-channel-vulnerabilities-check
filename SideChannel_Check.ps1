@@ -3915,14 +3915,14 @@ foreach ($item in $softwareMitigations) {
 }
 
 $notConfiguredMitigations = ($softwareMitigations | Where-Object { 
-    $_.Status -eq "Not Configured" -and -not (
-        ($_.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.BTIEnabled) -or
-        ($_.Name -eq "Speculative Store Bypass Disable" -and $script:RuntimeState.SSBDSystemWide) -or
-        ($_.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and ($script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected)) -or
-        ($_.Name -eq "MDS Mitigation" -and ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected)) -or
-        ($_.Name -eq "Enhanced IBRS" -and $script:RuntimeState.EnhancedIBRS)
-    )
-}).Count  
+        $_.Status -eq "Not Configured" -and -not (
+            ($_.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.BTIEnabled) -or
+            ($_.Name -eq "Speculative Store Bypass Disable" -and $script:RuntimeState.SSBDSystemWide) -or
+            ($_.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and ($script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected)) -or
+            ($_.Name -eq "MDS Mitigation" -and ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected)) -or
+            ($_.Name -eq "Enhanced IBRS" -and $script:RuntimeState.EnhancedIBRS)
+        )
+    }).Count  
 $disabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Disabled" }).Count
 $totalMitigations = $softwareMitigations.Count
 
