@@ -931,7 +931,7 @@ function Test-Mitigation {
                 Recommendation = "Hardware prerequisites not met: $($Mitigation.HardwareRequired)"
                 RegistryPath   = $Mitigation.RegistryPath
                 RegistryName   = $Mitigation.RegistryName
-                URL            = $Mitigation.URL
+                URL            = if ($Mitigation.ContainsKey('URL')) { $Mitigation.URL } else { $null }
             }
         }
     }
@@ -984,7 +984,7 @@ function Test-Mitigation {
         Recommendation = $Mitigation.Recommendation
         RegistryPath   = $Mitigation.RegistryPath
         RegistryName   = $Mitigation.RegistryName
-        URL            = $Mitigation.URL
+        URL            = if ($Mitigation.ContainsKey('URL')) { $Mitigation.URL } else { $null }
     }
 }
 
@@ -1077,7 +1077,7 @@ function Test-Prerequisite {
         Recommendation = $Mitigation.Recommendation
         RegistryPath   = $Mitigation.RegistryPath
         RegistryName   = $Mitigation.RegistryName
-        URL            = $Mitigation.URL
+        URL            = if ($Mitigation.ContainsKey('URL')) { $Mitigation.URL } else { $null }
     }
 }
 
