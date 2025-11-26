@@ -1819,11 +1819,12 @@ function Invoke-InteractiveApply {
         }
     }
     
+    $bullet = Get-StatusIcon -Name Bullet
     Write-Host "`nSelection options:" -ForegroundColor Cyan
-    Write-Host "  • Enter numbers (e.g., '1,2,5' or '1-3')" -ForegroundColor White
-    Write-Host "  • Type 'all' to select all shown mitigations" -ForegroundColor White
-    Write-Host "  • Type 'critical' to select only critical items" -ForegroundColor White
-    Write-Host "  • Type 'Q' to quit" -ForegroundColor White
+    Write-Host "  $bullet Enter numbers (e.g., '1,2,5' or '1-3')" -ForegroundColor White
+    Write-Host "  $bullet Type 'all' to select all shown mitigations" -ForegroundColor White
+    Write-Host "  $bullet Type 'critical' to select only critical items" -ForegroundColor White
+    Write-Host "  $bullet Type 'Q' to quit" -ForegroundColor White
     Write-Host "`nYour selection: " -NoNewline -ForegroundColor Yellow
     $selection = Read-Host
     
