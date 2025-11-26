@@ -900,6 +900,124 @@ The dependency matrix in the script:
 
 This matrix transforms complex Microsoft security documentation into **actionable, system-specific guidance**
 
+## 📖 External Resources & Technical Documentation
+
+### Official Vendor Documentation
+
+#### Microsoft Security Guidance
+- **[KB4073119: Windows Client Guidance for IT Pros](https://support.microsoft.com/en-us/topic/kb4073119-protect-against-speculative-execution-side-channel-vulnerabilities-in-windows-client-systems-6dd25de0-4d8e-4f7c-8a89-ddc88e3e8853)** - Primary reference for this tool
+- **[Windows Kernel CVE Mitigations](https://msrc.microsoft.com/update-guide/vulnerability)** - Microsoft Security Response Center
+- **[Virtualization-Based Security (VBS)](https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs)** - Hardware requirements and implementation
+- **[Hypervisor-Protected Code Integrity (HVCI)](https://learn.microsoft.com/en-us/windows-hardware/drivers/bringup/device-guard-and-credential-guard)** - Memory integrity protection
+- **[Credential Guard Deployment](https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard)** - Enterprise credential protection
+- **[Windows Defender Application Control](https://learn.microsoft.com/en-us/windows/security/threat-protection/windows-defender-application-control/windows-defender-application-control)** - Code integrity policies
+
+#### Intel Security Advisories
+- **[Spectre & Meltdown (CVE-2017-5753/5715/5754)](https://www.intel.com/content/www/us/en/developer/topic-technology/software-security-guidance/overview.html)** - Original side-channel vulnerabilities
+- **[Retpoline: Branch Target Injection Mitigation](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/retpoline-branch-target-injection-mitigation.html)** - Software mitigation technique
+- **[L1 Terminal Fault (L1TF) - CVE-2018-3620/3646](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/l1-terminal-fault.html)** - L1 cache attacks
+- **[Microarchitectural Data Sampling (MDS)](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/microarchitectural-data-sampling.html)** - Multiple CVEs (2018-11091 through 12130)
+- **[TAA - CVE-2019-11135](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/intel-tsx-asynchronous-abort.html)** - TSX Asynchronous Abort
+- **[Enhanced IBRS](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/indirect-branch-restricted-speculation.html)** - Hardware-based Spectre v2 mitigation
+- **[Intel VT-x and VT-d](https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html)** - Virtualization and IOMMU technology
+
+#### AMD Security Documentation
+- **[AMD Product Security](https://www.amd.com/en/resources/product-security.html)** - Security bulletins and advisories
+- **[AMD-V (SVM) Technology](https://www.amd.com/en/technologies/virtualization-solutions)** - AMD Virtualization
+- **[AMD Secure Encrypted Virtualization (SEV)](https://www.amd.com/en/developer/sev.html)** - VM memory encryption
+- **[Spectre/Meltdown AMD Guidance](https://www.amd.com/en/resources/product-security/bulletin/amd-sb-1000.html)** - AMD-specific mitigations
+- **[IOMMU (AMD-Vi) Specification](https://www.amd.com/content/dam/amd/en/documents/processor-tech-docs/programmer-references/48882_IOMMU.pdf)** - AMD I/O Memory Management Unit
+
+### CVE Databases & Tracking
+
+#### NIST National Vulnerability Database
+- **[CVE-2017-5753 (Spectre Variant 1)](https://nvd.nist.gov/vuln/detail/CVE-2017-5753)** - Bounds check bypass
+- **[CVE-2017-5715 (Spectre Variant 2)](https://nvd.nist.gov/vuln/detail/CVE-2017-5715)** - Branch target injection
+- **[CVE-2017-5754 (Meltdown)](https://nvd.nist.gov/vuln/detail/CVE-2017-5754)** - Rogue data cache load
+- **[CVE-2018-3620 (L1TF)](https://nvd.nist.gov/vuln/detail/CVE-2018-3620)** - L1 Terminal Fault - OS/SMM
+- **[CVE-2018-3646 (L1TF-VMM)](https://nvd.nist.gov/vuln/detail/CVE-2018-3646)** - L1 Terminal Fault - VMM
+- **[CVE-2018-11091 (MDSUM)](https://nvd.nist.gov/vuln/detail/CVE-2018-11091)** - Microarchitectural Data Sampling Uncacheable Memory
+- **[CVE-2018-12126 (MFBDS)](https://nvd.nist.gov/vuln/detail/CVE-2018-12126)** - Microarchitectural Fill Buffer Data Sampling
+- **[CVE-2018-12127 (MLPDS)](https://nvd.nist.gov/vuln/detail/CVE-2018-12127)** - Microarchitectural Load Port Data Sampling
+- **[CVE-2018-12130 (MSBDS)](https://nvd.nist.gov/vuln/detail/CVE-2018-12130)** - Microarchitectural Store Buffer Data Sampling
+- **[CVE-2019-11135 (TAA)](https://nvd.nist.gov/vuln/detail/CVE-2019-11135)** - TSX Asynchronous Abort
+- **[CVE-2022-21123 (SBDR)](https://nvd.nist.gov/vuln/detail/CVE-2022-21123)** - Shared Buffers Data Read
+- **[CVE-2022-21125 (SBDS)](https://nvd.nist.gov/vuln/detail/CVE-2022-21125)** - Shared Buffers Data Sampling
+- **[CVE-2022-21127 (SRBDS)](https://nvd.nist.gov/vuln/detail/CVE-2022-21127)** - Special Register Buffer Data Sampling
+- **[CVE-2022-21166 (DRPW)](https://nvd.nist.gov/vuln/detail/CVE-2022-21166)** - Device Register Partial Write
+
+### Research Papers & Technical Analysis
+
+#### Academic Research
+- **[Spectre Attacks: Exploiting Speculative Execution](https://spectreattack.com/spectre.pdf)** - Original Spectre paper (Kocher et al.)
+- **[Meltdown: Reading Kernel Memory from User Space](https://meltdownattack.com/meltdown.pdf)** - Original Meltdown paper (Lipp et al.)
+- **[Foreshadow: L1 Terminal Fault](https://foreshadowattack.eu/)** - L1TF attack website and papers
+- **[ZombieLoad: MDS Attacks](https://zombieloadattack.com/)** - MDS vulnerability research
+- **[RIDL: Rogue In-Flight Data Load](https://mdsattacks.com/)** - Additional MDS research
+
+#### Performance Impact Studies
+- **[Microsoft: Mitigations Performance Impact](https://techcommunity.microsoft.com/t5/windows-kernel-internals-blog/understanding-the-performance-impact-of-spectre-and-meltdown/ba-p/295062)** - Real-world performance analysis
+- **[Red Hat: Speculative Execution Exploit Performance Impact](https://access.redhat.com/articles/3311301)** - Enterprise impact assessment
+- **[VMware: Side-Channel Aware Scheduler](https://kb.vmware.com/s/article/55806)** - Hypervisor-level mitigations
+
+### Virtualization Platform Security
+
+#### VMware ESXi/vSphere
+- **[VMware Security Advisories](https://www.vmware.com/security/advisories.html)** - vSphere security bulletins
+- **[VMSA-2018-0004: Spectre/Meltdown](https://www.vmware.com/security/advisories/VMSA-2018-0004.html)** - VMware response
+- **[Side-Channel Aware Scheduler (SCAS)](https://kb.vmware.com/s/article/55806)** - ESXi scheduler hardening
+- **[ESXi Patch Tracker](https://esxi-patches.v-front.de/)** - Community patch database
+
+#### Microsoft Hyper-V
+- **[Hyper-V Security Documentation](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/hyper-v-security)** - Official hardening guide
+- **[Hyper-V Core Scheduler](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types)** - SMT security improvements
+- **[Shielded VMs](https://learn.microsoft.com/en-us/windows-server/security/guarded-fabric-shielded-vm/guarded-fabric-and-shielded-vms)** - Hardware-based VM isolation
+- **[Nested Virtualization Security](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization)** - Nested VM considerations
+
+### Tools & Validation
+
+#### Microsoft Official Tools
+- **[SpeculationControl PowerShell Module](https://www.powershellgallery.com/packages/SpeculationControl)** - Microsoft's assessment tool
+- **[Device Guard Readiness Tool](https://www.microsoft.com/en-us/download/details.aspx?id=53337)** - VBS/HVCI validation
+- **[Windows Update Catalog](https://www.catalog.update.microsoft.com/)** - Microcode and patch downloads
+
+#### Third-Party Validation Tools
+- **[CPU-Z](https://www.cpuid.com/softwares/cpu-z.html)** - CPU feature detection
+- **[HWiNFO](https://www.hwinfo.com/)** - Detailed hardware information
+- **[InSpectre](https://www.grc.com/inspectre.htm)** - Steve Gibson's Spectre/Meltdown checker (retired)
+
+### Compliance & Standards
+
+#### Industry Standards
+- **[CIS Windows Benchmarks](https://www.cisecurity.org/benchmark/microsoft_windows_desktop)** - Security configuration baselines
+- **[NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)** - Risk management guidelines
+- **[PCI DSS Requirements](https://www.pcisecuritystandards.org/)** - Payment card industry security
+
+#### Government Guidance
+- **[NSA Cybersecurity Advisories](https://www.nsa.gov/Press-Room/Cybersecurity-Advisories-Guidance/)** - U.S. government recommendations
+- **[CISA Known Exploited Vulnerabilities](https://www.cisa.gov/known-exploited-vulnerabilities-catalog)** - Critical vulnerability tracking
+
+### Additional Learning Resources
+
+#### Video Tutorials & Conferences
+- **[Black Hat: Spectre & Meltdown Presentations](https://www.blackhat.com/)** - Security conference talks
+- **[Microsoft Ignite: Windows Security Sessions](https://ignite.microsoft.com/)** - Enterprise security guidance
+- **[DEF CON: Side-Channel Attack Research](https://www.defcon.org/)** - Cutting-edge security research
+
+#### Community Resources
+- **[/r/sysadmin - Windows Security](https://www.reddit.com/r/sysadmin/)** - IT professional community
+- **[TechNet Forums (Archive)](https://social.technet.microsoft.com/Forums/)** - Microsoft community support
+- **[Spiceworks Community](https://community.spiceworks.com/)** - IT Q&A and troubleshooting
+
+### How to Use These Resources
+
+1. **Start with Microsoft KB4073119** - Primary reference for Windows mitigation implementation
+2. **Check your CPU vendor** (Intel/AMD) - Read vendor-specific guidance for your hardware
+3. **Review CVE details** - Understand the specific vulnerabilities affecting your systems
+4. **Assess performance impact** - Use Microsoft/Red Hat studies to plan mitigation deployment
+5. **Validate with tools** - Cross-reference this script with Microsoft's SpeculationControl module
+6. **Stay updated** - Subscribe to vendor security advisories for new vulnerabilities
+
 ## 📚 Quick Reference
 
 ### Covered Vulnerabilities
