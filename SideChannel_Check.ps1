@@ -3365,6 +3365,13 @@ else {
     }
 }
 
+# ============================================================================
+# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
+# ============================================================================
+# The following sections provide in-depth technical details, dependency
+# matrices, and educational information about security features.
+# ============================================================================
+
 # Section break before detailed analysis
 Write-ColorOutput ("`n" + "=" * 80) -Color Header
 Write-ColorOutput "DETAILED SECURITY ANALYSIS" -Color Header
@@ -3839,6 +3846,13 @@ Write-ColorOutput "0x2000000000000000 (Core Hardware Security Features)" -Color 
 Write-ColorOutput "`nNote: The exact flags enabled depend on your CPU capabilities and Windows version." -Color Info
 Write-ColorOutput "Some flags are only available on newer processors or Windows versions." -Color Info
 
+# ============================================================================
+# CORE SECURITY ASSESSMENT RESULTS
+# ============================================================================
+# This section displays the main security configuration status, scores,
+# and recommendations. Detailed educational content appears later.
+# ============================================================================
+
 # Display results table
 Show-ResultsTable -Results $Results
 
@@ -4005,6 +4019,13 @@ Write-Host "`nScore Explanation:" -ForegroundColor $Colors['Info']
 Write-Host "* Mitigation Score: Based on registry-configurable side-channel protections" -ForegroundColor Gray
 Write-Host "* Security Features: Windows security services (VBS, HVCI, etc.)" -ForegroundColor Gray  
 Write-Host "* Hardware Prerequisites: Platform readiness for advanced security" -ForegroundColor Gray
+
+# ============================================================================
+# END OF CORE SECURITY ASSESSMENT
+# ============================================================================
+# The sections below provide additional detailed information and educational
+# content about security features, hardware requirements, and dependencies.
+# ============================================================================
 
 # Interactive mitigation selection function
 function Select-Mitigations {
@@ -4796,7 +4817,7 @@ if (!$hwStatus.VTxSupport) {
     $actionItems += "- Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
 }
 
-if ($hwStatus.IOMMUSupport -notmatch "Available.*Hyper-V") {
+if ($hwStatus.IOMMUSupport -notmatch "^Enabled") {
     $actionItems += "- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
 }
 
