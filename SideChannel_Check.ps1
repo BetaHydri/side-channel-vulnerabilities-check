@@ -2662,6 +2662,197 @@ else {
     Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
 }
 
+# Security Feature Dependency Matrix
+Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
+Write-ColorOutput "="*80 -Color Header
+
+Write-ColorOutput "`nThis matrix shows hardware requirements and software fallback options for each" -Color Info
+Write-ColorOutput "Windows security feature. Understanding these dependencies helps you determine" -Color Info
+Write-ColorOutput "which features can be enabled and what trade-offs exist." -Color Info
+
+# Define dependency matrix data
+$dependencyMatrix = @(
+    @{
+        Feature = "Secure Boot"
+        HardwareRequired = "UEFI firmware with Secure Boot capability"
+        SoftwareFallback = "No"
+        Impact = "Without Secure Boot, bootloader attacks are possible"
+        Notes = "Required for most modern security features"
+    },
+    @{
+        Feature = "TPM 2.0"
+        HardwareRequired = "Trusted Platform Module 2.0 chip"
+        SoftwareFallback = "Partial (BitLocker with password/USB key)"
+        Impact = "Reduced cryptographic key security, no hardware root of trust"
+        Notes = "Firmware TPM (fTPM) acceptable for most features"
+    },
+    @{
+        Feature = "VBS (Virtualization Based Security)"
+        HardwareRequired = "CPU virtualization (VT-x/AMD-V) + SLAT/EPT"
+        SoftwareFallback = "Yes (software mode, weaker isolation)"
+        Impact = "Software mode provides less isolation between secure kernel and normal kernel"
+        Notes = "Hardware mode strongly recommended for production systems"
+    },
+    @{
+        Feature = "HVCI (Hypervisor-protected Code Integrity)"
+        HardwareRequired = "CPU virtualization + IOMMU (VT-d/AMD-Vi)"
+        SoftwareFallback = "Yes (compatible mode, some features disabled)"
+        Impact = "Compatible mode may have performance overhead, fewer driver protections"
+        Notes = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
+    },
+    @{
+        Feature = "Credential Guard"
+        HardwareRequired = "VBS + TPM 2.0 (recommended)"
+        SoftwareFallback = "Yes (works without TPM, less secure credential storage)"
+        Impact = "Credentials stored in memory without hardware isolation"
+        Notes = "Requires VBS; TPM makes credential extraction nearly impossible"
+    },
+    @{
+        Feature = "BitLocker Drive Encryption"
+        HardwareRequired = "TPM 2.0 (recommended)"
+        SoftwareFallback = "Yes (password or USB key startup)"
+        Impact = "Password/USB key vulnerable to physical attacks; no sealed keys"
+        Notes = "TPM-based BitLocker provides transparent boot experience"
+    },
+    @{
+        Feature = "DRTM (Dynamic Root of Trust)"
+        HardwareRequired = "Intel TXT or AMD Secure Startup"
+        SoftwareFallback = "No"
+        Impact = "Cannot establish measured launch; vulnerable to bootkit persistence"
+        Notes = "System Guard Secure Launch requires this for integrity verification"
+    },
+    @{
+        Feature = "Kernel DMA Protection"
+        HardwareRequired = "IOMMU (VT-d/AMD-Vi) with pre-boot protection"
+        SoftwareFallback = "No"
+        Impact = "DMA attacks via Thunderbolt/USB4 remain possible"
+        Notes = "Protects against physical attacks via PCIe/Thunderbolt devices"
+    },
+    @{
+        Feature = "Hardware Stack Protection"
+        HardwareRequired = "Intel CET or AMD Shadow Stack"
+        SoftwareFallback = "No"
+        Impact = "Return-oriented programming (ROP) attacks easier to execute"
+        Notes = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
+    },
+    @{
+        Feature = "Microsoft Pluton"
+        HardwareRequired = "Integrated Pluton security processor"
+        SoftwareFallback = "N/A (not required for OS operation)"
+        Impact = "Falls back to discrete TPM; no integrated firmware attack protection"
+        Notes = "Optional - only available on select recent CPUs"
+    }
+)
+
+# Display dependency matrix in formatted table
+Write-ColorOutput "`n" -Color Info
+Write-Host ("{0,-40} {1,-10} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-40} {1,-10} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
+
+foreach ($feature in $dependencyMatrix) {
+    $fallbackSymbol = switch ($feature.SoftwareFallback) {
+        "Yes" { "[" + $Emojis.Success + " Yes]" }
+        { $_ -like "Partial*" } { "[~ Part]" }
+        "No" { "[" + $Emojis.Error + " No ]" }
+        "N/A" { "[  N/A ]" }
+        default { "[  ?  ]" }
+    }
+    
+    $fallbackColor = switch ($feature.SoftwareFallback) {
+        "Yes" { $Colors['Good'] }
+        { $_ -like "Partial*" } { $Colors['Warning'] }
+        "No" { $Colors['Bad'] }
+        default { $Colors['Info'] }
+    }
+    
+    Write-Host ("{0,-40}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
+    Write-Host (" {0,-10}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
+    Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
+}
+
+Write-ColorOutput "`n" + "-"*80 -Color Header
+Write-ColorOutput "Legend:" -Color Header
+Write-ColorOutput ("  " + $Emojis.Success + " Yes  = Software fallback available (reduced security/performance)") -Color Good
+Write-ColorOutput ("  ~ Part = Partial fallback (limited functionality)") -Color Warning
+Write-ColorOutput ("  " + $Emojis.Error + " No   = No fallback - strict hardware requirement") -Color Bad
+Write-ColorOutput "  N/A  = Optional feature, not required for OS operation" -Color Info
+
+Write-ColorOutput "`nKey Insights:" -Color Header
+Write-ColorOutput ("  " + $Emojis.Info + " VBS/HVCI can run in compatible mode without full hardware support") -Color Info
+Write-ColorOutput ("  " + $Emojis.Warning + " Compatible mode may impact performance or reduce protection effectiveness") -Color Warning
+Write-ColorOutput ("  " + $Emojis.Lock + " Features without fallback (DRTM, DMA Protection) require hardware upgrade") -Color Bad
+Write-ColorOutput ("  " + $Emojis.Success + " Most critical security features (VBS, HVCI, Credential Guard) have fallbacks") -Color Good
+
+# Get current system capabilities to provide tailored recommendations
+$hasTPM = $false
+$hasSecureBoot = $false
+$hasVirtualization = $false
+$hasIOMMU = $false
+
+# Check for TPM
+try {
+    $tpm = Get-Tpm -ErrorAction SilentlyContinue
+    $hasTPM = $tpm.TpmPresent -and $tpm.TpmReady
+}
+catch { }
+
+# Check for Secure Boot
+try {
+    $hasSecureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+}
+catch { }
+
+# Check for Virtualization (from earlier in script)
+if ($cpuInfo.VirtualizationEnabled) {
+    $hasVirtualization = $true
+}
+
+# Check for IOMMU (VT-d / AMD-Vi)
+$iommuEnabled = $false
+if ($cpuInfo.Manufacturer -match "Intel") {
+    # Check for VT-d
+    $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
+    $iommuEnabled = ($vtdReg -eq 1)
+}
+elseif ($cpuInfo.Manufacturer -match "AMD") {
+    # Check for AMD-Vi
+    $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
+    $iommuEnabled = ($amdViReg -eq 1)
+}
+$hasIOMMU = $iommuEnabled
+
+Write-ColorOutput "`nYour System Capabilities:" -Color Header
+Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
+Write-Host (if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }) -ForegroundColor (if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] })
+Write-Host "  TPM 2.0:          " -NoNewline -ForegroundColor Gray
+Write-Host (if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }) -ForegroundColor (if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] })
+Write-Host "  Virtualization:   " -NoNewline -ForegroundColor Gray
+Write-Host (if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }) -ForegroundColor (if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] })
+Write-Host "  IOMMU (VT-d/Vi):  " -NoNewline -ForegroundColor Gray
+Write-Host (if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }) -ForegroundColor (if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] })
+
+# Provide tailored recommendations based on capabilities
+Write-ColorOutput "`nRecommendations for Your System:" -Color Header
+
+if (!$hasSecureBoot) {
+    Write-ColorOutput ("  " + $Emojis.Error + " Enable Secure Boot in UEFI firmware settings (CRITICAL)") -Color Bad
+}
+if (!$hasTPM) {
+    Write-ColorOutput ("  " + $Emojis.Warning + " No TPM detected - BitLocker will require password/USB key") -Color Warning
+    Write-ColorOutput "    Consider enabling fTPM (firmware TPM) in BIOS if available" -Color Info
+}
+if (!$hasVirtualization) {
+    Write-ColorOutput ("  " + $Emojis.Error + " Enable CPU virtualization in BIOS/UEFI (required for VBS/HVCI)") -Color Bad
+}
+if (!$hasIOMMU) {
+    Write-ColorOutput ("  " + $Emojis.Warning + " IOMMU not detected - HVCI will use compatible mode") -Color Warning
+    Write-ColorOutput "    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection" -Color Info
+}
+if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
+    Write-ColorOutput ("  " + $Emojis.Success + " Your system meets all hardware requirements for full security features!") -Color Good
+}
+
 # Hardware Security Mitigation Value Matrix for detailed output
 Write-ColorOutput "`n" + "="*80 -Color Header
 Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header

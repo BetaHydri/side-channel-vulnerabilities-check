@@ -442,6 +442,63 @@ foreach ($VM in $VMs) {
 - Use 'all' (lowercase) to select all mitigations
 - Use '0' to exit without changes
 
+## 📊 Security Feature Dependency Matrix
+
+The script now includes a comprehensive dependency matrix showing hardware requirements and software fallback options for Windows security features:
+
+| Feature | Strict Hardware Required | Software Fallback | Impact Without Hardware |
+|---------|-------------------------|-------------------|------------------------|
+| **Secure Boot** | UEFI + Secure Boot capability | ❌ No | Bootloader attacks possible |
+| **TPM 2.0** | TPM 2.0 chip | ⚠️ Partial (BitLocker with password/USB) | Reduced cryptographic key security |
+| **VBS** | CPU virtualization + SLAT | ✅ Yes (software mode) | Weaker kernel isolation |
+| **HVCI** | CPU virtualization + IOMMU | ✅ Yes (compatible mode) | Less driver protection, performance hit |
+| **Credential Guard** | VBS + TPM (recommended) | ✅ Yes (without TPM) | Less secure credential storage |
+| **BitLocker** | TPM 2.0 | ✅ Yes (password/USB key) | Vulnerable to physical attacks |
+| **DRTM** | Intel TXT / AMD Secure Startup | ❌ No | Vulnerable to bootkit persistence |
+| **Kernel DMA Protection** | IOMMU with pre-boot support | ❌ No | DMA attacks via Thunderbolt/USB4 possible |
+| **Hardware Stack Protection** | Intel CET / AMD Shadow Stack | ❌ No | ROP attacks easier to execute |
+| **Microsoft Pluton** | Integrated Pluton processor | N/A (optional) | Falls back to discrete TPM |
+
+### Key Insights from Dependency Matrix:
+- ✅ **Most critical features** (VBS, HVCI, Credential Guard) have software fallbacks
+- ⚠️ **Fallback modes** may reduce effectiveness or impact performance
+- ❌ **Some features** (DRTM, DMA Protection, Stack Protection) require hardware upgrade
+- 📊 **The script analyzes your system** and provides tailored recommendations
+
+### Example Output:
+```
+=== SECURITY FEATURE DEPENDENCY MATRIX ===
+
+FEATURE                                  FALLBACK   HARDWARE REQUIREMENT
+-------                                  --------   --------------------
+Secure Boot                              [✗ No ]    UEFI firmware with Secure Boot capability
+TPM 2.0                                  [~ Part]   Trusted Platform Module 2.0 chip
+VBS (Virtualization Based Security)      [✓ Yes]    CPU virtualization (VT-x/AMD-V) + SLAT/EPT
+HVCI (Hypervisor-protected Code Integrity) [✓ Yes] CPU virtualization + IOMMU (VT-d/AMD-Vi)
+Credential Guard                         [✓ Yes]    VBS + TPM 2.0 (recommended)
+BitLocker Drive Encryption               [✓ Yes]    TPM 2.0 (recommended)
+DRTM (Dynamic Root of Trust)             [✗ No ]    Intel TXT or AMD Secure Startup
+Kernel DMA Protection                    [✗ No ]    IOMMU (VT-d/AMD-Vi) with pre-boot protection
+Hardware Stack Protection                [✗ No ]    Intel CET or AMD Shadow Stack
+Microsoft Pluton                         [  N/A ]   Integrated Pluton security processor
+
+Your System Capabilities:
+  Secure Boot:      + Enabled
+  TPM 2.0:          + Present & Ready
+  Virtualization:   + Enabled
+  IOMMU (VT-d/Vi):  - Not Detected
+
+Recommendations for Your System:
+  ⚠️  IOMMU not detected - HVCI will use compatible mode
+    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection
+```
+
+This feature helps you:
+- **Understand hardware dependencies** for security features
+- **Identify upgrade opportunities** (enable IOMMU, add TPM, etc.)
+- **Make informed trade-offs** between security and compatibility
+- **Plan system configurations** based on available hardware
+
 ## 📚 Quick Reference
 
 ### Covered Vulnerabilities
