@@ -444,10 +444,14 @@ function Show-ResultsTable {
             
             $tableData = @()
             foreach ($result in $categoryResults) {
+                # Define status emoji symbols
+                $iconEnabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+                $iconDisabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) # ✗
+                
                 $status = switch ($result.Status) {
-                    "Enabled" { "[+] Enabled" }
-                    "Disabled" { "[-] Disabled" }
-                    "Not Configured" { "[-] Not Set" }
+                    "Enabled" { "$iconEnabled Enabled" }
+                    "Disabled" { "$iconDisabled Disabled" }
+                    "Not Configured" { "$iconDisabled Not Set" }
                     default { $result.Status }
                 }
                 
@@ -543,13 +547,16 @@ function Show-ResultsTable {
     }
     Write-Host "] $totalEnabled/$totalCount enabled" -ForegroundColor Gray
     
-    # Display color-coded status legend
+    # Display color-coded status legend with emoji symbols
+    $IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+    $IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))  # ✗
+    
     Write-ColorOutput ("`n" + $Emojis.Clipboard + " STATUS LEGEND") -Color Header
-    Write-Host "[+] Enabled" -ForegroundColor $Colors['Good'] -NoNewline
+    Write-Host "$IconCheck Enabled" -ForegroundColor $Colors['Good'] -NoNewline
     Write-Host " - Mitigation is active and properly configured"
-    Write-Host "[-] Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
+    Write-Host "$IconCross Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
     Write-Host " - Mitigation is explicitly disabled"
-    Write-Host "[-] Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
+    Write-Host "$IconCross Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
     
     Write-ColorOutput ("`n" + $Emojis.Target + " CATEGORY DESCRIPTIONS") -Color Header
@@ -718,11 +725,14 @@ function Test-SideChannelMitigation {
         Write-ColorOutput "Impact: $Impact" -Color Info
     }
     else {
-        # Enhanced console output with clear status indicators
+        # Enhanced console output with clear status indicators and emoji symbols
+        $iconEnabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+        $iconDisabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) # ✗
+        
         $statusIndicator = switch ($status) {
-            "Enabled" { "[+] ENABLED" }
-            "Disabled" { "[-] DISABLED" }
-            "Not Configured" { "[-] NOT SET" }
+            "Enabled" { "$iconEnabled ENABLED" }
+            "Disabled" { "$iconDisabled DISABLED" }
+            "Not Configured" { "$iconDisabled NOT SET" }
             default { $status }
         }
         
@@ -2678,7 +2688,9 @@ if ($vbsStatus) {
     Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
     Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
     Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
-    Write-ColorOutput "`n[+] What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
+    
+    $IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+    Write-ColorOutput "`n$IconCheck What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
 }
 else {
     Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
@@ -3958,16 +3970,21 @@ Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color In
 Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
 
 Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
-$uefiStatusText = if ($hwStatus.IsUEFI) { "[+] Met" } else { "[-] Not Met" }
+
+$IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))    # ✓
+$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗
+$IconQuestion = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) # ❓
+
+$uefiStatusText = if ($hwStatus.IsUEFI) { "$IconCheck Met" } else { "$IconCross Not Met" }
 $uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
 Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
-$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "[+] Available" } else { "[-] Not Available" }
+$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "$IconCheck Available" } else { "$IconCross Not Available" }
 $secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
 Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
-$tpmStatusText = if ($hwStatus.TPMPresent) { "[+] Present" } else { "[-] Missing" }
+$tpmStatusText = if ($hwStatus.TPMPresent) { "$IconCheck Present" } else { "$IconCross Missing" }
 $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
 Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
-Write-ColorOutput "- Latest firmware updates: [?] Check with manufacturer" -Color Warning
+Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
 
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
