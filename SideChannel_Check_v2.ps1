@@ -1408,14 +1408,18 @@ function Show-MitigationTable {
         }
     }
     else {
-        # Simplified view
-        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
-        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
+        # Simplified table view
+        $header = "{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact"
+        $separator = "{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)
+        
+        Write-Host $header -ForegroundColor Gray
+        Write-Host $separator -ForegroundColor DarkGray
         
         foreach ($result in $Results) {
             $statusColor = switch ($result.OverallStatus) {
                 'Protected' { 'Green' }
                 'Vulnerable' { 'Red' }
+                'Active' { 'Cyan' }
                 default { 'Gray' }
             }
             
@@ -1426,10 +1430,16 @@ function Show-MitigationTable {
                 default { 'Green' }
             }
             
-            Write-Host ("{0,-45}" -f $result.Name) -NoNewline
-            Write-Host ("{0,-20}" -f $result.OverallStatus) -NoNewline -ForegroundColor $statusColor
-            Write-Host ("{0,-26}" -f $result.ActionNeeded) -NoNewline -ForegroundColor $actionColor
-            Write-Host $result.Impact -ForegroundColor Gray
+            # Build the row with proper spacing
+            $name = "{0,-45}" -f $result.Name
+            $status = "{0,-20}" -f $result.OverallStatus
+            $action = "{0,-26}" -f $result.ActionNeeded
+            $impact = $result.Impact
+            
+            Write-Host $name -NoNewline
+            Write-Host $status -NoNewline -ForegroundColor $statusColor
+            Write-Host $action -NoNewline -ForegroundColor $actionColor
+            Write-Host $impact -ForegroundColor Gray
         }
     }
 }
