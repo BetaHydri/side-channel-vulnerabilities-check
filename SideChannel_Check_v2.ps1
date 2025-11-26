@@ -1332,7 +1332,7 @@ function Show-AssessmentSummary {
 function Show-MitigationTable {
     param(
         [array]$Results,
-        [ValidateSet('Simple','Detailed','Bullets')]
+        [ValidateSet('Simple', 'Detailed', 'Bullets')]
         [string]$Format = 'Simple'
     )
     
@@ -1453,14 +1453,16 @@ function Show-MitigationTable {
                     # Truncate mitigation name if too long
                     $nameDisplay = if ($result.Name.Length -gt 30) { 
                         $result.Name.Substring(0, 27) + "..." 
-                    } else { 
+                    }
+                    else { 
                         $result.Name 
                     }
                     
                     # Truncate CVE if too long
                     $cveDisplay = if ($result.CVE -and $result.CVE.Length -gt 25) { 
                         $result.CVE.Substring(0, 22) + "..." 
-                    } else { 
+                    }
+                    else { 
                         $result.CVE 
                     }
                     
@@ -1470,10 +1472,12 @@ function Show-MitigationTable {
                     $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
                         if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
                             $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
-                        } else {
+                        }
+                        else {
                             $mitigationDef.PrerequisiteFor
                         }
-                    } else { '-' }
+                    }
+                    else { '-' }
                     
                     $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}\" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay
                     Write-Host "$lineAnsi$line$ansiReset"
@@ -1492,14 +1496,16 @@ function Show-MitigationTable {
                     # Truncate mitigation name if too long
                     $nameDisplay = if ($result.Name.Length -gt 30) { 
                         $result.Name.Substring(0, 27) + "..." 
-                    } else { 
+                    }
+                    else { 
                         $result.Name 
                     }
                     
                     # Truncate CVE if too long
                     $cveDisplay = if ($result.CVE -and $result.CVE.Length -gt 25) { 
                         $result.CVE.Substring(0, 22) + "..." 
-                    } else { 
+                    }
+                    else { 
                         $result.CVE 
                     }
                     
@@ -1509,21 +1515,14 @@ function Show-MitigationTable {
                     $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
                         if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
                             $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
-                        } else {
+                        }
+                        else {
                             $mitigationDef.PrerequisiteFor
                         }
-                    } else { '-' }
+                    }
+                    else { '-' }
                     
-                    # Get HardwareRequired with safe access
-                    $hwRequiredDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('HardwareRequired') -and $mitigationDef.HardwareRequired) {
-                        if ($mitigationDef.HardwareRequired.Length -gt 11) {
-                            $mitigationDef.HardwareRequired.Substring(0, 8) + "..."
-                        } else {
-                            $mitigationDef.HardwareRequired
-                        }
-                    } else { '-' }
-                    
-                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6,-20} {7}" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay, $hwRequiredDisplay
+                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay
                     Write-Host $line -ForegroundColor $lineColor
                 }
             }
