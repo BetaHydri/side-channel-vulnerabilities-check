@@ -3909,6 +3909,8 @@ $hwStatus = Get-HardwareRequirements
 $IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))    # ✓ Check mark
 $IconQuestion = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) # ❓ Question mark
 $IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗ Cross mark
+$IconArrow = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16))    # └ Box drawing character
+$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗ Cross mark
 
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
 Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
@@ -3956,7 +3958,7 @@ $iommuStatusIcon = if ($iommuResult.Status -eq "Enabled") { $IconCheck } elseif 
 $iommuColor = if ($iommuResult.Status -eq "Enabled") { $Colors['Good'] } else { $Colors['Bad'] }
 Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
 if ($iommuResult.CurrentValue -ne $iommuResult.Status) {
-    Write-Host "  └─ Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
+    Write-Host "  $IconArrow Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
 }
 
 Write-ColorOutput "`nRequired CPU Features:" -Color Info
