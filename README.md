@@ -53,24 +53,35 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ### Basic Usage
 
 ```powershell
-# 1. Assessment (default mode)
+# 1. Assessment (default mode) - Check current security status
 .\SideChannel_Check_v2.ps1
 
-# 2. Detailed educational view
+# 2. Detailed educational view - Learn about CVEs and impacts
 .\SideChannel_Check_v2.ps1 -ShowDetails
 
-# 3. Apply mitigations interactively
+# 3. Apply mitigations interactively - Harden your system (auto-backup created)
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
 
-# 4. Preview changes first (recommended)
+# 4. Preview changes first - See what will change before applying
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 
-# 5. Revert to most recent backup
+# 5. Quick undo - Revert to most recent backup instantly
 .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
 
-# 6. Restore from specific backup
+# 6. Advanced recovery - Browse backups, restore selectively
 .\SideChannel_Check_v2.ps1 -Mode Restore
+
+# 7. Manual backup - Create checkpoint before risky changes
+.\SideChannel_Check_v2.ps1 -Mode Backup
 ```
+
+**When to use which mode:**
+- **Assess** → Checking security status, generating reports
+- **ShowDetails** → Learning about vulnerabilities and recommendations
+- **ApplyInteractive** → Hardening system (backup auto-created)
+- **RevertInteractive** → Undo recent changes quickly
+- **Restore** → Need older backup or selective restore
+- **Backup** → Creating manual checkpoint (optional, ApplyInteractive auto-creates one)
 
 ## 📦 Legacy Version
 
