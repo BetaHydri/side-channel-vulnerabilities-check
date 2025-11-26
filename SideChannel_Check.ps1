@@ -653,75 +653,76 @@ function Get-RuntimeSpeculationControlState {
             $returnLength = [System.Runtime.InteropServices.Marshal]::ReadInt32($returnLengthPtr)
             $flags2 = if ($returnLength -gt 4) {
                 [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr, 4)
-            } else {
+            }
+            else {
                 0
             }
             
             # Parse flags into meaningful values (based on Microsoft SpeculationControl module)
             return @{
-                RawFlags = $flags
-                RawFlags2 = $flags2
+                RawFlags                       = $flags
+                RawFlags2                      = $flags2
                 
                 # Spectre v2 (BTI) - CVE-2017-5715
-                BTIEnabled = ($flags -band 0x01) -ne 0
-                BTIDisabledBySystemPolicy = ($flags -band 0x02) -ne 0
+                BTIEnabled                     = ($flags -band 0x01) -ne 0
+                BTIDisabledBySystemPolicy      = ($flags -band 0x02) -ne 0
                 BTIDisabledByNoHardwareSupport = ($flags -band 0x04) -ne 0
-                SpecCtrlEnumerated = ($flags -band 0x08) -ne 0
-                SpecCmdEnumerated = ($flags -band 0x10) -ne 0
-                IBRSPresent = ($flags -band 0x20) -ne 0
-                STIBPPresent = ($flags -band 0x40) -ne 0
+                SpecCtrlEnumerated             = ($flags -band 0x08) -ne 0
+                SpecCmdEnumerated              = ($flags -band 0x10) -ne 0
+                IBRSPresent                    = ($flags -band 0x20) -ne 0
+                STIBPPresent                   = ($flags -band 0x40) -ne 0
                 
                 # Spectre v4 (SSB) - CVE-2018-3639
-                SSBDAvailable = ($flags -band 0x100) -ne 0
-                SSBDSupported = ($flags -band 0x200) -ne 0
-                SSBDSystemWide = ($flags -band 0x400) -ne 0
-                SSBDRequired = ($flags -band 0x1000) -ne 0
+                SSBDAvailable                  = ($flags -band 0x100) -ne 0
+                SSBDSupported                  = ($flags -band 0x200) -ne 0
+                SSBDSystemWide                 = ($flags -band 0x400) -ne 0
+                SSBDRequired                   = ($flags -band 0x1000) -ne 0
                 
                 # Retpoline & Import Optimization
-                RetpolineEnabled = ($flags -band 0x4000) -ne 0
-                ImportOptimizationEnabled = ($flags -band 0x8000) -ne 0
-                EnhancedIBRS = ($flags -band 0x10000) -ne 0
+                RetpolineEnabled               = ($flags -band 0x4000) -ne 0
+                ImportOptimizationEnabled      = ($flags -band 0x8000) -ne 0
+                EnhancedIBRS                   = ($flags -band 0x10000) -ne 0
                 
                 # L1TF / Hypervisor flags
-                HvL1tfStatusAvailable = ($flags -band 0x20000) -ne 0
-                HvL1tfProcessorNotAffected = ($flags -band 0x40000) -ne 0
+                HvL1tfStatusAvailable          = ($flags -band 0x20000) -ne 0
+                HvL1tfProcessorNotAffected     = ($flags -band 0x40000) -ne 0
                 
                 # MDS - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
-                MDSHardwareProtected = ($flags -band 0x1000000) -ne 0
-                MBClearEnabled = ($flags -band 0x2000000) -ne 0
-                MBClearReported = ($flags -band 0x4000000) -ne 0
+                MDSHardwareProtected           = ($flags -band 0x1000000) -ne 0
+                MBClearEnabled                 = ($flags -band 0x2000000) -ne 0
+                MBClearReported                = ($flags -band 0x4000000) -ne 0
                 
                 # TAA / SBDR / FBSDP / PSDP (flags2)
-                SBDRSSDPHardwareProtected = ($flags2 -band 0x01) -ne 0
-                FBSDPHardwareProtected = ($flags2 -band 0x02) -ne 0
-                PSDPHardwareProtected = ($flags2 -band 0x04) -ne 0
-                FBClearEnabled = ($flags2 -band 0x08) -ne 0
-                FBClearReported = ($flags2 -band 0x10) -ne 0
+                SBDRSSDPHardwareProtected      = ($flags2 -band 0x01) -ne 0
+                FBSDPHardwareProtected         = ($flags2 -band 0x02) -ne 0
+                PSDPHardwareProtected          = ($flags2 -band 0x04) -ne 0
+                FBClearEnabled                 = ($flags2 -band 0x08) -ne 0
+                FBClearReported                = ($flags2 -band 0x10) -ne 0
                 
                 # BHB - CVE-2022-0001, CVE-2022-0002
-                BHBEnabled = ($flags2 -band 0x20) -ne 0
-                BHBDisabledSystemPolicy = ($flags2 -band 0x40) -ne 0
-                BHBDisabledNoHardwareSupport = ($flags2 -band 0x80) -ne 0
+                BHBEnabled                     = ($flags2 -band 0x20) -ne 0
+                BHBDisabledSystemPolicy        = ($flags2 -band 0x40) -ne 0
+                BHBDisabledNoHardwareSupport   = ($flags2 -band 0x80) -ne 0
                 
                 # Retbleed / Branch Confusion
-                BranchConfusionReported = ($flags2 -band 0x400) -ne 0
-                BranchConfusionStatus = (($flags2 -band 0x300) -shr 8)
+                BranchConfusionReported        = ($flags2 -band 0x400) -ne 0
+                BranchConfusionStatus          = (($flags2 -band 0x300) -shr 8)
                 
                 # RDCL (Rogue Data Cache Load) - Enhanced Meltdown detection
-                RDCLHardwareProtectedReported = ($flags2 -band 0x800) -ne 0
-                RDCLHardwareProtected = ($flags2 -band 0x1000) -ne 0
+                RDCLHardwareProtectedReported  = ($flags2 -band 0x800) -ne 0
+                RDCLHardwareProtected          = ($flags2 -band 0x1000) -ne 0
                 
                 # GDS (Gather Data Sampling) - CVE-2022-40982
-                GDSReported = ($flags2 -band 0x2000) -ne 0
-                GDSStatus = (($flags2 -band 0x1C000) -shr 14)
+                GDSReported                    = ($flags2 -band 0x2000) -ne 0
+                GDSStatus                      = (($flags2 -band 0x1C000) -shr 14)
                 
                 # SRSO (Speculative Return Stack Overflow) - CVE-2023-20569
-                SRSOReported = ($flags2 -band 0x20000) -ne 0
-                SRSOStatus = (($flags2 -band 0xC0000) -shr 18)
+                SRSOReported                   = ($flags2 -band 0x20000) -ne 0
+                SRSOStatus                     = (($flags2 -band 0xC0000) -shr 18)
                 
                 # API Available
-                APIAvailable = $true
-                QueryTime = Get-Date
+                APIAvailable                   = $true
+                QueryTime                      = Get-Date
             }
         }
         elseif ($result -eq 0xc0000003 -or $result -eq 0xc0000002) {
@@ -775,14 +776,14 @@ function Get-RuntimeKVAShadowState {
             $flags = [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr)
             
             return @{
-                KVAShadowEnabled = ($flags -band 0x01) -ne 0
-                KVAShadowUserGlobal = ($flags -band 0x02) -ne 0
-                KVAShadowPcidEnabled = (($flags -band 0x04) -ne 0) -and (($flags -band 0x08) -ne 0)
-                KVAShadowRequired = ($flags -band 0x10) -ne 0
-                L1TFInvalidPteBit = [math]::Floor(($flags -band 0xfc0) * [math]::Pow(2, -6))
-                L1TFFlushSupported = ($flags -band 0x1000) -ne 0
+                KVAShadowEnabled      = ($flags -band 0x01) -ne 0
+                KVAShadowUserGlobal   = ($flags -band 0x02) -ne 0
+                KVAShadowPcidEnabled  = (($flags -band 0x04) -ne 0) -and (($flags -band 0x08) -ne 0)
+                KVAShadowRequired     = ($flags -band 0x10) -ne 0
+                L1TFInvalidPteBit     = [math]::Floor(($flags -band 0xfc0) * [math]::Pow(2, -6))
+                L1TFFlushSupported    = ($flags -band 0x1000) -ne 0
                 L1TFMitigationPresent = ($flags -band 0x2000) -ne 0
-                APIAvailable = $true
+                APIAvailable          = $true
             }
         }
         else {
@@ -813,27 +814,27 @@ function Get-CPUVulnerabilityDatabase {
     
     return @{
         # L1TF (Foreshadow) vulnerable Intel CPUs - Family.Model.Stepping
-        L1TF = @(
-            @{Family=6; Model=26; Stepping=4}, @{Family=6; Model=26; Stepping=5},
-            @{Family=6; Model=30; Stepping=4}, @{Family=6; Model=30; Stepping=5},
-            @{Family=6; Model=37; Stepping=2}, @{Family=6; Model=37; Stepping=5},
-            @{Family=6; Model=42; Stepping=7}, @{Family=6; Model=44; Stepping=2},
-            @{Family=6; Model=45; Stepping=6}, @{Family=6; Model=45; Stepping=7},
-            @{Family=6; Model=46; Stepping=6}, @{Family=6; Model=47; Stepping=2},
-            @{Family=6; Model=58; Stepping=9}, @{Family=6; Model=60; Stepping=3},
-            @{Family=6; Model=61; Stepping=4}, @{Family=6; Model=62; Stepping=4},
-            @{Family=6; Model=62; Stepping=7}, @{Family=6; Model=63; Stepping=2},
-            @{Family=6; Model=63; Stepping=4}, @{Family=6; Model=69; Stepping=1},
-            @{Family=6; Model=70; Stepping=1}, @{Family=6; Model=78; Stepping=3},
-            @{Family=6; Model=79; Stepping=1}, @{Family=7; Model=69; Stepping=1},
-            @{Family=6; Model=85; Stepping=3}, @{Family=6; Model=85; Stepping=4},
-            @{Family=6; Model=86; Stepping=2}, @{Family=6; Model=86; Stepping=3},
-            @{Family=6; Model=86; Stepping=4}, @{Family=6; Model=86; Stepping=5},
-            @{Family=6; Model=94; Stepping=3}, @{Family=6; Model=102; Stepping=3},
-            @{Family=6; Model=142; Stepping=9}, @{Family=6; Model=142; Stepping=10},
-            @{Family=6; Model=142; Stepping=11}, @{Family=6; Model=158; Stepping=9},
-            @{Family=6; Model=158; Stepping=10}, @{Family=6; Model=158; Stepping=11},
-            @{Family=6; Model=158; Stepping=12}
+        L1TF                       = @(
+            @{Family = 6; Model = 26; Stepping = 4 }, @{Family = 6; Model = 26; Stepping = 5 },
+            @{Family = 6; Model = 30; Stepping = 4 }, @{Family = 6; Model = 30; Stepping = 5 },
+            @{Family = 6; Model = 37; Stepping = 2 }, @{Family = 6; Model = 37; Stepping = 5 },
+            @{Family = 6; Model = 42; Stepping = 7 }, @{Family = 6; Model = 44; Stepping = 2 },
+            @{Family = 6; Model = 45; Stepping = 6 }, @{Family = 6; Model = 45; Stepping = 7 },
+            @{Family = 6; Model = 46; Stepping = 6 }, @{Family = 6; Model = 47; Stepping = 2 },
+            @{Family = 6; Model = 58; Stepping = 9 }, @{Family = 6; Model = 60; Stepping = 3 },
+            @{Family = 6; Model = 61; Stepping = 4 }, @{Family = 6; Model = 62; Stepping = 4 },
+            @{Family = 6; Model = 62; Stepping = 7 }, @{Family = 6; Model = 63; Stepping = 2 },
+            @{Family = 6; Model = 63; Stepping = 4 }, @{Family = 6; Model = 69; Stepping = 1 },
+            @{Family = 6; Model = 70; Stepping = 1 }, @{Family = 6; Model = 78; Stepping = 3 },
+            @{Family = 6; Model = 79; Stepping = 1 }, @{Family = 7; Model = 69; Stepping = 1 },
+            @{Family = 6; Model = 85; Stepping = 3 }, @{Family = 6; Model = 85; Stepping = 4 },
+            @{Family = 6; Model = 86; Stepping = 2 }, @{Family = 6; Model = 86; Stepping = 3 },
+            @{Family = 6; Model = 86; Stepping = 4 }, @{Family = 6; Model = 86; Stepping = 5 },
+            @{Family = 6; Model = 94; Stepping = 3 }, @{Family = 6; Model = 102; Stepping = 3 },
+            @{Family = 6; Model = 142; Stepping = 9 }, @{Family = 6; Model = 142; Stepping = 10 },
+            @{Family = 6; Model = 142; Stepping = 11 }, @{Family = 6; Model = 158; Stepping = 9 },
+            @{Family = 6; Model = 158; Stepping = 10 }, @{Family = 6; Model = 158; Stepping = 11 },
+            @{Family = 6; Model = 158; Stepping = 12 }
         )
         
         # MDS vulnerable Intel CPUs (general guideline - most pre-2019 Intel CPUs)
@@ -844,7 +845,7 @@ function Get-CPUVulnerabilityDatabase {
         )
         
         # AMD CPUs are generally not vulnerable to Intel-specific attacks
-        AMDImmuneFrom = @('Meltdown', 'L1TF', 'MDS', 'TAA')
+        AMDImmuneFrom              = @('Meltdown', 'L1TF', 'MDS', 'TAA')
     }
 }
 
@@ -872,11 +873,11 @@ function Compare-RuntimeVsRegistryState {
     if ($null -eq $RuntimeState -or -not $RuntimeState.APIAvailable) {
         # Runtime API not available - can't compare
         return @{
-            CanCompare = $false
+            CanCompare      = $false
             ConfiguredState = $RegistryConfigured
-            RuntimeState = "Unknown"
-            Discrepancy = $false
-            RebootRequired = $false
+            RuntimeState    = "Unknown"
+            Discrepancy     = $false
+            RebootRequired  = $false
         }
     }
     
@@ -894,23 +895,23 @@ function Compare-RuntimeVsRegistryState {
     
     if ($null -eq $runtimeEnabled) {
         return @{
-            CanCompare = $false
+            CanCompare      = $false
             ConfiguredState = $RegistryConfigured
-            RuntimeState = "Unknown"
-            Discrepancy = $false
-            RebootRequired = $false
+            RuntimeState    = "Unknown"
+            Discrepancy     = $false
+            RebootRequired  = $false
         }
     }
     
     $discrepancy = ($RegistryConfigured -ne $runtimeEnabled)
     
     return @{
-        CanCompare = $true
+        CanCompare      = $true
         ConfiguredState = $RegistryConfigured
-        RuntimeState = $runtimeEnabled
-        Discrepancy = $discrepancy
-        RebootRequired = ($discrepancy -and $RegistryConfigured)  # Config says enabled but runtime says disabled
-        Message = if ($discrepancy) {
+        RuntimeState    = $runtimeEnabled
+        Discrepancy     = $discrepancy
+        RebootRequired  = ($discrepancy -and $RegistryConfigured)  # Config says enabled but runtime says disabled
+        Message         = if ($discrepancy) {
             if ($RegistryConfigured -and -not $runtimeEnabled) {
                 $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
                 "$iconWarning Mitigation configured but not active - reboot required"
@@ -919,7 +920,8 @@ function Compare-RuntimeVsRegistryState {
                 $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
                 "$iconInfo Mitigation active but not configured (may be default or Group Policy)"
             }
-        } else {
+        }
+        else {
             $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
             "$iconCheck Configuration matches runtime state"
         }
@@ -1132,15 +1134,16 @@ function Test-SideChannelMitigation {
             if ($runtimeMitigationName) {
                 $registryEnabled = ($status -eq "Enabled")
                 $comparison = Compare-RuntimeVsRegistryState -MitigationName $runtimeMitigationName `
-                                                              -RegistryConfigured $registryEnabled `
-                                                              -RuntimeState $script:RuntimeState
+                    -RegistryConfigured $registryEnabled `
+                    -RuntimeState $script:RuntimeState
                 
                 if ($comparison.CanCompare -and $comparison.Discrepancy) {
                     $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))  # ⚠
                     Write-Host "     $iconWarning Runtime: " -NoNewline -ForegroundColor Yellow
                     if ($comparison.RuntimeState) {
                         Write-Host "Active" -ForegroundColor Green -NoNewline
-                    } else {
+                    }
+                    else {
                         Write-Host "Inactive" -ForegroundColor Red -NoNewline
                     }
                     Write-Host " (differs from registry)" -ForegroundColor Yellow
@@ -4522,7 +4525,8 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     # Spectre v2 (BTI)
     $iconBTI = if ($script:RuntimeState.BTIEnabled) { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    } else { 
+    }
+    else { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
     }
     $btiColor = if ($script:RuntimeState.BTIEnabled) { 'Good' } else { 'Bad' }
@@ -4545,7 +4549,8 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     # Spectre v4 (SSBD)
     $iconSSBD = if ($script:RuntimeState.SSBDSystemWide) { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    } else { 
+    }
+    else { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
     }
     $ssbdColor = if ($script:RuntimeState.SSBDSystemWide) { 'Good' } else { 'Warning' }
@@ -4556,7 +4561,8 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     # MDS
     $iconMDS = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    } else { 
+    }
+    else { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
     }
     $mdsColor = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 'Good' } else { 'Warning' }
@@ -4564,16 +4570,19 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     Write-Host "MDS (Microarchitectural Data Sampling): " -NoNewline
     if ($script:RuntimeState.MDSHardwareProtected) {
         Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
-    } elseif ($script:RuntimeState.MBClearEnabled) {
+    }
+    elseif ($script:RuntimeState.MBClearEnabled) {
         Write-Host "MITIGATED (MBClear active)" -ForegroundColor $Colors['Good']
-    } else {
+    }
+    else {
         Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
     }
     
     # TAA
     $iconTAA = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    } else { 
+    }
+    else { 
         [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
     }
     $taaColor = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 'Good' } else { 'Warning' }
@@ -4581,9 +4590,11 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     Write-Host "TAA (TSX Async Abort): " -NoNewline
     if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
         Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
-    } elseif ($script:RuntimeState.FBClearEnabled) {
+    }
+    elseif ($script:RuntimeState.FBClearEnabled) {
         Write-Host "MITIGATED (FBClear active)" -ForegroundColor $Colors['Good']
-    } else {
+    }
+    else {
         Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
     }
     
@@ -4591,7 +4602,8 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     if ($script:RuntimeKVAState.APIAvailable) {
         $iconKVA = if ($script:RuntimeKVAState.KVAShadowEnabled) { 
             [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-        } else { 
+        }
+        else { 
             [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
         }
         $kvaColor = if ($script:RuntimeKVAState.KVAShadowEnabled) { 'Good' } else { 'Bad' }
@@ -4613,7 +4625,8 @@ if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
     # CPU Vendor-specific immunities
     if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
         Write-ColorOutput "`n  [AMD CPU: Immune to Meltdown, L1TF, MDS, TAA]" -Color Good
-    } elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
+    }
+    elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
         # Check for newer Intel with hardware immunity
         if ($script:RuntimeState.RDCLHardwareProtected) {
             Write-ColorOutput "`n  [Intel CPU: Hardware-protected against Meltdown (RDCL)]" -Color Good
