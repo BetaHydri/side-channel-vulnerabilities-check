@@ -93,6 +93,9 @@ esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
 === Side-Channel Vulnerability Configuration Check ===
 Based on Microsoft KB4073119 + Extended Modern CVE Coverage
 
+📊 MODE: ASSESSMENT ONLY
+No system changes will be made. Running in read-only analysis mode.
+
 System Information:
 CPU: 11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS: Microsoft Windows 11 Enterprise Build 26200
@@ -105,65 +108,281 @@ VBS Status: Running
 HVCI Status: Enforced
 Nested Virtualization: Enabled
 
-🛡️ SOFTWARE MITIGATIONS
+Checking Side-Channel Vulnerability Mitigations...
+
+Speculative Store Bypass Disable              : ✓ ENABLED (Value: 72)
+SSBD Feature Mask                             : ✓ ENABLED (Value: 3)
+Branch Target Injection Mitigation            : ✓ ENABLED (Value: 0)
+Kernel VA Shadow (Meltdown Protection)        : ✓ ENABLED (Value: 1)
+Hardware Security Mitigations                 : ✓ ENABLED (Value: 0x2000000000000100)
+Exception Chain Validation                    : ✓ ENABLED (Value: 0)
+Supervisor Mode Access Prevention             : ✓ ENABLED (Value: 1)
+Intel TSX Disable                             : ✓ ENABLED (Value: 1)
+Enhanced IBRS                                 : ✓ ENABLED (Value: 1)
+
+Checking Additional CVE Mitigations (Performance Impact Warning)...
+L1TF Mitigation                               : ✗ NOT SET
+MDS Mitigation                                : ✗ NOT SET
+CVE-2019-11135 Mitigation                     : ✓ ENABLED (Value: 1)
+SBDR/SBDS Mitigation                          : ✓ ENABLED (Value: 1)
+SRBDS Update Mitigation                       : ✓ ENABLED (Value: 1)
+DRPW Mitigation                               : ✓ ENABLED (Value: 1)
+
+================================================================================
+DETAILED SECURITY ANALYSIS
+================================================================================
+
+Virtualization Based Security Detailed Status:
+=================================================
+
+VBS (Virtualization Based Security):
+  Hardware Ready:  - No
+  Currently Active: + Yes
+
+HVCI (Hypervisor-protected Code Integrity):
+  Hardware Ready:  - No
+  Currently Active: + Yes
+
+Security Services Details:
+Running Services: 1, 2
+Configured Services: 1, 2
+
+Active Security Services:
+  - Credential Guard
+  - HVCI (Hypervisor-protected Code Integrity)
+
+VBS/HVCI Status Explanation:
+------------------------------------------------------------
+- 'Hardware Ready' = System meets full hardware requirements
+- 'Currently Active' = Feature is actually running right now
+
+Why might Hardware Ready = No but Active = Yes?
+1. VBS/HVCI can run in 'compatible mode' without full HW support
+2. Some hardware requirements are optional for basic functionality
+3. Software-based enforcement may be enabled via Group Policy
+4. The hardware readiness check may be overly strict
+
+✓ What matters: If 'Currently Active' = Yes, protection is working!
+
+================================================================================
+SECURITY FEATURE DEPENDENCY MATRIX
+================================================================================
+
+This matrix shows hardware requirements and software fallback options for each
+Windows security feature. Understanding these dependencies helps you determine
+which features can be enabled and what trade-offs exist.
+
+FEATURE                                        FALLBACK     HARDWARE REQUIREMENT
+-------                                        --------     --------------------
+Secure Boot                                    [✗ No ]      UEFI firmware with Secure Boot capability
+TPM 2.0                                        [~ Part]     Trusted Platform Module 2.0 chip
+VBS (Virtualization Based Security)            [✓ Yes]      CPU virtualization (VT-x/AMD-V) + SLAT/EPT
+HVCI (Hypervisor-protected Code Integrity)     [✓ Yes]      CPU virtualization + IOMMU (VT-d/AMD-Vi)
+Credential Guard                               [✓ Yes]      VBS + TPM 2.0 (recommended)
+BitLocker Drive Encryption                     [✓ Yes]      TPM 2.0 (recommended)
+DRTM (Dynamic Root of Trust)                   [✗ No ]      Intel TXT or AMD Secure Startup
+Kernel DMA Protection                          [✗ No ]      IOMMU (VT-d/AMD-Vi) with pre-boot protection
+Hardware Stack Protection                      [✗ No ]      Intel CET or AMD Shadow Stack
+Microsoft Pluton                               [  N/A ]     Integrated Pluton security processor
+
+Legend:
+  ✓ Yes  = Software fallback available (reduced security/performance)
+  ~ Part = Partial fallback (limited functionality)
+  ✗ No   = No fallback - strict hardware requirement
+  N/A    = Optional feature, not required for OS operation
+
+Key Insights:
+  ℹ VBS/HVCI can run in compatible mode without full hardware support
+  ⚠ Compatible mode may impact performance or reduce protection effectiveness
+  🔒 Features without fallback (DRTM, DMA Protection) require hardware upgrade
+  ✓ Most critical security features (VBS, HVCI, Credential Guard) have fallbacks
+
+Your System Capabilities:
+  Secure Boot:      + Enabled
+  TPM 2.0:          + Present & Ready
+  Virtualization:   + Enabled
+  IOMMU (VT-d/Vi):  + Enabled
+
+Recommendations for Your System:
+  ✓ Your system meets all hardware requirements for full security features!
+
+================================================================================
+HARDWARE SECURITY MITIGATION VALUE MATRIX
+================================================================================
+
+The Hardware Security Mitigations (MitigationOptions) registry value is a bit-field
+that controls various CPU-level security features. Here's what the flags mean:
+
+Common Hardware Mitigation Flags:
+=================================
+
+Flag Value          Status      Mitigation Name
+----------          ------      ---------------
+0x0000000000000001  -           CFG (Control Flow Guard)
+0x0000000000000002  -           CFG Export Suppression
+0x0000000000000004  -           CFG Strict Mode
+0x0000000000000008  -           DEP (Data Execution Prevention)
+0x0000000000000010  -           DEP ATL Thunk Emulation
+0x0000000000000020  -           SEHOP (SEH Overwrite Protection)
+0x0000000000000040  -           Heap Terminate on Corruption
+0x0000000000000080  -           Bottom-up ASLR
+0x0000000000000100  +           High Entropy ASLR
+0x0000000000000200  -           Force Relocate Images
+0x0000000000000400  -           Heap Terminate on Corruption (Enhanced)
+0x0000000000001000  -           Stack Pivot Protection
+0x0000000000002000  -           Import Address Filtering
+0x0000000000004000  -           Module Signature Enforcement
+0x0000000000008000  -           Font Disable
+0x0000000000010000  -           Image Load Signature Mitigation
+0x0000000000020000  -           Non-System Font Disable
+0x0000000000040000  -           Audit Non-System Font Loading
+0x0000000000080000  -           Child Process Policy
+0x0000000000100000  -           Payload Restriction Policy
+0x0000000001000000  -           CET (Intel CET Shadow Stack)
+0x0000000002000000  -           CET Strict Mode
+0x0000000004000000  -           CET Dynamic Code
+0x0000000008000000  -           Intel MPX (Memory Protection Extensions)
+0x2000000000000000  +           Core Hardware Security Features
+                                 └ This is the primary flag for side-channel mitigations!
+
+Current MitigationOptions Value:
+Hex:     0x2000000000000100
+Enabled: 2 of 25 known flags
+
+Recommended Minimum Value:
+0x2000000000000000 (Core Hardware Security Features)
+
+=== Side-Channel Vulnerability Mitigation Status ===
+
+[SW] SOFTWARE MITIGATIONS
 ============================================================
-Speculative Store Bypass Disable              : [+] ENABLED (Value: 72)
-SSBD Feature Mask                             : [+] ENABLED (Value: 3)
-Branch Target Injection Mitigation            : [+] ENABLED (Value: 0)
-Kernel VA Shadow (Meltdown Protection)        : [+] ENABLED (Value: 1)
-Enhanced IBRS                                 : [+] ENABLED (Value: 1)
-Intel TSX Disable                             : [+] ENABLED (Value: 1)
-L1TF Mitigation                               : [-] NOT SET
-MDS Mitigation                                : [-] NOT SET
-CVE-2019-11135 Mitigation                     : [+] ENABLED (Value: 1)
-SBDR/SBDS Mitigation                          : [+] ENABLED (Value: 1)
-SRBDS Update Mitigation                       : [+] ENABLED (Value: 1)
-DRPW Mitigation                               : [+] ENABLED (Value: 1)
+
+Mitigation Name                        Status      Current Value    Expected Value
+---------------                        ------      -------------    --------------
+Speculative Store Bypass Disable       ✓ Enabled   72              72
+SSBD Feature Mask                      ✓ Enabled   3               3
+Branch Target Injection Mitigation     ✓ Enabled   0               0
+Kernel VA Shadow (Meltdown Protection) ✓ Enabled   1               1
+Intel TSX Disable                      ✓ Enabled   1               1
+Enhanced IBRS                          ✓ Enabled   1               1
+L1TF Mitigation                        ✗ Not Set   Not Set         1
+MDS Mitigation                         ✗ Not Set   Not Set         1
+CVE-2019-11135 Mitigation              ✓ Enabled   1               1
+SBDR/SBDS Mitigation                   ✓ Enabled   1               1
+SRBDS Update Mitigation                ✓ Enabled   1               1
+DRPW Mitigation                        ✓ Enabled   1               1
 
 Category Score: 10/12 enabled (83.3%)
 
-🔐 SECURITY FEATURES
+[SF] SECURITY FEATURES
 ============================================================
-Hardware Security Mitigations                 : [+] ENABLED (Value: 0x2000000000000100)
-Exception Chain Validation                    : [+] ENABLED (Value: 0)
-Supervisor Mode Access Prevention             : [+] ENABLED (Value: 1)
-Windows Defender Exploit Guard ASLR           : [-] NOT SET
-Virtualization Based Security                 : [+] ENABLED
-Hypervisor Code Integrity                     : [+] ENABLED
-Credential Guard                              : [+] ENABLED
-Windows Defender Application Guard            : [-] NOT CONFIGURED
+
+Mitigation Name                         Status      Current Value          Expected Value
+---------------                         ------      -------------          --------------
+Hardware Security Mitigations           ✓ Enabled   0x2000000000000100     2000000000000000
+Exception Chain Validation              ✓ Enabled   0                      0
+Supervisor Mode Access Prevention       ✓ Enabled   1                      1
+Windows Defender Exploit Guard ASLR     ✗ Not Set   Not Set                1
+Credential Guard                        ✓ Enabled   1                      1
 
 Category Score: 4/5 enabled (80%)
 
-🔧 HARDWARE PREREQUISITES
+[HW] HARDWARE PREREQUISITES
 ============================================================
-UEFI Firmware                                 : [+] UEFI Firmware Active
-Secure Boot                                   : [+] Enabled
-TPM 2.0                                       : [+] TPM 2.0 Enabled
-CPU Virtualization (VT-x/AMD-V)               : [+] Enabled and Active
-IOMMU/VT-d Support                            : [-] Enabled
-CPU Microcode                                 : [+] Up to date
 
-Category Score: 5/6 ready (83.3%)
+Mitigation Name    Status      Current Value    Expected Value
+---------------    ------      -------------    --------------
+Secure Boot        ✓ Enabled   Active          Enabled
 
-📊 OVERALL SECURITY SUMMARY
+Category Score: 1/1 enabled (100%)
+
+[>>] OVERALL SECURITY SUMMARY
 ============================================================
-Overall Protection Level: 15/18 mitigations enabled (83.3%)
-Security Level: [========--]
+Overall Mitigation Score: 83.3%
+Security Level: [████████░░] 15/18 enabled
+
+[--] STATUS LEGEND
+✓ Enabled  - Mitigation is active and properly configured
+✗ Disabled - Mitigation is explicitly disabled
+✗ Not Set  - Registry value not configured (using defaults)
+
+[>>] CATEGORY DESCRIPTIONS
+[SW] SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
+[SF] SECURITY FEATURES: Advanced Windows security technologies
+[HW] HARDWARE PREREQUISITES: Required hardware security capabilities
+
+=== SECURITY CONFIGURATION SUMMARY ===
 
 Security Assessment Categories:
 - Software Mitigations: 10/12 enabled
 - Security Features: 4/5 enabled
 - Hardware Prerequisites: 1/1 ready
 
+Security Status Overview:
+=========================
+
+🛡️ SOFTWARE MITIGATIONS (Primary Score):
+[+] ENABLED:       10 / 12 mitigations
+[-] NOT SET:       2 / 12 mitigations
+[-] DISABLED:      0 / 12 mitigations
+
+🔐 SECURITY FEATURES:
+[+] ENABLED:       4 / 5 features
+
+🔧 HARDWARE PREREQUISITES:
+[+] READY:         1 / 1 components
+
 Overall Mitigation Score: 83.3%
+Mitigation Progress: [████████░░] 83.3%
+
+Score Explanation:
+* Mitigation Score: Based on registry-configurable side-channel protections
+* Security Features: Windows security services (VBS, HVCI, etc.)
+* Hardware Prerequisites: Platform readiness for advanced security
+
+=== Hardware Prerequisites for Side-Channel Protection ===
+
+Hardware Security Assessment:
+(Symbols: ✓ Enabled/Good, ❓ Needs Verification, ✗ Disabled/Missing)
+
+- UEFI Firmware: ✓ UEFI Firmware Active
+- Secure Boot: ✓ Enabled
+- TPM 2.0: ✓ TPM 2.0 Enabled
+- CPU Virtualization (VT-x/AMD-V): ✓ Enabled and Active
+- IOMMU/VT-d Support: ✓ Enabled
+  └ Detection: Enabled (VBS DMA Protection)
+
+Required CPU Features:
+- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)
+- Hardware support for SMEP/SMAP
+- CPU microcode with Spectre/Meltdown mitigations
+- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot
+
+Administrator Action Items:
+===========================
+
+Required Actions for Optimal Security:
+- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection
+- Update system firmware/BIOS to latest version for security fixes
+- Update CPU microcode through Windows Update or vendor tools
+
+Firmware Requirements Status:
+- UEFI firmware (not legacy BIOS): ✓ Met
+- Secure Boot capability: ✓ Available
+- TPM 2.0: ✓ Present
+- Latest firmware updates: ❓ Check with manufacturer
 
 === Recommendations ===
+
 The following mitigations should be configured:
 - L1TF Mitigation: Enable L1TF protection. WARNING: High performance impact in virtualized environments
 - MDS Mitigation: Enable MDS protection. WARNING: Moderate performance impact on Intel CPUs
+- Windows Defender Exploit Guard ASLR: Enable ASLR force relocate images for better security
 
-To apply these configurations:
+To apply these configurations automatically, run:
+.\SideChannel_Check.ps1 -Apply
+
+For interactive selection (recommended):
 .\SideChannel_Check.ps1 -Apply -Interactive
 ```
 
