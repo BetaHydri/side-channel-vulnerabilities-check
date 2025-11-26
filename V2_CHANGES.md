@@ -238,15 +238,15 @@ Config/                                      # Reserved for future use
   2. **CVE** - CVE numbers with descriptive names (25 chars, e.g., "CVE-2017-5715 (Spectre v2)")
   3. **Platform** - All/Physical/HyperVHost/etc. (12 chars)
   4. **Impact** - Low/Medium/High performance impact (8 chars)
-  5. **Required For** - Dependency mapping (20 chars with auto-truncation)
+  5. **Required For** - Dependency mapping (35 chars with auto-truncation)
 
 - **Table Format**:
   ```
   Mitigation                     Category     Status       CVE                       Platform     Impact   Required For
-  -----------------------------  -----------  -----------  ------------------------  -----------  -------  --------------------
+  -----------------------------  -----------  -----------  ------------------------  -----------  -------  -----------------------------------
   Speculative Store Bypass Di... Critical     Protected    CVE-2018-3639             All          Low      -
-  Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential ...
-  UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS,...
+  Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential Guard
+  UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS, HVCI, Credent...
   ```
 
 - **Cross-Version Compatibility**:

@@ -353,17 +353,17 @@ IOMMU/VT-d Support                           Protected           No             
 
 Detailed Table (with -ShowDetails flag):
 Mitigation                     Category     Status       CVE                       Platform     Impact   Required For
------------------------------  -----------  -----------  ------------------------  -----------  -------  --------------------
+-----------------------------  -----------  -----------  ------------------------  -----------  -------  -----------------------------------
 Speculative Store Bypass Di... Critical     Protected    CVE-2018-3639             All          Low      -
 SSBD Feature Mask              Critical     Protected    CVE-2018-3639             All          Low      -
 Branch Target Injection Mit... Critical     Protected    CVE-2017-5715 (Spectre... All          Low      -
 Kernel VA Shadow (Meltdown ... Critical     Protected    CVE-2017-5754 (Meltdow... All          Medium   -
-Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential ...
-UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS,...
-Secure Boot                    Prerequisite Protected    Boot Malware Protection   All          None     VBS, HVCI, Creden...
-TPM 2.0                        Prerequisite Protected    Hardware Cryptographic... All          None     BitLocker, VBS, C...
-CPU Virtualization (VT-x/AM... Prerequisite Protected    Virtualization Prerequ... All          None     Hyper-V, VBS, HVC...
-IOMMU/VT-d Support             Prerequisite Protected    DMA Protection            All          None     HVCI, VBS (full i...
+Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential Guard
+UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS, HVCI, Credent...
+Secure Boot                    Prerequisite Protected    Boot Malware Protection   All          None     VBS, HVCI, Credential Guard
+TPM 2.0                        Prerequisite Protected    Hardware Cryptographic... All          None     BitLocker, VBS, Credential Guar...
+CPU Virtualization (VT-x/AM... Prerequisite Protected    Virtualization Prerequ... All          None     Hyper-V, VBS, HVCI, Credential ...
+IOMMU/VT-d Support             Prerequisite Protected    DMA Protection            All          None     HVCI, VBS (full isolation), Ker...
 
 ✓ All critical mitigations are properly configured!
 ```
@@ -948,7 +948,7 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
   * Added **Platform** column showing applicability (All/Physical/HyperVHost/etc.)
   * Added **Impact** column for performance assessment (Low/Medium/High)
   * Added **Required For** column showing dependency relationships
-  * Smart truncation at 20 characters with "..." for long entries
+  * Smart truncation at 35 characters with "..." for long entries
   * Both ANSI (PowerShell 7+) and fallback (PowerShell 5.1) implementations
 - 🔗 **Dependency mapping with PrerequisiteFor property**
   * Hardware prerequisites show what they enable:
