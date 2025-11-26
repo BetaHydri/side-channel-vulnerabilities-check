@@ -520,8 +520,8 @@ function Show-ResultsTable {
     $overallPercentage = if ($totalCount -gt 0) { [math]::Round(($totalEnabled / $totalCount) * 100, 1) } else { 0 }
     
     $overallColor = switch ($overallPercentage) {
-        { $_ -ge 80 } { $Colors['Good'] }
-        { $_ -ge 60 } { $Colors['Warning'] }
+        { $_ -ge 80 } { $Colors['Good']; break }
+        { $_ -ge 60 } { $Colors['Warning']; break }
         default { $Colors['Bad'] }
     }
     
