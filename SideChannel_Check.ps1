@@ -2563,9 +2563,9 @@ else {
 }
 
 # Section break before detailed analysis
-Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput ("`n" + "="*80) -Color Header
 Write-ColorOutput "DETAILED SECURITY ANALYSIS" -Color Header
-Write-ColorOutput "="*80 -Color Header
+Write-ColorOutput ("="*80) -Color Header
 
 # Check if Virtualization Based Security is available (detailed status)
 try {
@@ -2663,9 +2663,9 @@ else {
 }
 
 # Security Feature Dependency Matrix
-Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput ("`n" + "="*80) -Color Header
 Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
-Write-ColorOutput "="*80 -Color Header
+Write-ColorOutput ("="*80) -Color Header
 
 Write-ColorOutput "`nThis matrix shows hardware requirements and software fallback options for each" -Color Info
 Write-ColorOutput "Windows security feature. Understanding these dependencies helps you determine" -Color Info
@@ -2930,9 +2930,9 @@ if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
 }
 
 # Hardware Security Mitigation Value Matrix for detailed output
-Write-ColorOutput "`n" + "="*80 -Color Header
+Write-ColorOutput ("`n" + "="*80) -Color Header
 Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
-Write-ColorOutput "="*80 -Color Header
+Write-ColorOutput ("="*80) -Color Header
 
 Write-ColorOutput "`nThe Hardware Security Mitigations (MitigationOptions) registry value is a bit-field" -Color Info
 Write-ColorOutput "that controls various CPU-level security features. Here's what the flags mean:" -Color Info
