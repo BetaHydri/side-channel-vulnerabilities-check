@@ -2134,7 +2134,54 @@ function Export-AssessmentResults {
     )
     
     try {
-        $Results | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8
+        # Enrich results with full untruncated data from mitigation definitions
+        $enrichedResults = @()
+        $mitigationDefs = Get-MitigationDefinitions
+        
+        foreach ($result in $Results) {
+            $mitigationDef = $mitigationDefs | Where-Object { $_.Id -eq $result.Id }
+            
+            # Create enriched object with full data (no truncation)
+            $enrichedResult = [PSCustomObject]@{
+                Id                = $result.Id
+                Name              = $result.Name
+                Category          = $result.Category
+                Status            = $result.OverallStatus
+                RegistryStatus    = $result.RegistryStatus
+                RuntimeStatus     = $result.RuntimeStatus
+                ActionNeeded      = $result.ActionNeeded
+                CVE               = $result.CVE
+                Platform          = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
+                Impact            = $result.Impact
+                PrerequisiteFor   = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { $mitigationDef.PrerequisiteFor } else { '-' }
+                CurrentValue      = $result.CurrentValue
+                ExpectedValue     = $result.ExpectedValue
+                Description       = $result.Description
+                Recommendation    = $result.Recommendation
+                RegistryPath      = $result.RegistryPath
+                RegistryName      = $result.RegistryName
+                URL               = if ($result.PSObject.Properties.Name -contains 'URL') { $result.URL } else { '' }
+            }
+            
+            $enrichedResults += $enrichedResult
+        }
+        
+        # Export with semicolon delimiter (instead of comma) to avoid conflicts with comma-separated lists in data
+        # PowerShell 5.1 doesn't support -Delimiter parameter, so we need version-specific handling
+        if ($PSVersionTable.PSVersion.Major -ge 6) {
+            # PowerShell 6+ (Core/7+) - use -Delimiter parameter
+            $enrichedResults | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+        }
+        else {
+            # PowerShell 5.1 - manually convert to CSV with semicolon delimiter
+            $csvContent = $enrichedResults | ConvertTo-Csv -NoTypeInformation
+            # Replace commas with semicolons in the CSV (careful to preserve commas within quoted fields)
+            $csvContent = $csvContent | ForEach-Object {
+                # This regex replaces commas that are not inside quotes
+                $_ -replace ',(?=(?:[^"]*"[^"]*")*[^"]*$)', ';'
+            }
+            $csvContent | Set-Content -Path $Path -Encoding UTF8
+        }
         Write-Log "Assessment exported to: $Path" -Level Success
         Write-Host "`n$(Get-StatusIcon -Name Success) Assessment exported successfully to: $Path" -ForegroundColor Green
     }
