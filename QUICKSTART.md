@@ -252,5 +252,10 @@ cd archive\v1
 | `-Mode` | Assess, ApplyInteractive, RevertInteractive, Backup, Restore | Operation mode (default: Assess) |
 | `-ShowDetails` | Switch | Show CVEs, descriptions, impacts, recommendations |
 | `-WhatIf` | Switch | Preview changes without applying |
-| `-ExportPath` | Path | Export assessment to CSV file |
-| `-LogPath` | Path | Custom log file location |
+| `-ExportPath` | Path | **Export assessment results** to CSV (mitigation status table) |
+| `-LogPath` | Path | Optional: Custom execution log location (default: `.\Logs\`) |
+
+**CSV Export vs Log File:**
+- **`-ExportPath`** → Your security assessment data (CSV table for reporting/analysis)
+- **`-LogPath`** → Execution log (troubleshooting/audit trail of what the script did)
+- For most users, only `-ExportPath` is needed

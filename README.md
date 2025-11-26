@@ -99,7 +99,17 @@ Evaluate current security posture without making changes.
 
 # Export results to CSV
 .\SideChannel_Check_v2.ps1 -ExportPath "security_assessment.csv"
+
+# Combine assessment with CSV export
+.\SideChannel_Check_v2.ps1 -ShowDetails -ExportPath "detailed_report.csv"
 ```
+
+**Parameters:**
+- **`-ExportPath`** - Export assessment results table to CSV (mitigation status, recommendations)
+- **`-ShowDetails`** - Show detailed educational information (CVEs, descriptions, impacts)
+- **`-LogPath`** - Optional: Custom log file location (default: `.\Logs\SideChannelCheck_<timestamp>.log`)
+
+**Note:** The log file contains execution details (what the script did), while ExportPath creates a CSV of your security assessment data (what mitigations are enabled/disabled). Most users only need `-ExportPath` for reporting.
 
 **Output:**
 - Platform Information (CPU, OS, Hypervisor status)
