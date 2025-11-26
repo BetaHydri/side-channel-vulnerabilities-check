@@ -364,15 +364,94 @@ Get-SpeculationControlSettings              # Hardware-level verification
 ```
 
 ### Large VM Fleet Management
+
+#### VMware vSphere/ESXi Environments (PowerCLI)
 ```powershell
-# PowerCLI script for multiple VMs
+# Requires: VMware PowerCLI module
+# Install-Module -Name VMware.PowerCLI -Scope CurrentUser
+
+# Connect to vCenter
 Connect-VIServer -Server vcenter.company.com
+
+# Get all powered-on Windows VMs
 $VMs = Get-VM | Where-Object {$_.PowerState -eq "PoweredOn" -and $_.Guest.OSFullName -like "*Windows*"}
 
+# Create reports directory
+New-Item -ItemType Directory -Path "Reports" -Force | Out-Null
+
 foreach ($VM in $VMs) {
-    Write-Host "Assessing VM: $($VM.Name)"
-    $Result = Invoke-VMScript -VM $VM -ScriptText ".\SideChannel_Check.ps1" -GuestUser $GuestCred
+    Write-Host "Assessing VM: $($VM.Name)" -ForegroundColor Cyan
+    $Result = Invoke-VMScript -VM $VM -ScriptText "& 'C:\Path\To\SideChannel_Check.ps1'" -GuestUser $GuestCred
     $Result.ScriptOutput | Out-File "Reports\$($VM.Name)_Security.txt"
+}
+
+Disconnect-VIServer -Confirm:$false
+```
+
+#### Microsoft Hyper-V Environments
+```powershell
+# Get all running Windows VMs on Hyper-V host
+$VMs = Get-VM | Where-Object {$_.State -eq "Running"}
+
+# Create reports directory
+New-Item -ItemType Directory -Path "Reports" -Force | Out-Null
+
+foreach ($VM in $VMs) {
+    Write-Host "Assessing VM: $($VM.Name)" -ForegroundColor Cyan
+    
+    # Copy script to VM (requires guest integration services)
+    Copy-VMFile -Name $VM.Name -SourcePath ".\SideChannel_Check.ps1" `
+                -DestinationPath "C:\Temp\SideChannel_Check.ps1" `
+                -FileSource Host -CreateFullPath
+    
+    # Execute script in VM (requires PSRemoting or guest credentials)
+    $Session = New-PSSession -VMName $VM.Name -Credential $GuestCred
+    $Result = Invoke-Command -Session $Session -ScriptBlock {
+        & "C:\Temp\SideChannel_Check.ps1"
+    }
+    $Result | Out-File "Reports\$($VM.Name)_Security.txt"
+    Remove-PSSession $Session
+}
+```
+
+#### Generic Remote Management (Any Platform)
+```powershell
+# Works with any Windows VM accessible via PowerShell Remoting
+$VMHosts = @(
+    "vm-web-01.domain.com",
+    "vm-db-01.domain.com",
+    "vm-app-01.domain.com"
+)
+
+# Create reports directory
+New-Item -ItemType Directory -Path "Reports" -Force | Out-Null
+
+$Credential = Get-Credential -Message "Enter VM Administrator credentials"
+
+foreach ($VMHost in $VMHosts) {
+    Write-Host "Assessing: $VMHost" -ForegroundColor Cyan
+    
+    try {
+        $Session = New-PSSession -ComputerName $VMHost -Credential $Credential
+        
+        # Copy script to remote VM
+        Copy-Item -Path ".\SideChannel_Check.ps1" `
+                  -Destination "C:\Temp\" `
+                  -ToSession $Session
+        
+        # Execute and capture output
+        $Result = Invoke-Command -Session $Session -ScriptBlock {
+            & "C:\Temp\SideChannel_Check.ps1"
+        }
+        
+        $Result | Out-File "Reports\$($VMHost.Split('.')[0])_Security.txt"
+        Remove-PSSession $Session
+        
+        Write-Host "  ✓ Complete" -ForegroundColor Green
+    }
+    catch {
+        Write-Host "  ✗ Failed: $_" -ForegroundColor Red
+    }
 }
 ```
 
