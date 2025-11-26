@@ -266,13 +266,53 @@ Config/                                      # Reserved for future use
   * **VBS (Virtualization Based Security)** → HVCI, Credential Guard
 
 - **Display Modes**:
-  - **Detailed Table**: Truncated at 20 chars with "..." suffix (compact view)
+  - **Detailed Table**: Truncated at 35 chars with "..." suffix (compact view)
   - **Bullet-Point View**: Full untruncated list in magenta color (detailed view)
+  - **CSV Export**: Complete untruncated comma-separated lists
   - **Example**:
     ```
     • UEFI Firmware [Active]
       Required For: Secure Boot, VBS, HVCI, Credential Guard  (magenta color)
     ```
+
+### Enhanced CSV Export
+- **18-Column Structure with Full Untruncated Data**:
+  - Core fields: `Id`, `Name`, `Category`, `Status`, `RegistryStatus`, `RuntimeStatus`, `ActionNeeded`
+  - Vulnerability info: `CVE`, `Platform`, `Impact`, `PrerequisiteFor`
+  - Values: `CurrentValue`, `ExpectedValue`
+  - Documentation: `Description`, `Recommendation`, `RegistryPath`, `RegistryName`, `URL`
+  
+- **Semicolon Delimiter (`;`)**:
+  - Changed from comma to semicolon to preserve comma-separated dependency lists
+  - Prevents data corruption in PrerequisiteFor field (e.g., "Secure Boot, VBS, HVCI, Credential Guard")
+  - Example CSV row:
+    ```csv
+    "SecureBoot";"Secure Boot";"Prerequisite";"Active";"N/A";"Enabled";"";"Boot Security Prerequisite";"All";"None";"VBS, HVCI, Credential Guard";"Enabled";"Enabled";"UEFI Secure Boot provides boot-time verification...";"Enable Secure Boot in UEFI/BIOS settings";"N/A";"N/A";"https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-secure-boot"
+    ```
+  - Compatible with Excel and all standard CSV tools
+  
+- **Version-Specific Implementation**:
+  - **PowerShell 7+**: Native `Export-Csv -Delimiter ';'` parameter
+  - **PowerShell 5.1**: Manual conversion approach
+    - Uses `ConvertTo-Csv` to generate comma-delimited CSV
+    - Regex replacement: `,(?=(?:[^"]*"[^"]*")*[^"]*$)` → `;`
+    - Pattern preserves commas inside quoted fields (e.g., PrerequisiteFor lists)
+    - UTF8 encoding via `Set-Content -Encoding UTF8`
+  - Automatic version detection: `$PSVersionTable.PSVersion.Major -ge 6`
+  
+- **Data Integrity & Quality**:
+  - **No truncation** of any fields (Description, Recommendation, PrerequisiteFor can be full length)
+  - **Comma preservation** in dependency lists inside quoted fields
+  - **Complete URL references** exported without truncation
+  - **Enriched data**: Platform, PrerequisiteFor, and URL fields added from mitigation definitions
+  - **Validated export**: Tested with `Import-Csv` in both PowerShell versions
+  
+- **Export Function Architecture** (`Export-AssessmentResults`):
+  - Enriches assessment results with full mitigation definition metadata
+  - Creates comprehensive 18-column PSCustomObject for each result
+  - Version-aware CSV generation with proper delimiter handling
+  - UTF8 encoding ensures international character support
+  - Lines 2130-2177 in SideChannel_Check_v2.ps1
 
 ### Improved CVE Presentation
 - **CVE Field Enhancements**:
@@ -287,21 +327,42 @@ Config/                                      # Reserved for future use
   - Clearer vulnerability identification for users unfamiliar with CVE numbers
 
 ### Implementation Details
-- **Safe Property Access**: All URL and PrerequisiteFor access uses `ContainsKey()` checks
+- **Safe Property Access**: All URL and PrerequisiteFor access uses `ContainsKey()` checks to prevent errors
 - **Show-MitigationTable Refactoring**: Switch-based architecture with three formats:
   * `'Simple'` - 4-column basic table (default mode)
-  * `'Detailed'` - 7-column enhanced table (ShowDetails mode)
+  * `'Detailed'` - 7-column enhanced table with CVE, Platform, Impact, Required For (ShowDetails mode)
   * `'Bullets'` - Educational bullet-point view with URLs and full dependencies (ShowDetails mode)
-- **Column Width Optimization**: 30, 12, 12, 25, 12, 8, 20 characters for detailed table
-- **Color Scheme**: Green (Protected), Red (Vulnerable), Cyan (Active), Gray (Other), Magenta (PrerequisiteFor)
+- **Column Width Optimization**: 
+  * Detailed table: 30, 12, 12, 25, 12, 8, 35 characters
+  * Required For column: Increased from 20 to 35 chars to show full comma-separated lists
+  * Truncation: 32 chars + "..." when exceeding 35-char limit
+  * Examples: "Secure Boot, VBS, HVCI, Credential Guard" fits fully
+- **Color Scheme**: 
+  * Green (Protected), Red (Vulnerable), Cyan (Active), Gray (Other), Magenta (PrerequisiteFor)
+  * ANSI escape codes (PS 7+) for whole-line coloring
+  * Write-Host fallback (PS 5.1) with -ForegroundColor parameter
+- **Version Detection**: `$PSVersionTable.PSVersion.Major` checks throughout for feature compatibility
 
 ### Testing & Validation
-- Tested on PowerShell 7.4.6 and PowerShell 5.1
-- Verified ANSI color codes work correctly in PS 7+
-- Confirmed fallback coloring works in PS 5.1
-- Validated table alignment across both versions
-- All 24 mitigations + 5 prerequisites display correctly
-- Safe property access prevents errors for items without PrerequisiteFor
+- **PowerShell Version Testing**:
+  * Tested on PowerShell 7.4.6 and PowerShell 5.1
+  * Verified ANSI color codes work correctly in PS 7+
+  * Confirmed fallback coloring works in PS 5.1
+  * Validated table alignment across both versions
+  
+- **Display Validation**:
+  * All 24 mitigations + 5 prerequisites display correctly
+  * Safe property access prevents errors for items without PrerequisiteFor
+  * Required For column shows full comma-separated lists up to 35 chars
+  * Truncation at 32+"..." works correctly for longer dependency lists
+  
+- **CSV Export Validation**:
+  * Tested semicolon delimiter in both PowerShell 7+ and 5.1
+  * Verified with `Import-Csv` - all 18 columns imported correctly
+  * Confirmed PrerequisiteFor field preserves comma-separated lists
+  * Example validated: "Secure Boot, VBS, HVCI, Credential Guard" remains intact
+  * Checked data integrity: No truncation, all URLs complete, quoted fields handled properly
+  * PowerShell 5.1 regex pattern successfully replaces only commas outside quotes
 
 ## Future Enhancements (Potential)
 - [ ] GUI interface option
