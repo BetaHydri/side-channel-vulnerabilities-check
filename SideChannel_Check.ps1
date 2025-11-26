@@ -2751,18 +2751,19 @@ Write-Host ("{0,-40} {1,-10} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMEN
 Write-Host ("{0,-40} {1,-10} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
 
 foreach ($feature in $dependencyMatrix) {
-    $fallbackSymbol = switch ($feature.SoftwareFallback) {
-        "Yes" { "[" + $Emojis.Success + " Yes]" }
-        { $_ -like "Partial*" } { "[~ Part]" }
+    $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
+        "Yes*" { "[" + $Emojis.Success + " Yes]" }
+        "Partial*" { "[~ Part]" }
         "No" { "[" + $Emojis.Error + " No ]" }
-        "N/A" { "[  N/A ]" }
+        "N/A*" { "[  N/A ]" }
         default { "[  ?  ]" }
     }
     
-    $fallbackColor = switch ($feature.SoftwareFallback) {
-        "Yes" { $Colors['Good'] }
-        { $_ -like "Partial*" } { $Colors['Warning'] }
+    $fallbackColor = switch -Wildcard ($feature.SoftwareFallback) {
+        "Yes*" { $Colors['Good'] }
+        "Partial*" { $Colors['Warning'] }
         "No" { $Colors['Bad'] }
+        "N/A*" { $Colors['Info'] }
         default { $Colors['Info'] }
     }
     
@@ -2824,13 +2825,24 @@ $hasIOMMU = $iommuEnabled
 
 Write-ColorOutput "`nYour System Capabilities:" -Color Header
 Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
-Write-Host (if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }) -ForegroundColor (if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] })
+$secureBootText = if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }
+$secureBootColor = if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] }
+Write-Host $secureBootText -ForegroundColor $secureBootColor
+
 Write-Host "  TPM 2.0:          " -NoNewline -ForegroundColor Gray
-Write-Host (if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }) -ForegroundColor (if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] })
+$tpmText = if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }
+$tpmColor = if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] }
+Write-Host $tpmText -ForegroundColor $tpmColor
+
 Write-Host "  Virtualization:   " -NoNewline -ForegroundColor Gray
-Write-Host (if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }) -ForegroundColor (if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] })
+$virtText = if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }
+$virtColor = if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] }
+Write-Host $virtText -ForegroundColor $virtColor
+
 Write-Host "  IOMMU (VT-d/Vi):  " -NoNewline -ForegroundColor Gray
-Write-Host (if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }) -ForegroundColor (if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] })
+$iommuText = if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }
+$iommuColor = if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] }
+Write-Host $iommuText -ForegroundColor $iommuColor
 
 # Provide tailored recommendations based on capabilities
 Write-ColorOutput "`nRecommendations for Your System:" -Color Header
