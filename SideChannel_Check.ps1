@@ -4558,8 +4558,36 @@ else {
     Write-ColorOutput "- Configure proper VM resource isolation" -Color Warning
 }
 
-Write-ColorOutput "`nHardware Prerequisites for Side-Channel Protection:" -Color Header
-Write-ColorOutput ("=" * 50) -Color Header
+# Export results if requested
+if ($ExportPath) {
+    try {
+        $Results | Export-Csv -Path $ExportPath -NoTypeInformation -Encoding UTF8
+        Write-ColorOutput "`nResults exported to: $ExportPath" -Color Good
+    }
+    catch {
+        Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
+    }
+}
+
+# ============================================================================
+# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
+# ============================================================================
+# The following sections provide detailed technical information about
+# security features, hardware dependencies, and configuration values.
+# These are educational resources for understanding the core assessment above.
+# ============================================================================
+
+if ($Detailed) {
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header  
+    Write-ColorOutput "ADDITIONAL INFORMATION & EDUCATIONAL CONTENT" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    # Section 0: Hardware Prerequisites Detailed Analysis
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+    Write-ColorOutput "HARDWARE PREREQUISITES DETAILED ANALYSIS" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
 
 # Get current hardware status
 $hwStatus = Get-HardwareRequirements
@@ -4690,26 +4718,25 @@ Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secu
 $tpmStatusText = if ($hwStatus.TPMPresent) { "$IconCheck Present" } else { "$IconCross Missing" }
 $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
 Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
-Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
+    Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
 
-# Show VMware Host Security Configuration if requested
-if ($ShowVMwareHostSecurity) {
-    Show-VMwareHostSecurity
-}
+    # Show VMware Host Security Configuration if requested (only in detailed mode)
+    if ($ShowVMwareHostSecurity) {
+        Show-VMwareHostSecurity
+    }
 
-# ============================================================================
-# Additional Runtime Details (Detailed Mode)
-# ============================================================================
-if ($script:RuntimeState.APIAvailable -and $Detailed -and -not $Apply -and -not $Revert) {
-    Write-ColorOutput "`n========================================" -Color Header
-    Write-ColorOutput "Detailed Kernel Runtime Flags" -Color Header
-    Write-ColorOutput "========================================" -Color Header
-    Write-ColorOutput "Advanced runtime mitigation details from NtQuerySystemInformation API:" -Color Info
+    # Section 1: Additional Runtime Details
+    if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
+        Write-ColorOutput "`n" -Color Header
+        Write-ColorOutput ("=" * 80) -Color Header
+        Write-ColorOutput "DETAILED KERNEL RUNTIME FLAGS" -Color Header
+        Write-ColorOutput ("=" * 80) -Color Header
+        Write-ColorOutput "Advanced runtime mitigation details from NtQuerySystemInformation API:" -Color Info
     
-    # Show additional runtime flags not displayed in main table
-    Write-ColorOutput "`nAdvanced Protections:" -Color Header
+        # Show additional runtime flags not displayed in main table
+        Write-ColorOutput "`nAdvanced Protections:" -Color Header
     
-    if ($script:RuntimeState.RetpolineEnabled) {
+        if ($script:RuntimeState.RetpolineEnabled) {
         $iconRetpoline = Get-Icon -Name Check
         Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
     }
@@ -4756,34 +4783,9 @@ if ($script:RuntimeState.APIAvailable -and $Detailed -and -not $Apply -and -not 
             Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
         }
     }
-}
+    } # End of if ($script:RuntimeState.APIAvailable...)
 
-# Export results if requested
-if ($ExportPath) {
-    try {
-        $Results | Export-Csv -Path $ExportPath -NoTypeInformation -Encoding UTF8
-        Write-ColorOutput "`nResults exported to: $ExportPath" -Color Good
-    }
-    catch {
-        Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
-    }
-}
-
-# ============================================================================
-# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
-# ============================================================================
-# The following sections provide detailed technical information about
-# security features, hardware dependencies, and configuration values.
-# These are educational resources for understanding the core assessment above.
-# ============================================================================
-
-if ($Detailed) {
-    Write-ColorOutput "`n" -Color Header
-    Write-ColorOutput ("=" * 80) -Color Header  
-    Write-ColorOutput "ADDITIONAL INFORMATION & EDUCATIONAL CONTENT" -Color Header
-    Write-ColorOutput ("=" * 80) -Color Header
-
-    # Section 1: VBS/HVCI Detailed Status Analysis
+    # Section 2: VBS/HVCI Detailed Status Analysis
     Write-ColorOutput "`n" -Color Header
     Write-ColorOutput ("=" * 80) -Color Header
     Write-ColorOutput "DETAILED SECURITY ANALYSIS (VBS/HVCI)" -Color Header
@@ -4885,7 +4887,7 @@ if ($Detailed) {
         Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
     }
 
-    # Section 2: Security Feature Dependency Matrix
+    # Section 3: Security Feature Dependency Matrix
     Write-ColorOutput "`n" -Color Header
     Write-ColorOutput ("=" * 80) -Color Header
     Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
@@ -5096,7 +5098,7 @@ if ($Detailed) {
         }
     }
 
-    # Section 3: Hardware Security Mitigation Value Matrix
+    # Section 4: Hardware Security Mitigation Value Matrix
     Write-ColorOutput "`n" -Color Header
     Write-ColorOutput ("=" * 80) -Color Header
     Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
@@ -5204,10 +5206,22 @@ if ($Detailed) {
 
 } # End of if ($Detailed)
 else {
+    # When -Detailed is not used, show a helpful message
     Write-ColorOutput "`n" -Color Info
     Write-ColorOutput "For detailed technical analysis, hardware dependency matrices, and flag breakdowns," -Color Info
     Write-ColorOutput "run with the -Detailed parameter:" -Color Info
-    Write-ColorOutput "  .\SideChannel_Check.ps1 -Detailed" -Color Header
+    Write-ColorOutput "  .\SideChannel_Check.ps1 -Detailed" -Color Good
+}
+
+# Export results if requested
+if ($ExportPath) {
+    try {
+        $Results | Export-Csv -Path $ExportPath -NoTypeInformation -Encoding UTF8
+        Write-ColorOutput "`nResults exported to: $ExportPath" -Color Good
+    }
+    catch {
+        Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
+    }
 }
 
 # ============================================================================
