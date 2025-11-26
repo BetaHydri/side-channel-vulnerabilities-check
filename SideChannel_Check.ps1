@@ -4558,6 +4558,11 @@ else {
     Write-ColorOutput "- Configure proper VM resource isolation" -Color Warning
 }
 
+# Show VMware Host Security Configuration if requested
+if ($ShowVMwareHostSecurity) {
+    Show-VMwareHostSecurity
+}
+
 # Export results if requested
 if ($ExportPath) {
     try {
@@ -4719,11 +4724,6 @@ if ($Detailed) {
     $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
     Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
     Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
-
-    # Show VMware Host Security Configuration if requested (only in detailed mode)
-    if ($ShowVMwareHostSecurity) {
-        Show-VMwareHostSecurity
-    }
 
     # Section 1: Additional Runtime Details
     if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
