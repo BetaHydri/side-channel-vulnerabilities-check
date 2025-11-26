@@ -1,0 +1,21 @@
+side-channel-vulnerabilities-check/
+├── README.md              # Main documentation with version comparison
+├── QUICKSTART.md          # Quick reference guide
+├── LICENSE                # MIT License
+├── .gitignore            # Git ignore rules
+│
+├── v1/                   # Version 1.x (Legacy - Stable)
+│   ├── README.md         # v1 documentation
+│   ├── SideChannel_Check.ps1    # v1 script
+│   ├── Backups/          # Backup storage (ignored by git)
+│   ├── Logs/             # Log files (ignored by git)
+│   └── Config/           # Configuration (ignored by git)
+│
+└── v2/                   # Version 2.1.0 (Latest - Recommended)
+    ├── README.md                    # v2 documentation
+    ├── SideChannel_Check_v2.ps1    # v2 main script
+    ├── Test-SideChannelTool.ps1    # Automated test suite
+    ├── V2_CHANGES.md                # v2 changelog
+    ├── Backups/                     # Backup storage (ignored by git)
+    ├── Logs/                        # Log files (ignored by git)
+    └── Config/                      # Configuration (ignored by git)

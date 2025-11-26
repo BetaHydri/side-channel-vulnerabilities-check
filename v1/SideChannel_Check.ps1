@@ -1,0 +1,5287 @@
+#Requires -Version 5.1
+#Requires -RunAsAdministrator
+
+<#
+.SYNOPSIS
+    Checks Windows configuration for side-channel vulnerability mitigations
+    
+.DESCRIPTION
+    This script checks the system configuration for side-channel vulnerabilities
+    including Spectre, Meltdown, and other CPU-based attacks according to Microsoft
+    guidance KB4073119. It verifies registry settings, Windows features, and 
+    provides recommendations for enabling additional protections.
+    
+    VIRTUALIZATION SUPPORT:
+    - Detects if running on VM or physical hardware
+    - Checks hypervisor-specific mitigations
+    - Provides Host/Guest specific recommendations
+    - Validates nested virtualization capabilities
+    
+.PARAMETER Detailed
+    Shows detailed information about each check
+    
+.PARAMETER ExportPath
+    Export results to a CSV file at the specified path
+    
+.PARAMETER Apply
+    Apply the recommended security configurations automatically
+    When used with -Interactive, allows selection of specific mitigations
+    
+.PARAMETER WhatIf
+    Shows what changes would be made without actually applying them
+    Works in conjunction with -Apply parameter
+    
+.PARAMETER Interactive
+    Enables interactive mode where you can choose which mitigations to apply
+    Works with -Apply parameter for granular control
+
+.PARAMETER ShowVMwareHostSecurity
+    Shows comprehensive VMware ESXi host security configuration guide
+    Displays detailed commands and settings for protecting VMs against side-channel attacks
+
+.PARAMETER Revert
+    Enables revert mode to remove/disable specific mitigations
+    Works with -Interactive parameter for selective removal
+    Use with -WhatIf to preview what would be reverted
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1
+    Basic security assessment
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Detailed
+    Detailed security assessment with registry paths
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -ShowVMwareHostSecurity
+    Assessment with VMware ESXi host security guide
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Detailed -ShowVMwareHostSecurity
+    Detailed assessment with VMware guidance
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply
+    Apply all recommended mitigations automatically
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply -Interactive
+    Interactive mitigation selection and application
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Apply -Interactive -WhatIf
+    Preview changes in interactive mode without applying them
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -ExportPath "C:\temp\SideChannelReport.csv"
+    Export assessment results to CSV file
+
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Detailed -ExportPath "C:\temp\DetailedReport.csv"
+    Detailed assessment with CSV export
+
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Revert -Interactive
+    Interactively revert specific mitigations
+    
+.EXAMPLE
+    .\SideChannel_Check.ps1 -Revert -Interactive -WhatIf
+    Preview what would be reverted without making changes
+    
+.NOTES
+    Author: Jan Tiedemann
+    Version: 2.8
+    Requires: PowerShell 5.1+ and Administrator privileges
+    Based on: Microsoft KB4073119
+    GitHub: https://github.com/BetaHydri/side-channel-vulnerabilities-check
+    
+    PARAMETER SETS:
+    - Assessment: Default, Detailed, VMware guide, Export combinations
+    - Modification: Apply (automatic), ApplyInteractive (manual), Revert (interactive only)
+    - Logical constraints: Interactive and WhatIf require Apply or Revert operations
+#>
+
+param(
+    # Assessment Parameters (can be combined freely)
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
+    [switch]$Detailed,
+    
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
+    [ValidateScript({
+            if (-not (Test-Path (Split-Path $_ -Parent) -PathType Container)) {
+                throw "Export directory does not exist: $(Split-Path $_ -Parent)"
+            }
+            if ($_ -notmatch '\.(csv|txt)$') {
+                throw "Export file must have .csv or .txt extension"
+            }
+            return $true
+        })]
+    [string]$ExportPath,
+    
+    # VMware Security Guide (can be combined with assessment parameters)
+    [Parameter(ParameterSetName = 'Assessment')]
+    [Parameter(ParameterSetName = 'Apply')]
+    [Parameter(ParameterSetName = 'ApplyInteractive')]
+    [Parameter(ParameterSetName = 'ApplyWhatIf')]
+    [Parameter(ParameterSetName = 'RevertInteractive')]
+    [Parameter(ParameterSetName = 'RevertWhatIf')]
+    [switch]$ShowVMwareHostSecurity,
+    
+    # Modification Parameters - Apply Operations
+    [Parameter(ParameterSetName = 'Apply', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [switch]$Apply,
+    
+    [Parameter(ParameterSetName = 'ApplyInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
+    [switch]$Interactive,
+    
+    [Parameter(ParameterSetName = 'ApplyWhatIf', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
+    [switch]$WhatIf,
+    
+    # Revert Operations (must use Interactive)
+    [Parameter(ParameterSetName = 'RevertInteractive', Mandatory)]
+    [Parameter(ParameterSetName = 'RevertWhatIf', Mandatory)]
+    [switch]$Revert
+)
+
+# Initialize results array
+$Results = @()
+
+# PowerShell version compatibility detection
+$PSVersion = $PSVersionTable.PSVersion.Major
+$UseEmojis = $false  # Simplified approach for maximum compatibility
+
+# ============================================================================
+# Icon Helper Function (PowerShell 5.1+ Compatible)
+# ============================================================================
+function Get-Icon {
+    <#
+    .SYNOPSIS
+        Returns Unicode icons compatible with PowerShell 5.1+
+    
+    .DESCRIPTION
+        Centralizes all emoji/icon generation using ConvertFromUtf32 for
+        maximum compatibility across PowerShell 5.1 and 7.x versions.
+    
+    .PARAMETER Name
+        The name of the icon to retrieve
+    
+    .EXAMPLE
+        Get-Icon -Name Enabled
+        Returns: ✓
+    
+    .EXAMPLE
+        Get-Icon -Name Warning
+        Returns: ⚠
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet(
+            'Enabled', 'Disabled', 'Warning', 'Info', 'Success', 'Error',
+            'Check', 'Cross', 'Question', 'Star', 'Arrow', 'Shield',
+            'Lock', 'Wrench', 'Gear', 'Chart', 'BlockFull', 'BlockLight'
+        )]
+        [string]$Name
+    )
+    
+    switch ($Name) {
+        # Status Icons
+        'Enabled' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Disabled' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Warning' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16)) }  # ⚠
+        'Info' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16)) }  # ℹ
+        'Success' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Error' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        
+        # Common Symbols
+        'Check' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Cross' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Question' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) }  # ❓
+        'Star' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16)) }  # ⭐
+        'Arrow' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16)) }  # └
+        
+        # Category Icons
+        'Shield' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16)) } # 🛡️
+        'Lock' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16)) } # 🔐
+        'Wrench' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16)) } # 🔧
+        'Gear' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16)) }  # ⚙
+        'Chart' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16)) } # 📊
+        
+        # Progress Bar Characters
+        'BlockFull' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16)) }  # █
+        'BlockLight' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16)) }  # ░
+        
+        default { '' }
+    }
+}
+
+# Define simple, consistent category markers using Get-Icon function
+$Emojis = @{
+    Shield    = "$(Get-Icon -Name Shield) "    # 🛡️ Software Mitigations
+    Lock      = "$(Get-Icon -Name Lock)"       # 🔐 Security Features  
+    Wrench    = "$(Get-Icon -Name Wrench)"     # 🔧 Hardware Prerequisites
+    Gear      = "$(Get-Icon -Name Gear)"       # ⚙️ Other Mitigations
+    Chart     = "[>>]"                         # Summary/Progress (keep ASCII for tables)
+    Clipboard = "[--]"                         # Status Legend (keep ASCII for tables)
+    Target    = "[>>]"                         # Category Descriptions (keep ASCII for tables)
+}
+
+# Color coding for output
+$Colors = @{
+    Good    = 'Green'
+    Warning = 'Yellow' 
+    Bad     = 'Red'
+    Info    = 'Cyan'
+    Header  = 'Magenta'
+    Gray    = 'Gray'
+    Success = 'Green'
+    Error   = 'Red'
+}
+
+function Write-ColorOutput {
+    param(
+        [string]$Message,
+        [string]$Color = 'White'
+    )
+    
+    # Handle missing colors gracefully
+    if ($Colors.ContainsKey($Color)) {
+        Write-Host $Message -ForegroundColor $Colors[$Color]
+    }
+    elseif ($Color -in @('Black', 'DarkBlue', 'DarkGreen', 'DarkCyan', 'DarkRed', 'DarkMagenta', 'DarkYellow', 'Gray', 'DarkGray', 'Blue', 'Green', 'Cyan', 'Red', 'Magenta', 'Yellow', 'White')) {
+        # Direct color name
+        Write-Host $Message -ForegroundColor $Color
+    }
+    else {
+        # Fallback to white if color not found
+        Write-Host $Message -ForegroundColor White
+    }
+}
+
+function Set-RegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [object]$Value,
+        [string]$Type = "DWORD"
+    )
+    
+    try {
+        # Special handling for Windows Defender Exploit Guard paths
+        $isWindowsDefenderPath = $Path -match "Windows Defender.*Exploit Guard"
+        
+        # Create the registry path if it doesn't exist
+        if (-not (Test-Path $Path)) {
+            if ($isWindowsDefenderPath) {
+                # Special handling for Windows Defender paths
+                try {
+                    Write-ColorOutput "Attempting to configure Windows Defender Exploit Guard..." -Color Info
+                    
+                    # Try using Windows Defender PowerShell cmdlets first
+                    if (Get-Command "Set-ProcessMitigation" -ErrorAction SilentlyContinue) {
+                        # Use Set-ProcessMitigation for ASLR configuration
+                        if ($Name -eq "ASLR_ForceRelocateImages") {
+                            try {
+                                Set-ProcessMitigation -System -Enable ForceRelocateImages -ErrorAction Stop
+                                Write-ColorOutput "[+] Set Windows Defender ASLR via Set-ProcessMitigation" -Color Good
+                                return $true
+                            }
+                            catch {
+                                Write-ColorOutput "Warning: Set-ProcessMitigation failed: $($_.Exception.Message)" -Color Warning
+                            }
+                        }
+                    }
+                    
+                    # Fallback: Try to use reg.exe command
+                    $regPath = $Path -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
+                    $regCommand = "reg add `"$regPath`" /v `"$Name`" /t REG_$Type /d $Value /f"
+                    
+                    try {
+                        $result = & cmd.exe /c $regCommand 2>&1
+                        if ($LASTEXITCODE -eq 0) {
+                            Write-ColorOutput "[+] Set $Path\$Name = $Value (via reg.exe)" -Color Good
+                            return $true
+                        }
+                        else {
+                            Write-ColorOutput "Warning: reg.exe failed with exit code $LASTEXITCODE" -Color Warning
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "Warning: reg.exe execution failed: $($_.Exception.Message)" -Color Warning
+                    }
+                    
+                    # Final fallback: Try direct registry manipulation
+                    $regKeyPath = $regPath -replace "^HKEY_LOCAL_MACHINE\\", ""
+                    try {
+                        $regKey = [Microsoft.Win32.Registry]::LocalMachine.OpenSubKey($regKeyPath, $true)
+                        if ($null -eq $regKey) {
+                            # Try to create the key
+                            $regKey = [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey($regKeyPath)
+                        }
+                        
+                        if ($null -ne $regKey) {
+                            $regValue = switch ($Type) {
+                                "DWORD" { [Microsoft.Win32.RegistryValueKind]::DWord }
+                                "QWORD" { [Microsoft.Win32.RegistryValueKind]::QWord }
+                                "String" { [Microsoft.Win32.RegistryValueKind]::String }
+                                default { [Microsoft.Win32.RegistryValueKind]::DWord }
+                            }
+                            $regKey.SetValue($Name, $Value, $regValue)
+                            $regKey.Close()
+                            Write-ColorOutput "[+] Set $Path\$Name = $Value (via Registry API)" -Color Good
+                            return $true
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "Warning: Registry API failed: $($_.Exception.Message)" -Color Warning
+                    }
+                    
+                }
+                catch {
+                    Write-ColorOutput "Warning: Special Windows Defender handling failed: $($_.Exception.Message)" -Color Warning
+                }
+            }
+            else {
+                # Normal path creation for non-Windows Defender paths
+                try {
+                    # Try to create the full path recursively
+                    $pathParts = $Path.Split('\')
+                    $currentPath = $pathParts[0]
+                    
+                    for ($i = 1; $i -lt $pathParts.Length; $i++) {
+                        $currentPath += "\$($pathParts[$i])"
+                        if (-not (Test-Path $currentPath)) {
+                            try {
+                                New-Item -Path $currentPath -Force | Out-Null
+                            }
+                            catch {
+                                # If New-Item fails, try alternative approach
+                                if ($currentPath -match "^HKLM:") {
+                                    $regPath = $currentPath -replace "^HKLM:", "HKEY_LOCAL_MACHINE"
+                                    [Microsoft.Win32.Registry]::LocalMachine.CreateSubKey(($regPath -replace "^HKEY_LOCAL_MACHINE\\", "")) | Out-Null
+                                }
+                            }
+                        }
+                    }
+                    Write-ColorOutput "Created registry path: $Path" -Color Info
+                }
+                catch {
+                    Write-ColorOutput "Warning: Could not create registry path: $($_.Exception.Message)" -Color Warning
+                }
+            }
+        }
+        
+        # Handle different value types and sizes
+        $actualValue = $Value
+        $actualType = $Type
+        
+        # Special handling for large hex values
+        if ($Value -is [string] -and $Value.Length -gt 8 -and $Value -match "^[0-9A-Fa-f]+$") {
+            # This is a large hex value, treat it as QWORD or String
+            try {
+                $actualValue = [Convert]::ToUInt64($Value, 16)
+                $actualType = "QWORD"
+            }
+            catch {
+                # If QWORD fails, use String type
+                $actualType = "String"
+                $actualValue = $Value
+            }
+        }
+        
+        # Set the registry value with proper type handling (skip if Windows Defender was handled above)
+        if (-not ($isWindowsDefenderPath -and $Name -eq "ASLR_ForceRelocateImages")) {
+            try {
+                # Verify path exists before setting
+                if (Test-Path $Path) {
+                    Set-ItemProperty -Path $Path -Name $Name -Value $actualValue -Type $actualType -Force
+                    Write-ColorOutput "[+] Set $Path\$Name = $Value (Type: $actualType)" -Color Good
+                    return $true
+                }
+                else {
+                    Write-ColorOutput "[-] Registry path $Path does not exist and could not be created" -Color Bad
+                    return $false
+                }
+            }
+            catch [System.UnauthorizedAccessException] {
+                Write-ColorOutput "[-] Access denied setting $Path\$Name - Insufficient privileges" -Color Bad
+                return $false
+            }
+            catch [System.ArgumentException] {
+                # If the type conversion fails, try String type
+                if ($actualType -ne "String") {
+                    try {
+                        Set-ItemProperty -Path $Path -Name $Name -Value $Value -Type "String" -Force
+                        Write-ColorOutput "[+] Set $Path\$Name = $Value (Type: String fallback)" -Color Good
+                        return $true
+                    }
+                    catch {
+                        Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                        return $false
+                    }
+                }
+                else {
+                    Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                    return $false
+                }
+            }
+            catch {
+                Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+                return $false
+            }
+        }
+        
+        return $true
+    }
+    catch {
+        Write-ColorOutput "[-] Failed to set $Path\$Name = $Value : $($_.Exception.Message)" -Color Bad
+        return $false
+    }
+}
+
+function Show-ResultsTable {
+    param(
+        [array]$Results
+    )
+    
+    Write-ColorOutput "`nSide-Channel Vulnerability Mitigation Status:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    
+    # Define categories for mitigation grouping
+    $softwareMitigations = @(
+        "Speculative Store Bypass Disable",
+        "SSBD Feature Mask", 
+        "Branch Target Injection Mitigation",
+        "Kernel VA Shadow (Meltdown Protection)",
+        "Enhanced IBRS",
+        "Intel TSX Disable",
+        "L1TF Mitigation",
+        "MDS Mitigation",
+        "CVE-2019-11135 Mitigation",
+        "SBDR/SBDS Mitigation",
+        "SRBDS Update Mitigation",
+        "DRPW Mitigation"
+    )
+    
+    $securityFeatures = @(
+        "Hardware Security Mitigations",
+        "Exception Chain Validation",
+        "Supervisor Mode Access Prevention",
+        "Windows Defender Exploit Guard ASLR",
+        "Virtualization Based Security",
+        "Hypervisor Code Integrity",
+        "Credential Guard",
+        "Windows Defender Application Guard"
+    )
+    
+    $hardwarePrerequisites = @(
+        "UEFI Firmware (not Legacy BIOS)",
+        "Secure Boot",
+        "TPM 2.0 (Trusted Platform Module)",
+        "CPU Virtualization Support (VT-x/AMD-V)",
+        "IOMMU/VT-d Support",
+        "CPU Microcode"
+    )
+    
+    # Helper function to categorize and format results
+    function Get-CategorizedResults {
+        param(
+            [array]$Results,
+            [array]$CategoryNames,
+            [string]$CategoryTitle,
+            [string]$CategoryEmoji,
+            [switch]$IsHardwareCategory
+        )
+        
+        $categoryResults = $Results | Where-Object { $_.Name -in $CategoryNames }
+        if ($categoryResults.Count -gt 0) {
+            Write-ColorOutput "`n$CategoryEmoji $CategoryTitle" -Color Header
+            Write-ColorOutput ("=" * 60) -Color Header
+            
+            $tableData = @()
+            foreach ($result in $categoryResults) {
+                # Define status emoji symbols
+                $iconEnabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+                $iconDisabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) # ✗
+                $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))  # ⚠
+                
+                $status = switch ($result.Status) {
+                    "Enabled" { "$iconEnabled Enabled" }
+                    "Disabled" { "$iconDisabled Disabled" }
+                    "Not Configured" { "$iconDisabled Not Set" }
+                    default { $result.Status }
+                }
+                
+                # Format current value for display
+                $currentValueDisplay = $result.CurrentValue
+                if ($result.CurrentValue -is [uint64] -and $result.CurrentValue -gt 0xFFFFFFFF) {
+                    # For large QWORD values, show only hex
+                    $currentValueDisplay = "0x{0:X}" -f $result.CurrentValue
+                }
+                elseif ($result.CurrentValue -eq "Not Set" -or $null -eq $result.CurrentValue) {
+                    $currentValueDisplay = "Not Set"
+                }
+                
+                # Get runtime state from kernel API if available
+                $runtimeState = "-"
+                $runtimeColor = "Gray"
+                if ($script:RuntimeState.APIAvailable) {
+                    # Map mitigation names to runtime state flags
+                    $runtimeActive = switch ($result.Name) {
+                        "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+                        "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+                        "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled }
+                        "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+                        "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+                        default { $null }
+                    }
+                    
+                    if ($null -ne $runtimeActive) {
+                        if ($runtimeActive) {
+                            $runtimeState = "$iconEnabled Active"
+                            $runtimeColor = "Green"
+                            
+                            # Check for discrepancy with registry
+                            if ($result.Status -ne "Enabled") {
+                                $runtimeState = "$iconWarning Active"
+                                $runtimeColor = "Yellow"
+                            }
+                        }
+                        else {
+                            # Runtime shows inactive - check for hardware immunity FIRST before marking as Pending
+                            $hasHardwareImmunity = $false
+                            
+                            if ($result.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and $script:RuntimeState.RDCLHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                                $hasHardwareImmunity = $true
+                            }
+                            elseif ($result.Name -eq "MDS Mitigation" -and $script:RuntimeState.MDSHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                                $hasHardwareImmunity = $true
+                            }
+                            
+                            if (-not $hasHardwareImmunity) {
+                                $runtimeState = "$iconDisabled Inactive"
+                                $runtimeColor = "Red"
+                                
+                                # Check if registry says enabled but runtime is inactive (and no hardware immunity)
+                                if ($result.Status -eq "Enabled") {
+                                    $runtimeState = "$iconWarning Pending"
+                                    $runtimeColor = "Yellow"
+                                }
+                            }
+                        }
+                    }
+                    else {
+                        # Check for hardware immunity
+                        if ($result.Name -eq "MDS Mitigation") {
+                            if ($script:RuntimeState.MDSHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                            }
+                            elseif ($script:RuntimeState.MBClearEnabled) {
+                                $runtimeState = "$iconEnabled Active"
+                                $runtimeColor = "Green"
+                            }
+                        }
+                        elseif ($result.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and $script:RuntimeState.RDCLHardwareProtected) {
+                            $runtimeState = "$iconEnabled Immune"
+                            $runtimeColor = "Cyan"
+                        }
+                        elseif ($result.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.RetpolineEnabled) {
+                            $runtimeState = "$iconEnabled Retpoline"
+                            $runtimeColor = "Green"
+                        }
+                        elseif ($result.Name -eq "Retpoline Support") {
+                            # Show clear status for Retpoline based on what's actually active
+                            if ($script:RuntimeState.EnhancedIBRS) {
+                                $runtimeState = "$iconEnabled Not Needed"
+                                $runtimeColor = "Cyan"
+                            }
+                            elseif ($script:RuntimeState.RetpolineEnabled) {
+                                $runtimeState = "$iconEnabled Active"
+                                $runtimeColor = "Green"
+                            }
+                            else {
+                                $runtimeState = "$iconDisabled Inactive"
+                                $runtimeColor = "Yellow"
+                            }
+                        }
+                    }
+                }
+                
+                $tableData += [PSCustomObject]@{
+                    'Mitigation Name' = $result.Name
+                    'Registry Status' = $status
+                    'Kernel Runtime'  = $runtimeState
+                    'Current Value'   = $currentValueDisplay
+                    'Expected Value'  = $result.ExpectedValue
+                    'Impact'          = $result.Impact
+                }
+            }
+            
+            # Display the table for this category with custom formatting to preserve colors
+            if ($script:RuntimeState.APIAvailable) {
+                # Show runtime state column with note
+                $tableData | Format-Table -Property 'Mitigation Name', 'Registry Status', 'Kernel Runtime', 'Impact' -AutoSize -Wrap
+                
+                # Check for discrepancies in this category and provide detailed explanations
+                $pendingItems = $tableData | Where-Object { $_.'Kernel Runtime' -like "*Pending*" }
+                $activeButNotConfigured = $tableData | Where-Object { $_.'Kernel Runtime' -like "*$iconWarning*Active*" -and $_.'Registry Status' -notlike "*Enabled*" }
+                
+                if ($pendingItems.Count -gt 0) {
+                    $iconWarning = Get-Icon -Name Warning
+                    $iconInfo = Get-Icon -Name Info
+                    Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
+                    Write-Host "DISCREPANCY DETECTED - Registry says 'Enabled' but Kernel shows 'Inactive'" -ForegroundColor Yellow
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "TRUST: Kernel Runtime (authoritative) - Protection is NOT currently active" -ForegroundColor Cyan
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Possible causes:" -ForegroundColor Gray
+                    Write-Host "     1. Windows may have overridden the setting (Group Policy, security baseline)" -ForegroundColor Gray
+                    Write-Host "     2. CPU/hardware doesn't support this mitigation" -ForegroundColor Gray
+                    Write-Host "     3. Conflicting registry settings preventing activation" -ForegroundColor Gray
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Action: Review with 'Get-SpeculationControlSettings' for hardware capability check" -ForegroundColor White
+                }
+                
+                if ($activeButNotConfigured.Count -gt 0) {
+                    $iconWarning = Get-Icon -Name Warning
+                    $iconInfo = Get-Icon -Name Info
+                    Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
+                    Write-Host "DISCREPANCY DETECTED - Registry says 'Not Set' but Kernel shows 'Active'" -ForegroundColor Yellow
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Green
+                    Write-Host "TRUST: Kernel Runtime (authoritative) - Protection IS currently active" -ForegroundColor Green
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Likely causes:" -ForegroundColor Gray
+                    Write-Host "     1. Windows enabled it by default (modern Windows behavior)" -ForegroundColor Gray
+                    Write-Host "     2. Group Policy or security baseline enforcing the setting" -ForegroundColor Gray
+                    Write-Host "     3. CPU has hardware-level immunity (no registry config needed)" -ForegroundColor Gray
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Green
+                    Write-Host "Status: PROTECTED - No action needed (protection is working)" -ForegroundColor Green
+                }
+            }
+            else {
+                # Fallback to original table without runtime state
+                $tableData | Format-Table -Property 'Mitigation Name', 'Registry Status', 'Current Value', 'Expected Value', 'Impact' -AutoSize -Wrap
+            }
+            
+            # Category summary
+            if ($IsHardwareCategory) {
+                # Hardware prerequisites use different status values
+                $enabled = ($categoryResults | Where-Object { $_.Status -match "Enabled|Active|TPM 2\.0 Enabled|UEFI Firmware Active|Enabled and Active" }).Count
+            }
+            else {
+                # Software mitigations and security features - count "Enabled" OR runtime active
+                $enabled = 0
+                foreach ($item in $categoryResults) {
+                    $isEnabled = $item.Status -eq "Enabled"
+                    
+                    # Also check if active in kernel runtime (even if registry says "Not Set")
+                    $isRuntimeActive = $false
+                    if ($script:RuntimeState.APIAvailable) {
+                        $isRuntimeActive = switch ($item.Name) {
+                            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+                            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+                            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+                            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+                            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+                            default { $false }
+                        }
+                    }
+                    
+                    if ($isEnabled -or $isRuntimeActive) {
+                        $enabled++
+                    }
+                }
+            }
+            $total = $categoryResults.Count
+            $percentage = if ($total -gt 0) { [math]::Round(($enabled / $total) * 100, 1) } else { 0 }
+            
+            $summaryColor = switch ($percentage) {
+                { $_ -ge 80 } { $Colors['Good'] }
+                { $_ -ge 60 } { $Colors['Warning'] }
+                default { $Colors['Bad'] }
+            }
+            
+            Write-Host "Category Score: " -NoNewline
+            $categoryText = "$enabled/$total enabled (" + [string]$percentage + "%)"
+            Write-Host $categoryText -ForegroundColor $summaryColor
+        }
+    }
+    
+    # Display results by category
+    Get-CategorizedResults -Results $Results -CategoryNames $softwareMitigations -CategoryTitle "SOFTWARE MITIGATIONS" -CategoryEmoji $Emojis.Shield
+    Get-CategorizedResults -Results $Results -CategoryNames $securityFeatures -CategoryTitle "SECURITY FEATURES" -CategoryEmoji $Emojis.Lock
+    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji $Emojis.Wrench -IsHardwareCategory
+    
+    # Display any uncategorized results
+    $allCategorized = $softwareMitigations + $securityFeatures + $hardwarePrerequisites
+    $uncategorized = $Results | Where-Object { $_.Name -notin $allCategorized }
+    if ($uncategorized.Count -gt 0) {
+        Get-CategorizedResults -Results $uncategorized -CategoryNames ($uncategorized | Select-Object -ExpandProperty Name) -CategoryTitle "OTHER MITIGATIONS" -CategoryEmoji $Emojis.Gear
+    }
+    
+    # Overall summary - calculate from predefined category lists
+    Write-ColorOutput ("`n" + $Emojis.Chart + " OVERALL SECURITY SUMMARY") -Color Header
+    Write-ColorOutput ("=" * 60) -Color Header
+    
+    # Use the predefined category name lists for totals
+    $swMitigations = $Results | Where-Object { $_.Name -in $softwareMitigations }
+    $secFeatures = $Results | Where-Object { $_.Name -in $securityFeatures }
+    $hwPrereqs = $Results | Where-Object { $_.Name -in $hardwarePrerequisites }
+    
+    $swEnabled = ($swMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
+    $sfEnabled = ($secFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
+    $hwReady = ($hwPrereqs | Where-Object { $_.Status -match "Enabled|Active|TPM 2\.0 Enabled|UEFI Firmware Active|Enabled and Active" }).Count
+    
+    $totalEnabled = $swEnabled + $sfEnabled + $hwReady
+    $totalCount = $swMitigations.Count + $secFeatures.Count + $hwPrereqs.Count
+    $overallPercentage = if ($totalCount -gt 0) { [math]::Round(($totalEnabled / $totalCount) * 100, 1) } else { 0 }
+    
+    $overallColor = switch ($overallPercentage) {
+        { $_ -ge 80 } { $Colors['Good']; break }
+        { $_ -ge 60 } { $Colors['Warning']; break }
+        default { $Colors['Bad'] }
+    }
+    
+    # Create visual progress bar with Unicode blocks (PowerShell 5.1 compatible)
+    $BlockFull = Get-Icon -Name BlockFull
+    $BlockLight = Get-Icon -Name BlockLight
+    
+    $filledBlocks = [math]::Floor($overallPercentage / 10)
+    $emptyBlocks = 10 - $filledBlocks
+    
+    Write-Host "Overall Mitigation Score: " -NoNewline -ForegroundColor Gray
+    Write-Host "$overallPercentage%" -ForegroundColor $overallColor
+    Write-Host "Security Level: [" -NoNewline -ForegroundColor Gray
+    if ($filledBlocks -gt 0) {
+        Write-Host ($BlockFull * $filledBlocks) -ForegroundColor $overallColor -NoNewline
+    }
+    if ($emptyBlocks -gt 0) {
+        Write-Host ($BlockLight * $emptyBlocks) -ForegroundColor DarkGray -NoNewline
+    }
+    Write-Host "] $totalEnabled/$totalCount enabled" -ForegroundColor Gray
+    
+    # Display color-coded status legend with emoji symbols
+    $IconCheck = Get-Icon -Name Check
+    $IconCross = Get-Icon -Name Cross
+    
+    Write-ColorOutput ("`n" + $Emojis.Clipboard + " STATUS LEGEND") -Color Header
+    Write-Host "$IconCheck Enabled" -ForegroundColor $Colors['Good'] -NoNewline
+    Write-Host " - Mitigation is active and properly configured"
+    Write-Host "$IconCross Disabled" -ForegroundColor $Colors['Bad'] -NoNewline  
+    Write-Host " - Mitigation is explicitly disabled"
+    Write-Host "$IconCross Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
+    Write-Host " - Registry value not configured (using defaults)"
+    
+    # Color guide (traffic light system)
+    Write-ColorOutput "`nColor Guide:" -Color Header
+    Write-Host "  " -NoNewline
+    Write-Host "Green  " -ForegroundColor Green -NoNewline
+    Write-Host "= Good/Enabled    " -NoNewline
+    Write-Host "Yellow " -ForegroundColor Yellow -NoNewline
+    Write-Host "= Warning/Caution    " -NoNewline
+    Write-Host "Red    " -ForegroundColor Red -NoNewline
+    Write-Host "= Bad/Disabled"
+    Write-Host "  " -NoNewline
+    Write-Host "Cyan   " -ForegroundColor Cyan -NoNewline
+    Write-Host "= Information     " -NoNewline
+    Write-Host "Magenta" -ForegroundColor Magenta -NoNewline
+    Write-Host " = Section Headers"
+    
+    Write-ColorOutput ("`n" + $Emojis.Target + " CATEGORY DESCRIPTIONS") -Color Header
+    Write-ColorOutput ($Emojis.Shield + "  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities") -Color Info
+    Write-ColorOutput ($Emojis.Lock + " SECURITY FEATURES: Advanced Windows security technologies") -Color Info
+    Write-ColorOutput ($Emojis.Wrench + " HARDWARE PREREQUISITES: Required hardware security capabilities") -Color Info
+    
+    # Runtime state explanation if API is available
+    if ($script:RuntimeState.APIAvailable) {
+        $iconInfo = Get-Icon -Name Info
+        $iconStar = Get-Icon -Name Star
+        Write-ColorOutput "`n$iconInfo KERNEL RUNTIME STATE - WHICH TO TRUST?" -Color Info
+        Write-Host "  $iconStar " -NoNewline -ForegroundColor Yellow
+        Write-Host "ALWAYS TRUST: Kernel Runtime (shows actual protection status)" -ForegroundColor Yellow
+        Write-Host "  Registry Status: What you configured (may not be active yet)" -ForegroundColor Gray
+        Write-Host "  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)" -ForegroundColor Cyan
+        
+        $iconCheck = Get-Icon -Name Check
+        $iconWarning = Get-Icon -Name Warning
+        $iconCross = Get-Icon -Name Cross
+        Write-Host "`n  Runtime Status Meanings:" -ForegroundColor White
+        Write-Host "  $iconCheck Active" -ForegroundColor Green -NoNewline
+        Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
+        Write-Host "  $iconCross Inactive" -ForegroundColor Red -NoNewline
+        Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
+        Write-Host "  $iconWarning Pending" -ForegroundColor Yellow -NoNewline
+        Write-Host " - Registry says 'Enabled' but kernel is NOT active (check compatibility)" -ForegroundColor Gray
+        Write-Host "  $iconWarning Active" -ForegroundColor Yellow -NoNewline
+        Write-Host " - Registry says 'Not Set' but kernel IS active (Windows default/policy)" -ForegroundColor Gray
+        Write-Host "  $iconCheck Immune" -ForegroundColor Cyan -NoNewline
+        Write-Host " - CPU has hardware immunity (no software mitigation needed)" -ForegroundColor Gray
+        Write-Host "  $iconCheck Not Needed" -ForegroundColor Cyan -NoNewline
+        Write-Host " - Hardware protection (Enhanced IBRS) supersedes software mitigation" -ForegroundColor Gray
+        Write-Host "  $iconCheck Retpoline" -ForegroundColor Green -NoNewline
+        Write-Host " - Software mitigation active (older CPUs without Enhanced IBRS)" -ForegroundColor Gray
+    }
+}
+
+# ============================================================================
+# Runtime Mitigation State Detection (NtQuerySystemInformation API)
+# ============================================================================
+# This section adds Win32 API calls to query actual kernel runtime state
+# for speculation control mitigations, complementing registry-based detection
+
+function Initialize-NtQuerySystemAPI {
+    <#
+    .SYNOPSIS
+        Initializes the NtQuerySystemInformation Win32 API for runtime state queries
+    .DESCRIPTION
+        Adds the necessary P/Invoke signatures for querying Windows kernel speculation control state.
+        This provides more reliable detection than registry alone.
+        Compatible with PowerShell 5.1+
+    #>
+    
+    # Check if type is already loaded (avoid duplicate definition)
+    if (-not ([System.Management.Automation.PSTypeName]'NtQuery.SpeculationControl').Type) {
+        try {
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace NtQuery
+{
+    public class SpeculationControl
+    {
+        [DllImport("ntdll.dll")]
+        public static extern int NtQuerySystemInformation(
+            uint SystemInformationClass,
+            IntPtr SystemInformation,
+            uint SystemInformationLength,
+            IntPtr ReturnLength);
+    }
+}
+"@ -ErrorAction Stop
+            return $true
+        }
+        catch {
+            Write-Verbose "Failed to initialize NtQuerySystemInformation API: $($_.Exception.Message)"
+            return $false
+        }
+    }
+    return $true
+}
+
+function Get-RuntimeSpeculationControlState {
+    <#
+    .SYNOPSIS
+        Queries runtime speculation control state from Windows kernel
+    .DESCRIPTION
+        Uses NtQuerySystemInformation to get actual active mitigation state,
+        which may differ from registry configuration if reboot is pending.
+        Returns hashtable with runtime flags or $null if API unavailable.
+    #>
+    
+    # Initialize API if not already done
+    if (-not (Initialize-NtQuerySystemAPI)) {
+        Write-Verbose "NtQuerySystemInformation API not available"
+        return $null
+    }
+    
+    $systemInfoPtr = [IntPtr]::Zero
+    $returnLengthPtr = [IntPtr]::Zero
+    
+    try {
+        # Allocate memory for system information structure
+        $systemInfoPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(8)
+        $returnLengthPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        
+        # SystemSpeculationControlInformation = 201
+        $result = [NtQuery.SpeculationControl]::NtQuerySystemInformation(201, $systemInfoPtr, 8, $returnLengthPtr)
+        
+        if ($result -eq 0) {
+            # Successfully queried - read flags
+            $flags = [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr)
+            
+            # Read flags2 if available (offset 4 bytes)
+            $returnLength = [System.Runtime.InteropServices.Marshal]::ReadInt32($returnLengthPtr)
+            $flags2 = if ($returnLength -gt 4) {
+                [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr, 4)
+            }
+            else {
+                0
+            }
+            
+            # Parse flags into meaningful values (based on Microsoft SpeculationControl module)
+            return @{
+                RawFlags                       = $flags
+                RawFlags2                      = $flags2
+                
+                # Spectre v2 (BTI) - CVE-2017-5715
+                BTIEnabled                     = ($flags -band 0x01) -ne 0
+                BTIDisabledBySystemPolicy      = ($flags -band 0x02) -ne 0
+                BTIDisabledByNoHardwareSupport = ($flags -band 0x04) -ne 0
+                SpecCtrlEnumerated             = ($flags -band 0x08) -ne 0
+                SpecCmdEnumerated              = ($flags -band 0x10) -ne 0
+                IBRSPresent                    = ($flags -band 0x20) -ne 0
+                STIBPPresent                   = ($flags -band 0x40) -ne 0
+                
+                # Spectre v4 (SSB) - CVE-2018-3639
+                SSBDAvailable                  = ($flags -band 0x100) -ne 0
+                SSBDSupported                  = ($flags -band 0x200) -ne 0
+                SSBDSystemWide                 = ($flags -band 0x400) -ne 0
+                SSBDRequired                   = ($flags -band 0x1000) -ne 0
+                
+                # Retpoline & Import Optimization
+                RetpolineEnabled               = ($flags -band 0x4000) -ne 0
+                ImportOptimizationEnabled      = ($flags -band 0x8000) -ne 0
+                EnhancedIBRS                   = ($flags -band 0x10000) -ne 0
+                
+                # L1TF / Hypervisor flags
+                HvL1tfStatusAvailable          = ($flags -band 0x20000) -ne 0
+                HvL1tfProcessorNotAffected     = ($flags -band 0x40000) -ne 0
+                
+                # MDS - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
+                MDSHardwareProtected           = ($flags -band 0x1000000) -ne 0
+                MBClearEnabled                 = ($flags -band 0x2000000) -ne 0
+                MBClearReported                = ($flags -band 0x4000000) -ne 0
+                
+                # TAA / SBDR / FBSDP / PSDP (flags2)
+                SBDRSSDPHardwareProtected      = ($flags2 -band 0x01) -ne 0
+                FBSDPHardwareProtected         = ($flags2 -band 0x02) -ne 0
+                PSDPHardwareProtected          = ($flags2 -band 0x04) -ne 0
+                FBClearEnabled                 = ($flags2 -band 0x08) -ne 0
+                FBClearReported                = ($flags2 -band 0x10) -ne 0
+                
+                # BHB - CVE-2022-0001, CVE-2022-0002
+                BHBEnabled                     = ($flags2 -band 0x20) -ne 0
+                BHBDisabledSystemPolicy        = ($flags2 -band 0x40) -ne 0
+                BHBDisabledNoHardwareSupport   = ($flags2 -band 0x80) -ne 0
+                
+                # Retbleed / Branch Confusion
+                BranchConfusionReported        = ($flags2 -band 0x400) -ne 0
+                BranchConfusionStatus          = (($flags2 -band 0x300) -shr 8)
+                
+                # RDCL (Rogue Data Cache Load) - Enhanced Meltdown detection
+                RDCLHardwareProtectedReported  = ($flags2 -band 0x800) -ne 0
+                RDCLHardwareProtected          = ($flags2 -band 0x1000) -ne 0
+                
+                # GDS (Gather Data Sampling) - CVE-2022-40982
+                GDSReported                    = ($flags2 -band 0x2000) -ne 0
+                GDSStatus                      = (($flags2 -band 0x1C000) -shr 14)
+                
+                # SRSO (Speculative Return Stack Overflow) - CVE-2023-20569
+                SRSOReported                   = ($flags2 -band 0x20000) -ne 0
+                SRSOStatus                     = (($flags2 -band 0xC0000) -shr 18)
+                
+                # API Available
+                APIAvailable                   = $true
+                QueryTime                      = Get-Date
+            }
+        }
+        elseif ($result -eq 0xc0000003 -or $result -eq 0xc0000002) {
+            # STATUS_INVALID_INFO_CLASS or STATUS_NOT_IMPLEMENTED
+            Write-Verbose "NtQuerySystemInformation not supported on this OS version (result: 0x$($result.ToString('X8')))"
+            return $null
+        }
+        else {
+            Write-Verbose "NtQuerySystemInformation failed with error 0x$($result.ToString('X8'))"
+            return $null
+        }
+    }
+    catch {
+        Write-Verbose "Error querying runtime state: $($_.Exception.Message)"
+        return $null
+    }
+    finally {
+        # Free allocated memory
+        if ($systemInfoPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($systemInfoPtr)
+        }
+        if ($returnLengthPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($returnLengthPtr)
+        }
+    }
+}
+
+function Get-RuntimeKVAShadowState {
+    <#
+    .SYNOPSIS
+        Queries runtime KVA Shadow (KPTI/Meltdown) state
+    .DESCRIPTION
+        Uses NtQuerySystemInformation with class 196 to query KVA Shadow state
+    #>
+    
+    if (-not (Initialize-NtQuerySystemAPI)) {
+        return $null
+    }
+    
+    $systemInfoPtr = [IntPtr]::Zero
+    $returnLengthPtr = [IntPtr]::Zero
+    
+    try {
+        $systemInfoPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        $returnLengthPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        
+        # SystemKernelVaShadowInformation = 196
+        $result = [NtQuery.SpeculationControl]::NtQuerySystemInformation(196, $systemInfoPtr, 4, $returnLengthPtr)
+        
+        if ($result -eq 0) {
+            $flags = [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr)
+            
+            return @{
+                KVAShadowEnabled      = ($flags -band 0x01) -ne 0
+                KVAShadowUserGlobal   = ($flags -band 0x02) -ne 0
+                KVAShadowPcidEnabled  = (($flags -band 0x04) -ne 0) -and (($flags -band 0x08) -ne 0)
+                KVAShadowRequired     = ($flags -band 0x10) -ne 0
+                L1TFInvalidPteBit     = [math]::Floor(($flags -band 0xfc0) * [math]::Pow(2, -6))
+                L1TFFlushSupported    = ($flags -band 0x1000) -ne 0
+                L1TFMitigationPresent = ($flags -band 0x2000) -ne 0
+                APIAvailable          = $true
+            }
+        }
+        else {
+            return $null
+        }
+    }
+    catch {
+        return $null
+    }
+    finally {
+        if ($systemInfoPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($systemInfoPtr)
+        }
+        if ($returnLengthPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($returnLengthPtr)
+        }
+    }
+}
+
+function Get-CPUVulnerabilityDatabase {
+    <#
+    .SYNOPSIS
+        Returns comprehensive CPU vulnerability database
+    .DESCRIPTION
+        Database of known vulnerable CPU models for L1TF, MDS, and other vulnerabilities.
+        Based on Intel/AMD documentation and Microsoft SpeculationControl module.
+    #>
+    
+    return @{
+        # L1TF (Foreshadow) vulnerable Intel CPUs - Family.Model.Stepping
+        L1TF                       = @(
+            @{Family = 6; Model = 26; Stepping = 4 }, @{Family = 6; Model = 26; Stepping = 5 },
+            @{Family = 6; Model = 30; Stepping = 4 }, @{Family = 6; Model = 30; Stepping = 5 },
+            @{Family = 6; Model = 37; Stepping = 2 }, @{Family = 6; Model = 37; Stepping = 5 },
+            @{Family = 6; Model = 42; Stepping = 7 }, @{Family = 6; Model = 44; Stepping = 2 },
+            @{Family = 6; Model = 45; Stepping = 6 }, @{Family = 6; Model = 45; Stepping = 7 },
+            @{Family = 6; Model = 46; Stepping = 6 }, @{Family = 6; Model = 47; Stepping = 2 },
+            @{Family = 6; Model = 58; Stepping = 9 }, @{Family = 6; Model = 60; Stepping = 3 },
+            @{Family = 6; Model = 61; Stepping = 4 }, @{Family = 6; Model = 62; Stepping = 4 },
+            @{Family = 6; Model = 62; Stepping = 7 }, @{Family = 6; Model = 63; Stepping = 2 },
+            @{Family = 6; Model = 63; Stepping = 4 }, @{Family = 6; Model = 69; Stepping = 1 },
+            @{Family = 6; Model = 70; Stepping = 1 }, @{Family = 6; Model = 78; Stepping = 3 },
+            @{Family = 6; Model = 79; Stepping = 1 }, @{Family = 7; Model = 69; Stepping = 1 },
+            @{Family = 6; Model = 85; Stepping = 3 }, @{Family = 6; Model = 85; Stepping = 4 },
+            @{Family = 6; Model = 86; Stepping = 2 }, @{Family = 6; Model = 86; Stepping = 3 },
+            @{Family = 6; Model = 86; Stepping = 4 }, @{Family = 6; Model = 86; Stepping = 5 },
+            @{Family = 6; Model = 94; Stepping = 3 }, @{Family = 6; Model = 102; Stepping = 3 },
+            @{Family = 6; Model = 142; Stepping = 9 }, @{Family = 6; Model = 142; Stepping = 10 },
+            @{Family = 6; Model = 142; Stepping = 11 }, @{Family = 6; Model = 158; Stepping = 9 },
+            @{Family = 6; Model = 158; Stepping = 10 }, @{Family = 6; Model = 158; Stepping = 11 },
+            @{Family = 6; Model = 158; Stepping = 12 }
+        )
+        
+        # MDS vulnerable Intel CPUs (general guideline - most pre-2019 Intel CPUs)
+        # Note: Hardware-level MDS immunity introduced in newer architectures
+        MDSVulnerableArchitectures = @(
+            'Nehalem', 'Westmere', 'Sandy Bridge', 'Ivy Bridge',
+            'Haswell', 'Broadwell', 'Skylake', 'Kaby Lake', 'Coffee Lake'
+        )
+        
+        # AMD CPUs are generally not vulnerable to Intel-specific attacks
+        AMDImmuneFrom              = @('Meltdown', 'L1TF', 'MDS', 'TAA')
+    }
+}
+
+function Compare-RuntimeVsRegistryState {
+    <#
+    .SYNOPSIS
+        Compares runtime kernel state with registry configuration
+    .DESCRIPTION
+        Detects discrepancies between configured policy (registry) and actual runtime state.
+        Helps identify situations where a reboot is required or configuration didn't apply.
+    .PARAMETER MitigationName
+        Name of the mitigation to check (BTI, SSBD, KVAShadow, etc.)
+    .PARAMETER RegistryConfigured
+        Whether the mitigation is configured as enabled in registry
+    .PARAMETER RuntimeState
+        Hashtable from Get-RuntimeSpeculationControlState
+    #>
+    
+    param(
+        [string]$MitigationName,
+        [bool]$RegistryConfigured,
+        [hashtable]$RuntimeState
+    )
+    
+    if ($null -eq $RuntimeState -or -not $RuntimeState.APIAvailable) {
+        # Runtime API not available - can't compare
+        return @{
+            CanCompare      = $false
+            ConfiguredState = $RegistryConfigured
+            RuntimeState    = "Unknown"
+            Discrepancy     = $false
+            RebootRequired  = $false
+        }
+    }
+    
+    # Map mitigation names to runtime flags
+    $runtimeEnabled = switch ($MitigationName) {
+        "BTI" { $RuntimeState.BTIEnabled }
+        "SpectrV2" { $RuntimeState.BTIEnabled }
+        "SSBD" { $RuntimeState.SSBDSystemWide }
+        "SpectrV4" { $RuntimeState.SSBDSystemWide }
+        "Retpoline" { $RuntimeState.RetpolineEnabled }
+        "MBClear" { $RuntimeState.MBClearEnabled }
+        "FBClear" { $RuntimeState.FBClearEnabled }
+        default { $null }
+    }
+    
+    if ($null -eq $runtimeEnabled) {
+        return @{
+            CanCompare      = $false
+            ConfiguredState = $RegistryConfigured
+            RuntimeState    = "Unknown"
+            Discrepancy     = $false
+            RebootRequired  = $false
+        }
+    }
+    
+    $discrepancy = ($RegistryConfigured -ne $runtimeEnabled)
+    
+    return @{
+        CanCompare      = $true
+        ConfiguredState = $RegistryConfigured
+        RuntimeState    = $runtimeEnabled
+        Discrepancy     = $discrepancy
+        RebootRequired  = ($discrepancy -and $RegistryConfigured)  # Config says enabled but runtime says disabled
+        Message         = if ($discrepancy) {
+            if ($RegistryConfigured -and -not $runtimeEnabled) {
+                $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+                "$iconWarning Mitigation configured but not active - reboot required"
+            }
+            elseif (-not $RegistryConfigured -and $runtimeEnabled) {
+                $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                "$iconInfo Mitigation active but not configured (may be default or Group Policy)"
+            }
+        }
+        else {
+            $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            "$iconCheck Configuration matches runtime state"
+        }
+    }
+}
+
+# ============================================================================
+# Registry and Configuration Functions
+# ============================================================================
+
+function Get-RegistryValue {
+    param(
+        [string]$Path,
+        [string]$Name,
+        [object]$DefaultValue = $null
+    )
+    
+    try {
+        if (Test-Path $Path) {
+            $value = Get-ItemProperty -Path $Path -Name $Name -ErrorAction SilentlyContinue
+            if ($value) {
+                $rawValue = $value.$Name
+                
+                # Handle byte arrays (often from QWORD values or complex structures)
+                if ($rawValue -is [byte[]]) {
+                    # Special handling for MitigationOptions which is a 24-byte structure
+                    if ($Name -eq "MitigationOptions" -and $rawValue.Length -eq 24) {
+                        # Convert the first 8 bytes to UInt64 for comparison with expected hex values
+                        $uint64Value = 0
+                        for ($i = 0; $i -lt 8 -and $i -lt $rawValue.Length; $i++) {
+                            $uint64Value += [uint64]$rawValue[$i] -shl (8 * $i)
+                        }
+                        return $uint64Value
+                    }
+                    # For normal QWORD values (8 bytes or less)
+                    elseif ($rawValue.Length -le 8) {
+                        # Convert byte array to UInt64 (assuming little-endian format)
+                        $uint64Value = 0
+                        for ($i = 0; $i -lt $rawValue.Length; $i++) {
+                            $uint64Value += [uint64]$rawValue[$i] -shl (8 * $i)
+                        }
+                        return $uint64Value
+                    }
+                    else {
+                        # If longer than 8 bytes, return as hex string
+                        return ($rawValue | ForEach-Object { "{0:X2}" -f $_ }) -join ""
+                    }
+                }
+                
+                return $rawValue
+            }
+        }
+        return $DefaultValue
+    }
+    catch {
+        return $DefaultValue
+    }
+}
+
+function Test-SideChannelMitigation {
+    param(
+        [string]$Name,
+        [string]$Description,
+        [string]$RegistryPath,
+        [string]$RegistryName,
+        [object]$ExpectedValue,
+        [string]$Recommendation,
+        [string]$Impact = "Performance impact may vary"
+    )
+    
+    $currentValue = Get-RegistryValue -Path $RegistryPath -Name $RegistryName
+    $status = "Not Configured"
+    $statusColor = "Warning"
+    
+    if ($null -ne $currentValue) {
+        # Enhanced comparison logic to handle hex values and converted byte arrays
+        $valuesMatch = $false
+        
+        if ($currentValue -eq $ExpectedValue) {
+            $valuesMatch = $true
+        }
+        # Check if ExpectedValue is a hex string and convert for comparison
+        elseif ($ExpectedValue -is [string] -and $ExpectedValue -match "^[0-9A-Fa-f]+$" -and $ExpectedValue.Length -gt 8) {
+            try {
+                $expectedDecimal = [Convert]::ToUInt64($ExpectedValue, 16)
+                # Compare with current value (which might be UInt64 from converted byte array)
+                if ($currentValue -eq $expectedDecimal) {
+                    $valuesMatch = $true
+                }
+                # Special handling for MitigationOptions - check if the core flag is present
+                elseif ($RegistryName -eq "MitigationOptions" -and $currentValue -is [uint64]) {
+                    # Check if the core mitigation flag (0x2000000000000000) is set using bitwise AND
+                    $coreFlagPresent = ($currentValue -band $expectedDecimal) -eq $expectedDecimal
+                    if ($coreFlagPresent) {
+                        $valuesMatch = $true
+                        # Update recommendation for this special case
+                        if ($currentValue -ne $expectedDecimal) {
+                            $Recommendation = "Hardware mitigations core flag is enabled (0x{0:X}). Additional flags are also set, which is typically fine." -f $expectedDecimal
+                        }
+                    }
+                }
+                # Also try string comparison of hex representations
+                elseif ($currentValue -is [uint64]) {
+                    $currentHex = "{0:X}" -f $currentValue
+                    if ($currentHex.PadLeft($ExpectedValue.Length, '0') -eq $ExpectedValue) {
+                        $valuesMatch = $true
+                    }
+                }
+            }
+            catch {
+                # If conversion fails, stick with string comparison
+                $valuesMatch = ($currentValue.ToString() -eq $ExpectedValue)
+            }
+        }
+        # Check if current value might be hex representation of expected decimal
+        elseif ($ExpectedValue -is [int] -or $ExpectedValue -is [long]) {
+            $valuesMatch = ($currentValue -eq $ExpectedValue)
+        }
+        
+        if ($valuesMatch) {
+            $status = "Enabled"
+            $statusColor = "Good"
+        }
+        else {
+            $status = "Disabled"
+            $statusColor = "Bad"
+        }
+    }
+    
+    # Determine runtime status from kernel API
+    $runtimeStatus = "N/A"
+    if ($script:RuntimeState.APIAvailable) {
+        $runtimeActive = $null
+        $isImmune = $false
+        
+        switch ($Name) {
+            "Branch Target Injection Mitigation" { 
+                $runtimeActive = $script:RuntimeState.BTIEnabled 
+            }
+            "Speculative Store Bypass Disable" { 
+                $runtimeActive = $script:RuntimeState.SSBDSystemWide 
+            }
+            "Kernel VA Shadow (Meltdown Protection)" { 
+                if ($script:RuntimeState.RDCLHardwareProtected) {
+                    $isImmune = $true
+                }
+                else {
+                    $runtimeActive = $script:RuntimeKVAState.KVAShadowEnabled
+                }
+            }
+            "MDS Mitigation" { 
+                if ($script:RuntimeState.MDSHardwareProtected) {
+                    $isImmune = $true
+                }
+                else {
+                    $runtimeActive = $script:RuntimeState.MBClearEnabled
+                }
+            }
+            "Enhanced IBRS" { 
+                $runtimeActive = $script:RuntimeState.EnhancedIBRS 
+            }
+        }
+        
+        if ($isImmune) {
+            $runtimeStatus = "Hardware Immune"
+        }
+        elseif ($null -ne $runtimeActive) {
+            if ($runtimeActive) {
+                $runtimeStatus = "Active"
+            }
+            else {
+                $runtimeStatus = "Inactive"
+            }
+        }
+    }
+    
+    $result = [PSCustomObject]@{
+        Name           = $Name
+        Description    = $Description
+        Status         = $status
+        RuntimeStatus  = $runtimeStatus
+        CurrentValue   = if ($null -ne $currentValue) { $currentValue } else { "Not Set" }
+        ExpectedValue  = $ExpectedValue
+        RegistryPath   = $RegistryPath
+        RegistryName   = $RegistryName
+        Recommendation = $Recommendation
+        Impact         = $Impact
+        CanBeEnabled   = $true
+    }
+    
+    if ($Detailed) {
+        Write-ColorOutput "`n--- $Name ---" -Color Header
+        Write-ColorOutput "Description: $Description" -Color Info
+        Write-ColorOutput "Status: $status" -Color $statusColor
+        Write-ColorOutput "Current Value: $(if ($null -ne $currentValue) { $currentValue } else { 'Not Set' })" -Color Info
+        Write-ColorOutput "Expected Value: $ExpectedValue" -Color Info
+        
+        # Show appropriate configuration type based on RegistryPath
+        if ($RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
+            Write-ColorOutput "Registry: $RegistryPath\$RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "Hardware|UEFI|BIOS") {
+            Write-ColorOutput "Hardware/UEFI: $RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "Hyper-V") {
+            Write-ColorOutput "Hyper-V: $RegistryName" -Color Info
+        }
+        elseif ($RegistryPath -match "VMware") {
+            Write-ColorOutput "VMware: $RegistryName" -Color Info
+        }
+        else {
+            Write-ColorOutput "Configuration: $RegistryPath\$RegistryName" -Color Info
+        }
+        
+        Write-ColorOutput "Recommendation: $Recommendation" -Color Info
+        Write-ColorOutput "Impact: $Impact" -Color Info
+    }
+    else {
+        # Enhanced console output with clear status indicators and emoji symbols
+        $iconEnabled = Get-Icon -Name Enabled
+        $iconDisabled = Get-Icon -Name Disabled
+        
+        $statusIndicator = switch ($status) {
+            "Enabled" { "$iconEnabled ENABLED" }
+            "Disabled" { "$iconDisabled DISABLED" }
+            "Not Configured" { "$iconDisabled NOT SET" }
+            default { $status }
+        }
+        
+        $paddedName = $Name.PadRight(45)
+        Write-Host "$paddedName : " -NoNewline
+        Write-Host "$statusIndicator" -ForegroundColor $Colors[$statusColor] -NoNewline
+        
+        # Add current value for context
+        if ($currentValue -ne $null -and $currentValue -ne "Not Set") {
+            # Special formatting for Hardware Security Mitigations (MitigationOptions) to show hex
+            if ($Name -eq "Hardware Security Mitigations" -and $currentValue -is [uint64]) {
+                Write-Host " (Value: 0x$($currentValue.ToString('X16')))" -ForegroundColor Gray
+            }
+            else {
+                Write-Host " (Value: $currentValue)" -ForegroundColor Gray
+            }
+        }
+        else {
+            Write-Host ""
+        }
+        
+        # Runtime state comparison (if available)
+        if ($script:RuntimeState.APIAvailable -and -not $Detailed) {
+            $comparison = $null
+            $runtimeMitigationName = switch ($Name) {
+                "Branch Target Injection Mitigation" { "BTI" }
+                "Speculative Store Bypass Disable" { "SSBD" }
+                "Kernel VA Shadow (Meltdown Protection)" { "KVAShadow" }
+                default { $null }
+            }
+            
+            if ($runtimeMitigationName) {
+                $registryEnabled = ($status -eq "Enabled")
+                $comparison = Compare-RuntimeVsRegistryState -MitigationName $runtimeMitigationName `
+                    -RegistryConfigured $registryEnabled `
+                    -RuntimeState $script:RuntimeState
+                
+                if ($comparison.CanCompare -and $comparison.Discrepancy) {
+                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))  # ⚠
+                    Write-Host "     $iconWarning Runtime: " -NoNewline -ForegroundColor Yellow
+                    if ($comparison.RuntimeState) {
+                        Write-Host "Active" -ForegroundColor Green -NoNewline
+                    }
+                    else {
+                        Write-Host "Inactive" -ForegroundColor Red -NoNewline
+                    }
+                    Write-Host " (differs from registry)" -ForegroundColor Yellow
+                    if ($comparison.RebootRequired) {
+                        Write-Host "     \u21BB Reboot required to apply registry changes" -ForegroundColor Cyan
+                    }
+                }
+                elseif ($comparison.CanCompare -and -not $comparison.Discrepancy) {
+                    # Only show runtime match in verbose/detailed mode to reduce clutter
+                    if ($PSBoundParameters['Verbose']) {
+                        $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+                        Write-Host "     $iconCheck Runtime matches registry" -ForegroundColor DarkGray
+                    }
+                }
+            }
+            
+            # Show retpoline status for BTI
+            if ($Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.RetpolineEnabled) {
+                $iconInfo = Get-Icon -Name Info
+                Write-Host "     $iconInfo Retpoline: Active (software mitigation)" -ForegroundColor Cyan
+            }
+        }
+    }
+    
+    return $result
+}
+
+function Get-CPUInfo {
+    $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+    return @{
+        Name         = $cpu.Name
+        Manufacturer = $cpu.Manufacturer
+        Family       = $cpu.Family
+        Model        = $cpu.Model
+        Stepping     = $cpu.Stepping
+    }
+}
+
+function Get-WindowsVersion {
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem
+    return @{
+        Caption      = $os.Caption
+        Version      = $os.Version
+        BuildNumber  = $os.BuildNumber
+        Architecture = $os.OSArchitecture
+    }
+}
+
+function Get-HardwareRequirements {
+    <#
+    .SYNOPSIS
+        Checks hardware requirements for security features like VBS, Secure Boot, TPM, UEFI
+    .DESCRIPTION
+        Detects and returns status of hardware security requirements
+    #>
+    
+    $hwInfo = @{
+        IsUEFI            = $false
+        SecureBootEnabled = $false
+        SecureBootCapable = $false
+        TPMPresent        = $false
+        TPMVersion        = "Not Available"
+        IOMMUSupport      = "Unknown"
+        VTxSupport        = $false
+        SecureBootStatus  = "Not Available"
+    }
+    
+    try {
+        # Check for UEFI vs Legacy BIOS
+        $firmwareType = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+        if ($firmwareType -or (Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control" -Name "PEFirmwareType" -ErrorAction SilentlyContinue)) {
+            $hwInfo.IsUEFI = $true
+        }
+        
+        # Check Secure Boot status
+        try {
+            $secureBootState = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+            if ($secureBootState) {
+                $hwInfo.SecureBootEnabled = $secureBootState.UEFISecureBootEnabled -eq 1
+                $hwInfo.SecureBootCapable = $true
+                $hwInfo.SecureBootStatus = if ($hwInfo.SecureBootEnabled) { "Enabled" } else { "Available but Disabled" }
+            }
+            else {
+                # Alternative check using PowerShell cmdlet if available
+                try {
+                    $secureBootUEFI = Get-SecureBootUEFI -ErrorAction SilentlyContinue
+                    if ($secureBootUEFI) {
+                        $hwInfo.SecureBootCapable = $true
+                        $hwInfo.SecureBootStatus = "Capable (check UEFI settings)"
+                    }
+                }
+                catch {
+                    $hwInfo.SecureBootStatus = "Not Available"
+                }
+            }
+        }
+        catch {
+            $hwInfo.SecureBootStatus = "Detection Failed"
+        }
+        
+        # Check TPM
+        try {
+            $tpm = Get-CimInstance -Namespace "Root\cimv2\Security\MicrosoftTpm" -ClassName "Win32_Tpm" -ErrorAction SilentlyContinue
+            if ($tpm) {
+                $hwInfo.TPMPresent = $true
+                $hwInfo.TPMVersion = "$($tpm.SpecVersion)"
+            }
+            else {
+                # Alternative TPM check
+                try {
+                    $tpmWmi = Get-WmiObject -Namespace "Root\cimv2\Security\MicrosoftTpm" -Class "Win32_Tpm" -ErrorAction SilentlyContinue
+                    if ($tpmWmi) {
+                        $hwInfo.TPMPresent = $true
+                        $hwInfo.TPMVersion = "Available"
+                    }
+                }
+                catch {
+                    # Try PowerShell TPM module
+                    try {
+                        $tpmInfo = Get-Tpm -ErrorAction SilentlyContinue
+                        if ($tpmInfo) {
+                            $hwInfo.TPMPresent = $tpmInfo.TmpPresent
+                            $hwInfo.TPMVersion = if ($tmpInfo.TmpPresent) { "2.0" } else { "Not Available" }
+                        }
+                    }
+                    catch {
+                        $hwInfo.TPMVersion = "Detection Failed"
+                    }
+                }
+            }
+        }
+        catch {
+            $hwInfo.TPMVersion = "Detection Failed"
+        }
+        
+        # Check CPU Virtualization Support (Enhanced Detection)
+        try {
+            $hwInfo.VTxSupport = $false
+            $vtxStatus = "Not Detected"
+            
+            # Method 1: Check if Hyper-V is running (strong indicator of VT-x/AMD-V)
+            try {
+                $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
+                if ($hyperv -and $hyperv.State -eq "Enabled") {
+                    $hwInfo.VTxSupport = $true
+                    $vtxStatus = "Enabled (Hyper-V Running)"
+                }
+            }
+            catch { }
+            
+            # Method 2: Check Win32_Processor VirtualizationFirmwareEnabled
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+                    if ($cpu.VirtualizationFirmwareEnabled -eq $true) {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (Firmware)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 3: Check systeminfo command for virtualization
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $systemInfo = systeminfo.exe 2>$null | Out-String
+                    if ($systemInfo -match "Virtualization Enabled In Firmware:\s*Yes") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (System Info)"
+                    }
+                    elseif ($systemInfo -match "Hyper-V") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (Hyper-V Detected)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 4: Check CPU capabilities via WMI
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $cpuFeatures = Get-WmiObject -Class Win32_Processor | Select-Object -First 1
+                    # Intel VT-x detection
+                    if ($cpuFeatures.Name -match "Intel") {
+                        # Check if we can detect Intel VT-x flags
+                        if ($cpuFeatures.Description -match "VT-x|Virtualization" -or 
+                            $cpuFeatures.Characteristics -contains 32) {
+                            # 32 = supports virtualization
+                            $hwInfo.VTxSupport = $true
+                            $vtxStatus = "Available (Intel VT-x)"
+                        }
+                    }
+                    # AMD-V detection
+                    elseif ($cpuFeatures.Name -match "AMD") {
+                        if ($cpuFeatures.Description -match "AMD-V|SVM") {
+                            $hwInfo.VTxSupport = $true
+                            $vtxStatus = "Available (AMD-V)"
+                        }
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 5: Check if VMware Workstation/VirtualBox can run (indirect detection)
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    # Check for virtualization-capable services
+                    $vboxService = Get-Service -Name "VBoxSVC" -ErrorAction SilentlyContinue
+                    $vmwareService = Get-Service -Name "VMware*" -ErrorAction SilentlyContinue
+                    if ($vboxService -or $vmwareService) {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Likely Available (VM Software Installed)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 6: Check WMIC for processor features (last resort)
+            if (-not $hwInfo.VTxSupport) {
+                try {
+                    $wmicOutput = wmic cpu get Name, VirtualizationFirmwareEnabled /format:list 2>$null | Out-String
+                    if ($wmicOutput -match "VirtualizationFirmwareEnabled=TRUE") {
+                        $hwInfo.VTxSupport = $true
+                        $vtxStatus = "Enabled (WMIC)"
+                    }
+                }
+                catch { }
+            }
+            
+            # Store detection method for debugging
+            $hwInfo.VTxDetectionMethod = $vtxStatus
+        }
+        catch {
+            $hwInfo.VTxSupport = $false
+            $hwInfo.VTxDetectionMethod = "Detection Failed"
+        }
+        
+        # Check IOMMU/VT-d support (enhanced multi-method detection)
+        try {
+            $iommuDetected = $false
+            $iommuMethod = ""
+            
+            # Method 1: Check for IOMMU service/driver
+            $vtdRegistry = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\iommu" -ErrorAction SilentlyContinue
+            if ($vtdRegistry) {
+                $iommuDetected = $true
+                $iommuMethod = "IOMMU Driver"
+            }
+            
+            # Method 2: Check VBS AvailableSecurityProperties for DMA protection (property 7)
+            if (!$iommuDetected) {
+                try {
+                    $vbsCheck = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+                    if ($vbsCheck -and $vbsCheck.AvailableSecurityProperties -contains 7) {
+                        $iommuDetected = $true
+                        $iommuMethod = "VBS DMA Protection"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 3: Check Hyper-V IOMMU indicators
+            if (!$iommuDetected) {
+                $hvIommu = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -ErrorAction SilentlyContinue
+                if ($hvIommu) {
+                    $iommuDetected = $true
+                    $iommuMethod = "Hyper-V"
+                }
+            }
+            
+            # Method 4: Check Intel/AMD specific registry keys
+            if (!$iommuDetected) {
+                $cpuManufacturer = (Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1).Manufacturer
+                if ($cpuManufacturer -match "Intel") {
+                    $vtdEnabled = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled" -ErrorAction SilentlyContinue
+                    if ($vtdEnabled.VTdEnabled -eq 1) {
+                        $iommuDetected = $true
+                        $iommuMethod = "Intel VT-d"
+                    }
+                }
+                elseif ($cpuManufacturer -match "AMD") {
+                    $amdViEnabled = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled" -ErrorAction SilentlyContinue
+                    if ($amdViEnabled.IOMMUEnabled -eq 1) {
+                        $iommuDetected = $true
+                        $iommuMethod = "AMD IOMMU"
+                    }
+                }
+            }
+            
+            if ($iommuDetected) {
+                $hwInfo.IOMMUSupport = "Enabled ($iommuMethod)"
+            }
+            else {
+                $hwInfo.IOMMUSupport = "Not Enabled or Not Available"
+            }
+        }
+        catch {
+            $hwInfo.IOMMUSupport = "Not Enabled or Not Available"
+        }
+    }
+    catch {
+        Write-Verbose "Error checking hardware requirements: $($_.Exception.Message)"
+    }
+    
+    return $hwInfo
+}
+
+function Get-VirtualizationInfo {
+    $virtualizationInfo = @{
+        IsVirtualMachine            = $false
+        HypervisorPresent           = $false
+        HypervisorVendor            = "Unknown"
+        VirtualizationTechnology    = "None"
+        NestedVirtualizationEnabled = $false
+        HyperVStatus                = "Not Available"
+        VBSStatus                   = "Not Available"
+        HVCIStatus                  = "Not Available"
+    }
+    
+    try {
+        # Check if running in a VM
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem
+        $virtualizationInfo.IsVirtualMachine = $computerSystem.Model -match "Virtual|VMware|VirtualBox|Hyper-V|Xen|KVM"
+        
+        # Detect hypervisor
+        $bios = Get-CimInstance -ClassName Win32_BIOS
+        if ($bios.Manufacturer -match "VMware") {
+            $virtualizationInfo.HypervisorVendor = "VMware"
+            $virtualizationInfo.VirtualizationTechnology = "VMware vSphere/Workstation"
+        }
+        elseif ($bios.Manufacturer -match "Microsoft|Hyper-V") {
+            $virtualizationInfo.HypervisorVendor = "Microsoft"
+            $virtualizationInfo.VirtualizationTechnology = "Hyper-V"
+        }
+        elseif ($computerSystem.Manufacturer -match "QEMU|KVM") {
+            $virtualizationInfo.HypervisorVendor = "QEMU/KVM"
+            $virtualizationInfo.VirtualizationTechnology = "Linux KVM"
+        }
+        elseif ($computerSystem.Manufacturer -match "innotek|VirtualBox") {
+            $virtualizationInfo.HypervisorVendor = "Oracle"
+            $virtualizationInfo.VirtualizationTechnology = "VirtualBox"
+        }
+        
+        # Check for hypervisor presence
+        $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled -or (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Virtual Machine\Guest\Parameters" -ErrorAction SilentlyContinue)) {
+            $virtualizationInfo.HypervisorPresent = $true
+        }
+        
+        # Check Hyper-V status
+        $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
+        if ($hyperv) {
+            $virtualizationInfo.HyperVStatus = $hyperv.State
+        }
+        
+        # Check nested virtualization (Intel VT-x/AMD-V in VM)
+        try {
+            $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+            if ($vmProcessor) {
+                $virtualizationInfo.NestedVirtualizationEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+            }
+        }
+        catch {
+            # Hyper-V not available or not running VMs
+        }
+        
+        # Check VBS and HVCI using correct namespace
+        try {
+            # Try the correct namespace first
+            $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+            if (!$deviceGuard) {
+                # Fallback to default namespace
+                $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+            }
+            
+            if ($deviceGuard) {
+                $virtualizationInfo.VBSStatus = switch ($deviceGuard.VirtualizationBasedSecurityStatus) {
+                    2 { "Running" }
+                    1 { "Enabled" }
+                    0 { "Disabled" }
+                    default { "Unknown ($($deviceGuard.VirtualizationBasedSecurityStatus))" }
+                }
+                $virtualizationInfo.HVCIStatus = switch ($deviceGuard.CodeIntegrityPolicyEnforcementStatus) {
+                    2 { "Enforced" }
+                    1 { "Audit Mode" }
+                    0 { "Disabled" }
+                    default { "Unknown ($($deviceGuard.CodeIntegrityPolicyEnforcementStatus))" }
+                }
+            }
+            else {
+                # Alternative method using registry
+                $vbsRegValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name "EnableVirtualizationBasedSecurity"
+                if ($null -ne $vbsRegValue -and $vbsRegValue -eq 1) {
+                    $virtualizationInfo.VBSStatus = "Enabled (Registry)"
+                }
+                else {
+                    $virtualizationInfo.VBSStatus = "Not Available"
+                }
+                
+                $hvciRegValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled"
+                if ($null -ne $hvciRegValue -and $hvciRegValue -eq 1) {
+                    $virtualizationInfo.HVCIStatus = "Enabled (Registry)"
+                }
+                else {
+                    $virtualizationInfo.HVCIStatus = "Not Available"
+                }
+            }
+        }
+        catch {
+            Write-Verbose "Error checking VBS status: $($_.Exception.Message)"
+            $virtualizationInfo.VBSStatus = "Error"
+            $virtualizationInfo.HVCIStatus = "Error"
+        }
+    }
+    catch {
+        Write-Warning "Error detecting virtualization info: $($_.Exception.Message)"
+    }
+    
+    return $virtualizationInfo
+}
+
+function Get-HypervisorMitigations {
+    param(
+        [string]$HypervisorVendor
+    )
+    
+    $mitigations = @()
+    
+    switch ($HypervisorVendor) {
+        "Microsoft" {
+            # Hyper-V specific checks
+            $mitigations += @{
+                Name         = "Hyper-V Core Scheduler"
+                Description  = "Core Scheduler prevents SMT-based side-channel attacks between VMs"
+                RegistryPath = "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization\MinVmVersionForCpuBasedMitigations"
+                Command      = "Set-VMProcessor -VMName * -HwThreadCountPerCore 1"
+                Impact       = "May reduce VM performance on SMT-enabled CPUs"
+            }
+            $mitigations += @{
+                Name            = "Hyper-V SLAT (Second Level Address Translation)"
+                Description     = "Hardware-assisted virtualization for memory protection"
+                RequiredFeature = "Intel EPT or AMD RVI support"
+                Impact          = "Essential for VM isolation and performance"
+            }
+        }
+        "VMware" {
+            $mitigations += @{
+                Name         = "VMware Side-Channel Aware Scheduler"
+                Description  = "ESXi scheduler aware of side-channel attacks"
+                ConfigOption = "sched.cpu.vsmp.effectiveAffinity"
+                Impact       = "Available in vSphere 6.7 U2 and later"
+            }
+            $mitigations += @{
+                Name         = "VMware L1TF Mitigation"
+                Description  = "L1 Terminal Fault protection in ESXi"
+                ConfigOption = "vmx.allowNonVPID = FALSE"
+                Impact       = "Requires CPU microcode updates"
+            }
+        }
+        "QEMU/KVM" {
+            $mitigations += @{
+                Name         = "KVM IBRS/IBPB Support"
+                Description  = "Indirect Branch Restricted Speculation support"
+                ConfigOption = "-cpu host,+spec-ctrl,+ibpb"
+                Impact       = "Requires host CPU microcode and kernel support"
+            }
+        }
+    }
+    
+    return $mitigations
+}
+
+function Show-VMwareHostSecurity {
+    <#
+    .SYNOPSIS
+    Displays comprehensive VMware host security configuration guidance for side-channel vulnerability protection.
+    
+    .DESCRIPTION
+    Provides detailed ESXi configuration steps and security recommendations specifically for protecting 
+    VMware virtual machines against side-channel attacks like Spectre, Meltdown, L1TF, and MDS.
+    #>
+    
+    Write-ColorOutput "`nVMware Host Security Configuration Guide:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    Write-ColorOutput "ESXi/vSphere Security Hardening for Side-Channel Vulnerability Protection`n" -Color Warning
+    
+    Write-ColorOutput "[*] CRITICAL ESXi HOST SETTINGS:" -Color Header
+    
+    Write-ColorOutput "`n1. Side-Channel Aware Scheduler (SCAS):" -Color Info
+    Write-ColorOutput "   # Enable Side-Channel Aware Scheduler (ESXi 6.7 U2+)" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigation -i true" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingMitigationIntraVM -i true" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Alternative: Disable Hyperthreading completely (more secure but performance impact)" -Color Warning
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/hyperthreadingActive -i false" -Color Warning
+    
+    Write-ColorOutput "`n2. L1 Terminal Fault (L1TF) Protection:" -Color Info
+    Write-ColorOutput "   # Enable L1D cache flush for VMs" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/runToCompletionOnly -i true" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/mitigateL1TF -i true" -Color Success
+    
+    Write-ColorOutput "`n3. MDS/TAA Microcode Mitigations:" -Color Info
+    Write-ColorOutput "   # Enable CPU microcode updates" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false" -Color Success
+    
+    Write-ColorOutput "`n4. Spectre/Meltdown Host Protection:" -Color Info
+    Write-ColorOutput "   # Enable IBRS/IBPB support" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/disableSpeculativeExecution -i false" -Color Success
+    Write-ColorOutput "   # Enable SSBD (Speculative Store Bypass Disable)" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced set -o /VMkernel/Boot/enableSSBD -i true" -Color Success
+    
+    Write-ColorOutput "`n[*] VM-LEVEL CONFIGURATION:" -Color Header
+    
+    Write-ColorOutput "`nVM Hardware Requirements:" -Color Info
+    Write-ColorOutput "   - VM Hardware Version: 14+ (required for CPU security features)" -Color Success
+    Write-ColorOutput "   - CPU Configuration: Enable 'Expose hardware assisted virtualization'" -Color Success
+    Write-ColorOutput "   - Memory: Enable 'Reserve all guest memory' for critical VMs" -Color Success
+    Write-ColorOutput "   - Execution Policy: Enable 'Virtualize CPU performance counters'" -Color Success
+    
+    Write-ColorOutput "`nVM Advanced Parameters (.vmx file):" -Color Info
+    Write-ColorOutput "   # Disable vulnerable features" -Color Success
+    Write-ColorOutput "   vmx.allowNonVPID = `"FALSE`"" -Color Success
+    Write-ColorOutput "   vmx.allowVpid = `"TRUE`"" -Color Success
+    Write-ColorOutput "   isolation.tools.unity.disable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   isolation.tools.unityActive.disable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Enable security features" -Color Success
+    Write-ColorOutput "   vpmc.enable = `"TRUE`"" -Color Success
+    Write-ColorOutput "   hypervisor.cpuid.v0 = `"FALSE`"" -Color Success
+    Write-ColorOutput "   monitor.phys_bits_used = `"40`"" -Color Success
+    Write-ColorOutput "   featMask.vm.hv.capable = `"Min:1`"" -Color Success
+    
+    Write-ColorOutput "`n[*] VERIFICATION COMMANDS:" -Color Header
+    
+    Write-ColorOutput "`nESXi Security Status Checks:" -Color Info
+    Write-ColorOutput "   # Verify Side-Channel Aware Scheduler" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced list -o /VMkernel/Boot/hyperthreadingMitigation" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Check CPU security features" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu global get" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu feature get -f spectre-ctrl" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Verify L1TF protection" -Color Success
+    Write-ColorOutput "   esxcli system settings advanced list -o /VMkernel/Boot/mitigateL1TF" -Color Success
+    Write-ColorOutput "   " -Color Success
+    Write-ColorOutput "   # Check microcode version" -Color Success
+    Write-ColorOutput "   esxcli hardware cpu global get | grep -i microcode" -Color Success
+    
+    Write-ColorOutput "`n[*] PERFORMANCE IMPACT SUMMARY:" -Color Header
+    
+    $performanceTable = @(
+        @{ Mitigation = "Side-Channel Aware Scheduler"; Impact = "2-5%"; Recommendation = "Enable for multi-tenant environments" }
+        @{ Mitigation = "L1TF Protection"; Impact = "5-15%"; Recommendation = "Critical for untrusted VMs" }
+        @{ Mitigation = "Full Hyperthreading Disable"; Impact = "20-40%"; Recommendation = "Only for highest security requirements" }
+        @{ Mitigation = "MDS Mitigation"; Impact = "3-8%"; Recommendation = "Enable for Intel hosts" }
+        @{ Mitigation = "VM Memory Reservation"; Impact = "0% (more host memory usage)"; Recommendation = "For critical security workloads" }
+    )
+    
+    $performanceTable | Format-Table -AutoSize
+    
+    Write-ColorOutput "`n[*] SECURITY CHECKLIST:" -Color Header
+    
+    Write-ColorOutput "`nHost Level (ESXi):" -Color Info
+    Write-ColorOutput "   - Update ESXi to 6.7 U2+ or 7.0+" -Color Warning
+    Write-ColorOutput "   - Apply latest CPU microcode updates" -Color Warning
+    Write-ColorOutput "   - Enable Side-Channel Aware Scheduler" -Color Warning
+    Write-ColorOutput "   - Configure L1TF protection" -Color Warning
+    Write-ColorOutput "   - Enable MDS/TAA mitigations" -Color Warning
+    Write-ColorOutput "   - Verify Spectre/Meltdown host protections" -Color Warning
+    
+    Write-ColorOutput "`nVM Level:" -Color Info
+    Write-ColorOutput "   - Update to VM Hardware Version 14+" -Color Warning
+    Write-ColorOutput "   - Install latest VMware Tools" -Color Warning
+    Write-ColorOutput "   - Configure VM security parameters" -Color Warning
+    Write-ColorOutput "   - Enable CPU performance counter virtualization" -Color Warning
+    Write-ColorOutput "   - Reserve guest memory (for critical VMs)" -Color Warning
+    Write-ColorOutput "   - Apply guest OS mitigations (using this script)" -Color Warning
+    
+    Write-ColorOutput "`nNetwork Security:" -Color Info
+    Write-ColorOutput "   - Isolate management network" -Color Warning
+    Write-ColorOutput "   - Use encrypted vMotion" -Color Warning
+    Write-ColorOutput "   - Enable VM communication encryption" -Color Warning
+    Write-ColorOutput "   - Configure distributed firewall rules" -Color Warning
+    
+    Write-ColorOutput "`n[*] Additional Resources:" -Color Header
+    Write-ColorOutput "   - VMware Security Advisories: https://www.vmware.com/security/advisories.html" -Color Info
+    Write-ColorOutput "   - Side-Channel Attack Mitigations: https://kb.vmware.com/s/article/55636" -Color Info
+    Write-ColorOutput "   - ESXi Security Configuration Guide: https://docs.vmware.com/en/VMware-vSphere/" -Color Info
+    
+    Write-ColorOutput "`nIMPORTANT: Test performance impact in non-production environment first!" -Color Error
+    Write-ColorOutput "Some mitigations may significantly impact performance." -Color Error
+}
+
+function Get-RevertableMitigations {
+    <#
+    .SYNOPSIS
+    Gets a list of side-channel mitigations that can be reverted/disabled.
+    
+    .DESCRIPTION
+    Scans the system for currently enabled side-channel mitigations and returns
+    those that can be safely reverted. Includes original/default values for restoration.
+    #>
+    
+    $revertableMitigations = @()
+    
+    # 1. Speculative Store Bypass Disable
+    $ssbd = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "FeatureSettingsOverride"
+    if ($ssbd -ne $null -and $ssbd -ne 0) {
+        $revertableMitigations += @{
+            Name          = "Speculative Store Bypass Disable"
+            Description   = "Revert Spectre Variant 4 protection (CVE-2018-3639)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "FeatureSettingsOverride"
+            CurrentValue  = $ssbd
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Exposes system to Spectre Variant 4 attacks"
+        }
+    }
+    
+    # 2. SSBD Feature Mask
+    $ssbdMask = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "FeatureSettingsOverrideMask"
+    if ($ssbdMask -ne $null -and $ssbdMask -ne 0) {
+        $revertableMitigations += @{
+            Name          = "SSBD Feature Mask"
+            Description   = "Revert SSBD feature override mask"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "FeatureSettingsOverrideMask"
+            CurrentValue  = $ssbdMask
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Low - Works in conjunction with FeatureSettingsOverride"
+        }
+    }
+    
+    # 3. Branch Target Injection Mitigation
+    $bti = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisablePageCombining"
+    if ($bti -ne $null -and $bti -eq 0) {
+        $revertableMitigations += @{
+            Name          = "Branch Target Injection Mitigation"
+            Description   = "Re-enable page combining (removes Spectre V2 protection)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "DisablePageCombining"
+            CurrentValue  = $bti
+            RevertValue   = 1
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Removes critical Spectre V2 protection"
+        }
+    }
+    
+    # 4. Kernel VA Shadow (Meltdown Protection)
+    $kvas = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" -Name "EnableKernelVaShadow"
+    if ($kvas -ne $null -and $kvas -eq 1) {
+        $revertableMitigations += @{
+            Name          = "Kernel VA Shadow (Meltdown Protection)"
+            Description   = "Disable Meltdown protection (CVE-2017-5754)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management"
+            RegistryName  = "EnableKernelVaShadow"
+            CurrentValue  = $kvas
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Critical - Removes Meltdown protection"
+        }
+    }
+    
+    # 5. Hardware Security Mitigations
+    $hwMit = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "MitigationOptions"
+    if ($hwMit -ne $null -and $hwMit -ne 0) {
+        $revertableMitigations += @{
+            Name          = "Hardware Security Mitigations"
+            Description   = "Reset CPU-level security mitigations to default"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "MitigationOptions"
+            CurrentValue  = "0x$('{0:X16}' -f $hwMit)"
+            RevertValue   = "Remove registry value"
+            Impact        = "Variable"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Removes multiple CPU security features"
+        }
+    }
+    
+    # 6. Intel TSX Disable
+    $tsx = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisableTsx"
+    if ($tsx -ne $null -and $tsx -eq 1) {
+        $revertableMitigations += @{
+            Name          = "Intel TSX Disable"
+            Description   = "Re-enable Intel TSX (Transactional Synchronization Extensions)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "DisableTsx"
+            CurrentValue  = $tsx
+            RevertValue   = 0
+            Impact        = "Application-dependent"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - May expose TSX-related vulnerabilities"
+        }
+    }
+    
+    # 7. Windows Defender ASLR
+    $aslr = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
+    if ($aslr -ne $null -and $aslr -eq 1) {
+        $revertableMitigations += @{
+            Name          = "Windows Defender Exploit Guard ASLR"
+            Description   = "Disable forced ASLR image relocation"
+            RegistryPath  = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
+            RegistryName  = "ASLR_ForceRelocateImages"
+            CurrentValue  = $aslr
+            RevertValue   = 0
+            Impact        = "Low"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Reduces memory layout randomization"
+        }
+    }
+
+    # 8. L1TF Mitigation - CVE-2018-3620/3646
+    $l1tf = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "L1TFMitigationLevel"
+    if ($l1tf -ne $null -and $l1tf -eq 1) {
+        $revertableMitigations += @{
+            Name          = "L1TF Mitigation"
+            Description   = "Disable L1 Terminal Fault protection (CVE-2018-3620/3646)"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "L1TFMitigationLevel"
+            CurrentValue  = $l1tf
+            RevertValue   = 0
+            Impact        = "High"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Exposes VMs to L1TF attacks"
+        }
+    }
+
+    # 9. MDS Mitigation - CVE-2018-11091/12126/12127/12130
+    $mds = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "MDSMitigationLevel"
+    if ($mds -ne $null -and $mds -eq 1) {
+        $revertableMitigations += @{
+            Name          = "MDS Mitigation"
+            Description   = "Disable Microarchitectural Data Sampling protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "MDSMitigationLevel"
+            CurrentValue  = $mds
+            RevertValue   = 0
+            Impact        = "High"
+            CanBeReverted = $true
+            SecurityRisk  = "High - Exposes Intel CPUs to MDS attacks"
+        }
+    }
+
+    # 10. CVE-2019-11135 Mitigation
+    $tsxAsync = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "TSXAsyncAbortLevel"
+    if ($tsxAsync -ne $null -and $tsxAsync -eq 1) {
+        $revertableMitigations += @{
+            Name          = "CVE-2019-11135 Mitigation"
+            Description   = "Disable Windows Kernel Information Disclosure protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "TSXAsyncAbortLevel"
+            CurrentValue  = $tsxAsync
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - TSX-related vulnerability exposure"
+        }
+    }
+
+    # 11. SBDR/SBDS Mitigation - CVE-2022-21123/21125
+    $sbds = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "SBDRMitigationLevel"
+    if ($sbds -ne $null -and $sbds -eq 1) {
+        $revertableMitigations += @{
+            Name          = "SBDR/SBDS Mitigation"
+            Description   = "Disable Shared Buffer Data Read/Sampling protection"
+            RegistryPath  = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+            RegistryName  = "SBDRMitigationLevel"
+            CurrentValue  = $sbds
+            RevertValue   = 0
+            Impact        = "Medium"
+            CanBeReverted = $true
+            SecurityRisk  = "Medium - Intel CPU vulnerability exposure"
+        }
+    }
+
+    # 9. Nested Virtualization Security  
+    try {
+        $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+        $nestedEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+        if ($nestedEnabled) {
+            # Get list of VMs with nested virtualization enabled
+            $nestedVMs = $vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true } | Select-Object -ExpandProperty VMName
+            $vmList = $nestedVMs -join ", "
+            
+            $revertableMitigations += @{
+                Name          = "Nested Virtualization Security"
+                Description   = "Disable nested virtualization for enhanced security (VMs: $vmList)"
+                RegistryPath  = "Hyper-V PowerShell"
+                RegistryName  = "ExposeVirtualizationExtensions"
+                CurrentValue  = "Enabled"
+                RevertValue   = "Disabled"
+                Impact        = "High"
+                CanBeReverted = $true
+                SecurityRisk  = "Medium - Improves security by removing nested attack surface, but breaks VM-in-VM scenarios"
+                VMNames       = $nestedVMs
+            }
+        }
+    }
+    catch {
+        # Hyper-V not available or no VMs running - check for VMware
+        try {
+            # Detect if running in VMware VM
+            $vmwareDetected = $false
+            $manufacturer = (Get-WmiObject -Class Win32_ComputerSystem).Manufacturer
+            $model = (Get-WmiObject -Class Win32_ComputerSystem).Model
+            $biosVersion = (Get-WmiObject -Class Win32_BIOS).Version
+            
+            if ($manufacturer -match "VMware" -or $model -match "VMware" -or $biosVersion -match "VMware") {
+                $vmwareDetected = $true
+            }
+            
+            if ($vmwareDetected) {
+                $revertableMitigations += @{
+                    Name          = "VMware Nested Virtualization (Information Only)"
+                    Description   = "VMware nested virtualization detected - requires ESXi host configuration"
+                    RegistryPath  = "VMware ESXi"
+                    RegistryName  = "VT-x/AMD-V Passthrough"
+                    CurrentValue  = "Unknown (requires ESXi access)"
+                    RevertValue   = "ESXi Configuration Required"
+                    Impact        = "High"
+                    CanBeReverted = $false
+                    SecurityRisk  = "Info - Cannot be controlled from Windows guest. Requires ESXi host access."
+                    ESXiCommands  = @(
+                        "# Disable VT-x/AMD-V passthrough (run on ESXi host):",
+                        "esxcli hardware cpu set --vhv 0",
+                        "# Or edit VM .vmx file:",
+                        "vhv.enable = `"FALSE`"",
+                        "featMask.vm.hv.capable = `"Min:0`""
+                    )
+                }
+            }
+        }
+        catch {
+            # No VMware detection available
+        }
+    }
+
+    return $revertableMitigations
+}
+
+function Calculate-SecurityScore {
+    <#
+    .SYNOPSIS
+    Calculates the overall security score based on mitigation results.
+    
+    .DESCRIPTION
+    Analyzes security check results and returns a score with percentage and visual bar.
+    #>
+    param([array]$Results)
+    
+    $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
+    $totalCount = $Results.Count
+    $percentage = if ($totalCount -gt 0) { [math]::Round(($enabledCount / $totalCount) * 100, 1) } else { 0 }
+    
+    # Create security bar
+    $filledBlocks = [math]::Floor($percentage / 10)
+    $emptyBlocks = 10 - $filledBlocks
+    $hashSigns = if ($filledBlocks -gt 0) { "#" * $filledBlocks } else { "" }
+    $dashSigns = if ($emptyBlocks -gt 0) { "-" * $emptyBlocks } else { "" }
+    $barDisplay = "[" + $hashSigns + $dashSigns + "]"
+    
+    return [PSCustomObject]@{
+        EnabledCount = $enabledCount
+        TotalCount   = $totalCount
+        Percentage   = $percentage
+        BarDisplay   = $barDisplay
+    }
+}
+
+function Get-CurrentSecurityResults {
+    <#
+    .SYNOPSIS
+    Re-runs all security checks to get current state for scoring.
+    This function includes ALL the same checks as the main script to ensure accurate scoring.
+    #>
+    $currentResults = @()
+    
+    # Core side-channel mitigations (same as main script)
+    $currentResults += Test-SideChannelMitigation -Name "Speculative Store Bypass Disable" `
+        -Description "Mitigates Speculative Store Bypass (Variant 4) attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "FeatureSettingsOverride" `
+        -ExpectedValue 72 `
+        -Recommendation "Enable to mitigate SSB attacks. Set FeatureSettingsOverride to 72" `
+        -Impact "Minimal performance impact on most workloads"
+
+    $currentResults += Test-SideChannelMitigation -Name "SSBD Feature Mask" `
+        -Description "Feature mask for Speculative Store Bypass Disable" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "FeatureSettingsOverrideMask" `
+        -ExpectedValue 3 `
+        -Recommendation "Set FeatureSettingsOverrideMask to 3" `
+        -Impact "Works in conjunction with FeatureSettingsOverride"
+
+    $currentResults += Test-SideChannelMitigation -Name "Branch Target Injection Mitigation" `
+        -Description "Mitigates Branch Target Injection (Variant 2) by disabling page combining" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DisablePageCombining" `
+        -ExpectedValue 0 `
+        -Recommendation "Keep page combining disabled for Spectre V2 protection" `
+        -Impact "Minimal performance impact on most modern systems"
+
+    $currentResults += Test-SideChannelMitigation -Name "Kernel VA Shadow (Meltdown Protection)" `
+        -Description "Kernel Virtual Address Shadowing mitigates Meltdown attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+        -RegistryName "EnableKernelVaShadow" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable to protect against Meltdown (CVE-2017-5754)" `
+        -Impact "Moderate performance impact, but critical for security"
+
+    $currentResults += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
+        -Description "CPU-level hardware security mitigations" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "MitigationOptions" `
+        -ExpectedValue "2000000000000000" `
+        -Recommendation "Enable hardware-level CPU security mitigations" `
+        -Impact "Hardware-dependent, modern CPUs have better performance"
+
+    $currentResults += Test-SideChannelMitigation -Name "Exception Chain Validation" `
+        -Description "Validates exception chain integrity" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnableCetUserShadowStack" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable for enhanced exception handling security" `
+        -Impact "Requires CPU support for CET (Intel Tiger Lake+)"
+
+    $currentResults += Test-SideChannelMitigation -Name "Supervisor Mode Access Prevention" `
+        -Description "SMAP prevents kernel access to user pages" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnableSmapUserShadowStack" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SMAP for kernel protection" `
+        -Impact "Requires CPU support, minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "Intel TSX Disable" `
+        -Description "Disables Intel TSX to prevent TSX-based attacks" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DisableTsx" `
+        -ExpectedValue 1 `
+        -Recommendation "Disable Intel TSX for security" `
+        -Impact "May affect applications that rely on TSX, but improves security"
+
+    $currentResults += Test-SideChannelMitigation -Name "Enhanced IBRS" `
+        -Description "Enhanced Indirect Branch Restricted Speculation" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "EnabledIBRS" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable Enhanced IBRS if CPU supports it" `
+        -Impact "Modern feature with lower performance impact than legacy IBRS"
+
+    # CVE-specific mitigations  
+    $currentResults += Test-SideChannelMitigation -Name "L1TF Mitigation" `
+        -Description "L1 Terminal Fault protection (CVE-2018-3620/3646)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "L1TFMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable L1TF protection" `
+        -Impact "*** PERFORMANCE IMPACT WARNING *** High impact in virtualized environments"
+
+    $currentResults += Test-SideChannelMitigation -Name "MDS Mitigation" `
+        -Description "Microarchitectural Data Sampling protection (CVE-2018-11091/12126/12127/12130)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "MDSMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable MDS protection" `
+        -Impact "*** PERFORMANCE IMPACT WARNING *** Moderate performance impact on Intel CPUs"
+
+    $currentResults += Test-SideChannelMitigation -Name "CVE-2019-11135 Mitigation" `
+        -Description "Windows Kernel Information Disclosure protection (CVE-2019-11135)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "TSXAsyncAbortLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable CVE-2019-11135 protection" `
+        -Impact "Minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "SBDR/SBDS Mitigation" `
+        -Description "Shared Buffer Data Read/Sampling protection (CVE-2022-21123/21125)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "SBDRMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SBDR/SBDS protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "SRBDS Update Mitigation" `
+        -Description "Special Register Buffer Data Sampling protection (CVE-2022-21127)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "SRBDSMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable SRBDS protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    $currentResults += Test-SideChannelMitigation -Name "DRPW Mitigation" `
+        -Description "Data Register Partial Write protection (CVE-2022-21166)" `
+        -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+        -RegistryName "DRPWMitigationLevel" `
+        -ExpectedValue 1 `
+        -Recommendation "Enable DRPW protection" `
+        -Impact "Intel CPU-specific, minimal performance impact"
+
+    # Hardware and virtualization features (simplified checks for scoring)
+    try {
+        $hwInfo = Get-HardwareRequirements
+        
+        # UEFI Secure Boot
+        $currentResults += [PSCustomObject]@{
+            Name           = "UEFI Secure Boot"
+            Description    = "Hardware-verified boot process"
+            Status         = if ($hwInfo.SecureBootEnabled) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $hwInfo.SecureBootStatus
+            ExpectedValue  = "Enabled"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "SecureBoot"
+            Recommendation = "Enable Secure Boot in UEFI firmware settings"
+            Impact         = "Protects boot process from tampering"
+            CanBeEnabled   = $hwInfo.SecureBootCapable
+        }
+
+        # TPM 2.0
+        $currentResults += [PSCustomObject]@{
+            Name           = "TPM 2.0"
+            Description    = "Trusted Platform Module for cryptographic operations"
+            Status         = if ($hwInfo.TPMPresent -and $hwInfo.TPMVersion -match "2\.0") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $hwInfo.TPMVersion
+            ExpectedValue  = "2.0"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "TPM"
+            Recommendation = "Ensure TPM 2.0 is enabled in firmware"
+            Impact         = "Required for advanced Windows security features"
+            CanBeEnabled   = $true
+        }
+
+        # VBS and HVCI (from virtualization info)
+        $virtInfo = Get-VirtualizationInfo
+        
+        $currentResults += [PSCustomObject]@{
+            Name           = "Virtualization Based Security (VBS)"
+            Description    = "Hardware-isolated Windows security subsystem"
+            Status         = if ($virtInfo.VBSStatus -eq "Running") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $virtInfo.VBSStatus
+            ExpectedValue  = "Running"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "VBS"
+            Recommendation = "Enable VBS in Windows Features"
+            Impact         = "Provides hardware isolation for security features"
+            CanBeEnabled   = $hwInfo.IsUEFI -and $hwInfo.TPMPresent
+        }
+
+        $currentResults += [PSCustomObject]@{
+            Name           = "Hypervisor-protected Code Integrity (HVCI)"
+            Description    = "Hardware-enforced code integrity"
+            Status         = if ($virtInfo.HVCIStatus -eq "Enforced") { "Enabled" } else { "Not Configured" }
+            CurrentValue   = $virtInfo.HVCIStatus
+            ExpectedValue  = "Enforced"
+            RegistryPath   = "Hardware Feature"
+            RegistryName   = "HVCI"
+            Recommendation = "Enable Device Guard and HVCI"
+            Impact         = "Prevents kernel code injection attacks"
+            CanBeEnabled   = $virtInfo.VBSStatus -ne "Not Available"
+        }
+
+        # Windows Defender Exploit Guard ASLR
+        $aslrValue = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
+        $currentResults += [PSCustomObject]@{
+            Name           = "Windows Defender Exploit Guard ASLR"
+            Description    = "Address Space Layout Randomization enforcement"
+            Status         = if ($aslrValue -eq 1) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = if ($null -ne $aslrValue) { $aslrValue } else { "Not Set" }
+            ExpectedValue  = 1
+            RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
+            RegistryName   = "ASLR_ForceRelocateImages"
+            Recommendation = "Enable Windows Defender Exploit Guard ASLR"
+            Impact         = "Hardens memory layout randomization"
+            CanBeEnabled   = $true
+        }
+
+        # Nested Virtualization Check
+        try {
+            $vmProcessor = Get-VMProcessor -VMName * -ErrorAction SilentlyContinue 2>$null
+            $nestedEnabled = ($vmProcessor | Where-Object { $_.ExposeVirtualizationExtensions -eq $true }).Count -gt 0
+            $currentResults += [PSCustomObject]@{
+                Name           = "Nested Virtualization Security"
+                Description    = "Virtualization extensions in virtual machines"
+                Status         = if ($nestedEnabled) { "Enabled" } else { "Not Configured" }
+                CurrentValue   = if ($nestedEnabled) { "Exposed" } else { "Not Exposed" }
+                ExpectedValue  = "Exposed (with security considerations)"
+                RegistryPath   = "Hyper-V Feature"
+                RegistryName   = "ExposeVirtualizationExtensions"
+                Recommendation = "Configure nested virtualization securely if needed"
+                Impact         = "Enables VMs to run hypervisors, requires careful security setup"
+                CanBeEnabled   = $virtInfo.HyperVStatus -eq "Enabled"
+            }
+        }
+        catch {
+            # No Hyper-V or VMs - add placeholder for consistent counting
+            $currentResults += [PSCustomObject]@{
+                Name           = "Nested Virtualization Security"
+                Description    = "Virtualization extensions in virtual machines"
+                Status         = "Not Configured"
+                CurrentValue   = "Hyper-V not available"
+                ExpectedValue  = "Proper configuration if needed"
+                RegistryPath   = "Hyper-V Feature"
+                RegistryName   = "ExposeVirtualizationExtensions"
+                Recommendation = "Install Hyper-V if nested virtualization is required"
+                Impact         = "N/A - Hyper-V not installed"
+                CanBeEnabled   = $false
+            }
+        }
+    }
+    catch {
+        Write-Warning "Error getting hardware info for scoring: $($_.Exception.Message)"
+    }
+
+    return $currentResults
+}
+
+function Invoke-MitigationRevert {
+    <#
+    .SYNOPSIS
+    Reverts specific side-channel mitigations based on user selection.
+    
+    .DESCRIPTION
+    Allows users to interactively or automatically revert side-channel mitigations
+    that are causing performance issues. Includes safety checks and warnings.
+    Shows before/after security scores to understand the impact.
+    #>
+    param(
+        [array]$SelectedMitigations,
+        [switch]$WhatIf
+    )
+    
+    if ($SelectedMitigations.Count -eq 0) {
+        Write-ColorOutput "No mitigations selected for revert." -Color Warning
+        return
+    }
+    
+    # Calculate current security score before revert
+    Write-ColorOutput "Calculating current security score..." -Color Info
+    $beforeResults = Get-CurrentSecurityResults
+    $beforeScore = Calculate-SecurityScore -Results $beforeResults
+    
+    Write-ColorOutput "`nMitigation Revert Operation:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    
+    if ($WhatIf) {
+        Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied`n" -Color Warning
+    }
+    else {
+        Write-ColorOutput "WARNING: This will REMOVE security protections from your system!" -Color Error
+        Write-ColorOutput "Only proceed if you understand the security implications.`n" -Color Error
+    }
+    
+    # Show current security score
+    $beforeScoreNum = $beforeScore.Percentage
+    $beforeScoreText = 'Current Security Score: ' + [string]$beforeScoreNum + ' of 100'
+    Write-ColorOutput $beforeScoreText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+    $barDisplay = $beforeScore.BarDisplay
+    $barPercent = $beforeScore.Percentage
+    $securityBarText = 'Security Bar: ' + [string]$barDisplay + ' ' + [string]$barPercent + ' of 100' + "`n"
+    Write-ColorOutput $securityBarText -Color Info
+    
+    $successCount = 0
+    $errorCount = 0
+    
+    foreach ($mitigation in $SelectedMitigations) {
+        Write-ColorOutput "Processing: $($mitigation.Name)" -Color Info
+        
+        if ($WhatIf) {
+            Write-ColorOutput "  Would revert:" -Color Warning
+            if ($mitigation.RegistryPath -eq "Hyper-V PowerShell") {
+                Write-ColorOutput "    Action: Disable nested virtualization on VMs" -Color Info
+                Write-ColorOutput "    VMs affected: $($mitigation.VMNames -join ', ')" -Color Info
+                Write-ColorOutput "    PowerShell Command: Set-VMProcessor -VMName <VM> -ExposeVirtualizationExtensions `$false" -Color Info
+            }
+            elseif ($mitigation.RegistryPath -eq "VMware ESXi") {
+                Write-ColorOutput "    Platform: VMware vSphere detected" -Color Info
+                Write-ColorOutput "    Action: Cannot be controlled from Windows guest" -Color Warning
+                Write-ColorOutput "    Required: ESXi host access" -Color Warning
+                Write-ColorOutput "    ESXi Commands:" -Color Info
+                foreach ($cmd in $mitigation.ESXiCommands) {
+                    Write-ColorOutput "      $cmd" -Color Gray
+                }
+            }
+            else {
+                Write-ColorOutput "    Registry Path: $($mitigation.RegistryPath)" -Color Info
+                Write-ColorOutput "    Registry Name: $($mitigation.RegistryName)" -Color Info
+                Write-ColorOutput "    Current Value: $($mitigation.CurrentValue)" -Color Info
+                Write-ColorOutput "    New Value: $($mitigation.RevertValue)" -Color Warning
+            }
+            Write-ColorOutput "    Security Risk: $($mitigation.SecurityRisk)" -Color Error
+            Write-ColorOutput "" -Color Info
+        }
+        else {
+            try {
+                if ($mitigation.RegistryPath -eq "Hyper-V PowerShell") {
+                    # Handle nested virtualization through Hyper-V PowerShell commands
+                    foreach ($vmName in $mitigation.VMNames) {
+                        Set-VMProcessor -VMName $vmName -ExposeVirtualizationExtensions $false -ErrorAction Stop
+                        Write-ColorOutput "  + Disabled nested virtualization for VM: $vmName" -Color Good
+                    }
+                }
+                elseif ($mitigation.RegistryPath -eq "VMware ESXi") {
+                    # Handle VMware guidance
+                    Write-ColorOutput "  ! VMware Configuration Required:" -Color Warning
+                    Write-ColorOutput "    This change requires ESXi host access" -Color Warning
+                    Write-ColorOutput "    Commands to run on ESXi host:" -Color Info
+                    if ($mitigation.ESXiCommands) {
+                        foreach ($cmd in $mitigation.ESXiCommands) {
+                            if ($cmd.StartsWith("#")) {
+                                Write-ColorOutput "    $cmd" -Color Good
+                            }
+                            else {
+                                Write-ColorOutput "    $cmd" -Color Warning
+                            }
+                        }
+                    }
+                    else {
+                        Write-ColorOutput "    # Access ESXi host via vSphere Client or SSH" -Color Good
+                        Write-ColorOutput "    # Power off VM and edit hardware settings" -Color Good
+                        Write-ColorOutput "    # Disable 'Expose hardware assisted virtualization'" -Color Warning
+                        Write-ColorOutput "    # Or use PowerCLI for advanced configuration" -Color Good
+                    }
+                    Write-ColorOutput "  ! Cannot execute automatically from Windows guest" -Color Error
+                }
+                elseif ($mitigation.RevertValue -eq "Remove registry value") {
+                    # Remove the registry value entirely
+                    if (Test-Path $mitigation.RegistryPath) {
+                        Remove-ItemProperty -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -ErrorAction SilentlyContinue
+                        Write-ColorOutput "  + Registry value removed: $($mitigation.RegistryName)" -Color Good
+                    }
+                }
+                else {
+                    # Set to revert value
+                    Set-RegistryValue -Path $mitigation.RegistryPath -Name $mitigation.RegistryName -Value $mitigation.RevertValue -Type "DWORD"
+                    Write-ColorOutput "  + Reverted: $($mitigation.Name) = $($mitigation.RevertValue)" -Color Good
+                }
+                $successCount++
+            }
+            catch {
+                Write-ColorOutput "  - Failed to revert $($mitigation.Name): $($_.Exception.Message)" -Color Bad
+                $errorCount++
+            }
+        }
+    }
+    
+    Write-ColorOutput "`nRevert Results:" -Color Header
+    Write-ColorOutput "Successfully reverted: $successCount/$($selectedMitigations.Count)" -Color Good
+    
+    if ($errorCount -gt 0) {
+        Write-ColorOutput "Errors encountered: $errorCount" -Color Bad
+    }
+    
+    if ($successCount -gt 0) {
+        Write-ColorOutput "`n[!] IMPORTANT: A system restart may be required for changes to take effect." -Color Warning
+        
+        if (-not $WhatIf) {
+            # Calculate security score after revert (for actual revert operations)
+            Write-ColorOutput "`nRecalculating security score..." -Color Info
+            $afterResults = Get-CurrentSecurityResults
+            $afterScore = Calculate-SecurityScore -Results $afterResults
+            $scoreDifference = $beforeScore.Percentage - $afterScore.Percentage
+            
+            Write-ColorOutput "`nSecurity Impact Assessment:" -Color Header
+            $beforePercent = $beforeScore.Percentage
+            $beforeBar = $beforeScore.BarDisplay
+            $beforeRevertText = '  Before Revert:  ' + [string]$beforePercent + ' of 100 ' + [string]$beforeBar
+            Write-ColorOutput $beforeRevertText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            $afterPercent = $afterScore.Percentage
+            $afterBar = $afterScore.BarDisplay
+            $afterRevertText = '  After Revert:   ' + [string]$afterPercent + ' of 100 ' + [string]$afterBar
+            Write-ColorOutput $afterRevertText -Color $(if ($afterScore.Percentage -ge 80) { 'Good' } elseif ($afterScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+            $scoreDiff = [math]::Round($scoreDifference, 1)
+            $scoreChangeText = '  Score Change:   -' + [string]$scoreDiff + ' of 100 (Security Reduced)'
+            Write-ColorOutput $scoreChangeText -Color Error
+        }
+    }
+    
+    if ($WhatIf) {
+        # Calculate projected security score after revert for WhatIf preview
+        Write-ColorOutput "Calculating security impact..." -Color Info
+        $projectedResults = Get-CurrentSecurityResults
+        
+        # Simulate the impact of selected mitigations being reverted
+        foreach ($mitigation in $SelectedMitigations) {
+            $matchingResult = $projectedResults | Where-Object { 
+                $_.RegistryPath -eq $mitigation.RegistryPath -and $_.RegistryName -eq $mitigation.RegistryName 
+            }
+            if ($matchingResult) {
+                $matchingResult.Status = "Disabled"
+                $matchingResult.CurrentValue = $mitigation.RevertValue
+            }
+        }
+        
+        $projectedScore = Calculate-SecurityScore -Results $projectedResults
+        $scoreDifference = $beforeScore.Percentage - $projectedScore.Percentage
+        
+        Write-ColorOutput "WhatIf Summary:" -Color Header
+        Write-ColorOutput "  Mitigations that would be reverted: $($SelectedMitigations.Count)" -Color Warning
+        Write-ColorOutput "  System restart would be required: Yes" -Color Warning
+        Write-ColorOutput "" -Color Info
+        Write-ColorOutput "Security Score Impact:" -Color Header
+        $currentPercent = $beforeScore.Percentage
+        $currentBar = $beforeScore.BarDisplay
+        $currentScoreText = '  Current Score:   ' + [string]$currentPercent + ' of 100 ' + [string]$currentBar
+        Write-ColorOutput $currentScoreText -Color $(if ($beforeScore.Percentage -ge 80) { 'Good' } elseif ($beforeScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        $projectedPercent = $projectedScore.Percentage
+        $projectedBar = $projectedScore.BarDisplay
+        $projectedScoreText = '  After Revert:    ' + [string]$projectedPercent + ' of 100 ' + [string]$projectedBar
+        Write-ColorOutput $projectedScoreText -Color $(if ($projectedScore.Percentage -ge 80) { 'Good' } elseif ($projectedScore.Percentage -ge 60) { 'Warning' } else { 'Bad' })
+        $projectedDiff = [math]::Round($scoreDifference, 1)
+        $projectedChangeText = '  Score Change:    -' + [string]$projectedDiff + ' of 100 (Security Reduction)'
+        Write-ColorOutput $projectedChangeText -Color Error
+        Write-ColorOutput "`nTo actually revert these mitigations, run without -WhatIf switch." -Color Info
+    }
+    
+    # Add VMware-specific guidance if VMware mitigations were selected
+    $vmwareMitigations = $SelectedMitigations | Where-Object { $_.RegistryPath -eq "VMware ESXi" }
+    if ($vmwareMitigations.Count -gt 0) {
+        Write-ColorOutput "`n[!] IMPORTANT: ESXi host configuration required for VMware environments!" -Color Warning
+        Write-ColorOutput "VMware nested virtualization changes require direct ESXi host access." -Color Warning
+        Write-ColorOutput "Contact your VMware infrastructure administrator to apply changes." -Color Info
+    }
+    
+    # Prompt for reboot if any mitigations were successfully reverted
+    if ($successCount -gt 0 -and -not $WhatIf) {
+        Write-ColorOutput "`n" -Color Info
+        $rebootChoice = Read-Host "Would you like to restart your computer now to ensure changes take effect? (Y/N)"
+        if ($rebootChoice -match '^[Yy]') {
+            Write-ColorOutput "Initiating system restart in 10 seconds..." -Color Warning
+            Write-ColorOutput "Press Ctrl+C to cancel the restart." -Color Info
+            Start-Sleep -Seconds 3
+            Write-ColorOutput "Restarting in 7 seconds..." -Color Warning
+            Start-Sleep -Seconds 3
+            Write-ColorOutput "Restarting in 4 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 3 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 2 seconds..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting in 1 second..." -Color Warning
+            Start-Sleep -Seconds 1
+            Write-ColorOutput "Restarting now..." -Color Error
+            Restart-Computer -Force
+        }
+        else {
+            Write-ColorOutput "Remember to restart your computer manually to ensure all changes take effect." -Color Warning
+        }
+    }
+}
+
+# Main execution
+Write-ColorOutput "`nSide-Channel Vulnerability Configuration Check:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
+Write-ColorOutput "Based on Microsoft KB4073119 + Extended Modern CVE Coverage`n" -Color Info
+
+# Display operation mode (PS 5.1 compatible emoji icons)
+$IconGear = Get-Icon -Name Gear
+$IconChart = Get-Icon -Name Chart
+
+if ($Apply -or $Revert) {
+    if ($Apply) {
+        Write-ColorOutput "$IconGear MODE: CONFIGURATION APPLICATION" -Color Warning
+        Write-ColorOutput "System changes WILL BE MADE when mitigations are applied.`n" -Color Error
+    }
+    if ($Revert) {
+        Write-ColorOutput "$IconGear MODE: MITIGATION REVERT" -Color Warning
+        Write-ColorOutput "Security protections WILL BE REMOVED when confirmed.`n" -Color Error
+    }
+}
+else {
+    Write-ColorOutput "$IconChart MODE: ASSESSMENT ONLY" -Color Good
+    Write-ColorOutput "No system changes will be made. Running in read-only analysis mode.`n" -Color Info
+}
+
+# Parameter validation (simplified with ParameterSets)
+Write-ColorOutput "IMPORTANT: This script checks KB4073119 + modern CVEs (2018-2023) with enterprise features." -Color Warning
+Write-ColorOutput "For additional hardware-level analysis, also consider running:" -Color Info
+Write-ColorOutput "   Install-Module SpeculationControl; Get-SpeculationControlSettings`n" -Color Good
+
+# Performance Impact Warning
+Write-ColorOutput "*** PERFORMANCE IMPACT WARNING ***" -Color Error
+Write-ColorOutput "Some mitigations may significantly impact system performance:" -Color Warning
+Write-ColorOutput "- L1TF & MDS Mitigations: May require disabling hyperthreading" -Color Warning
+Write-ColorOutput "- Older Hyper-V (pre-2016): Higher performance impact" -Color Warning
+Write-ColorOutput "- VBS/Credential Guard: Requires UEFI, Secure Boot, TPM 2.0" -Color Warning
+Write-ColorOutput "- Build servers/shared hosting: May need SMT disabled" -Color Warning
+Write-ColorOutput "Test performance impact in non-production first!`n" -Color Error
+
+# System Information
+$cpuInfo = Get-CPUInfo
+$osInfo = Get-WindowsVersion
+$virtInfo = Get-VirtualizationInfo
+
+Write-ColorOutput "System Information:" -Color Header
+Write-ColorOutput "CPU: $($cpuInfo.Name)" -Color Info
+Write-ColorOutput "OS: $($osInfo.Caption) Build $($osInfo.BuildNumber)" -Color Info
+Write-ColorOutput "Architecture: $($osInfo.Architecture)" -Color Info
+Write-ColorOutput "" -Color Info
+Write-ColorOutput "Virtualization Environment:" -Color Header
+Write-ColorOutput "Running in VM: $(if ($virtInfo.IsVirtualMachine) { 'Yes' } else { 'No' })" -Color $(if ($virtInfo.IsVirtualMachine) { 'Warning' } else { 'Info' })
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "Hypervisor: $($virtInfo.HypervisorVendor)" -Color Info
+    Write-ColorOutput "Technology: $($virtInfo.VirtualizationTechnology)" -Color Info
+}
+Write-ColorOutput "Hyper-V Status: $($virtInfo.HyperVStatus)" -Color Info
+Write-ColorOutput "VBS Status: $($virtInfo.VBSStatus)" -Color Info
+Write-ColorOutput "HVCI Status: $($virtInfo.HVCIStatus)" -Color Info
+if ($virtInfo.NestedVirtualizationEnabled) {
+    Write-ColorOutput "Nested Virtualization: Enabled" -Color Good
+}
+elseif ($virtInfo.HyperVStatus -eq "Enabled") {
+    Write-ColorOutput "Nested Virtualization: Disabled" -Color Warning
+}
+
+# Display System Capabilities early
+Write-ColorOutput "`nYour System Capabilities:" -Color Header
+
+# Gather platform security capabilities
+try {
+    # UEFI Secure Boot
+    $hasSecureBoot = $false
+    try {
+        $secureBootStatus = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+        $hasSecureBoot = $secureBootStatus -eq $true
+    }
+    catch { }
+    
+    # TPM 2.0
+    $hasTPM = $false
+    try {
+        $tpmInfo = Get-Tpm -ErrorAction SilentlyContinue
+        $hasTPM = ($null -ne $tpmInfo) -and ($tpmInfo.TpmPresent -eq $true) -and ($tpmInfo.TpmReady -eq $true)
+    }
+    catch { }
+    
+    # Virtualization - Check if Hyper-V is enabled or VBS is running (both require CPU virtualization)
+    $hasVirtualization = ($virtInfo.HyperVStatus -eq "Enabled") -or ($virtInfo.VBSStatus -eq "Running") -or ($virtInfo.HVCIStatus -match "Enforced|Audit")
+    
+    # IOMMU detection - Check the same way as the main hardware check does
+    $hasIOMMU = $false
+    $iommuResult = $Results | Where-Object { $_.Name -eq "IOMMU/VT-d Support" } | Select-Object -First 1
+    if ($iommuResult) {
+        $hasIOMMU = $iommuResult.Status -eq "Enabled"
+    }
+    else {
+        # Fallback: Check VBS DMA Protection capability
+        try {
+            $vbsCheck = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+            if ($vbsCheck -and $vbsCheck.AvailableSecurityProperties -contains 7) {
+                $hasIOMMU = $true
+            }
+        }
+        catch { }
+        
+        # Secondary fallback: Check registry keys
+        if (!$hasIOMMU) {
+            if ($cpuInfo.Manufacturer -match "Intel") {
+                $vtdReg = Get-RegistryValue -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\intelppm\\Parameters" -Name "VTdEnabled"
+                $hasIOMMU = ($vtdReg -eq 1)
+            }
+            elseif ($cpuInfo.Manufacturer -match "AMD") {
+                $amdViReg = Get-RegistryValue -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\amdppm\\Parameters" -Name "IOMMUEnabled"
+                $hasIOMMU = ($amdViReg -eq 1)
+            }
+        }
+    }
+    
+    Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
+    $secureBootText = if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }
+    $secureBootColor = if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $secureBootText -ForegroundColor $secureBootColor
+
+    Write-Host "  TPM 2.0:          " -NoNewline -ForegroundColor Gray
+    $tpmText = if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }
+    $tpmColor = if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $tpmText -ForegroundColor $tpmColor
+
+    Write-Host "  Virtualization:   " -NoNewline -ForegroundColor Gray
+    $virtText = if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }
+    $virtColor = if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $virtText -ForegroundColor $virtColor
+
+    Write-Host "  IOMMU (VT-d/Vi):  " -NoNewline -ForegroundColor Gray
+    $iommuText = if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }
+    $iommuColor = if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $iommuText -ForegroundColor $iommuColor
+
+    Write-ColorOutput "`nRecommendations for Your System:" -Color Header
+
+    if (!$hasSecureBoot) {
+        Write-ColorOutput ("  " + $Emojis.Error + " Enable Secure Boot in UEFI firmware settings (CRITICAL)") -Color Bad
+    }
+    if (!$hasTPM) {
+        Write-ColorOutput ("  " + $Emojis.Warning + " No TPM detected - BitLocker will require password/USB key") -Color Warning
+        Write-ColorOutput "    Consider enabling fTPM (firmware TPM) in BIOS if available" -Color Info
+    }
+    if (!$hasVirtualization) {
+        Write-ColorOutput ("  " + $Emojis.Error + " Enable CPU virtualization in BIOS/UEFI (required for VBS/HVCI)") -Color Bad
+    }
+    if (!$hasIOMMU) {
+        Write-ColorOutput ("  " + $Emojis.Warning + " IOMMU not detected - HVCI will use compatible mode") -Color Warning
+        Write-ColorOutput "    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection" -Color Info
+    }
+    if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
+        Write-ColorOutput ("  " + $Emojis.Success + " Your system meets all hardware requirements for full security features!") -Color Good
+    }
+}
+catch {
+    Write-ColorOutput "`nWarning: Could not assess platform security capabilities: $($_.Exception.Message)" -Color Warning
+}
+
+Write-ColorOutput "`nChecking Side-Channel Vulnerability Mitigations...`n" -Color Header
+
+# Query runtime kernel state for comparison with registry settings
+Write-Verbose "Querying runtime mitigation state via NtQuerySystemInformation API..."
+$script:RuntimeState = Get-RuntimeSpeculationControlState
+$script:RuntimeKVAState = Get-RuntimeKVAShadowState
+
+if ($null -ne $script:RuntimeState -and $script:RuntimeState.APIAvailable) {
+    Write-ColorOutput "`n[Runtime State Detection Active]" -Color Good
+    Write-Verbose "NtQuerySystemInformation API available - will compare registry vs runtime state"
+    
+    # Display key runtime flags if in detailed mode
+    if ($Detailed) {
+        Write-ColorOutput "`nRuntime Mitigation Flags (from kernel):" -Color Header
+        Write-ColorOutput "  BTI (Spectre v2): $(if ($script:RuntimeState.BTIEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.BTIEnabled) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  Retpoline: $(if ($script:RuntimeState.RetpolineEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.RetpolineEnabled) { 'Good' } else { 'Info' })
+        Write-ColorOutput "  Enhanced IBRS: $(if ($script:RuntimeState.EnhancedIBRS) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.EnhancedIBRS) { 'Good' } else { 'Info' })
+        Write-ColorOutput "  SSBD System-Wide: $(if ($script:RuntimeState.SSBDSystemWide) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.SSBDSystemWide) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  MBClear (MDS): $(if ($script:RuntimeState.MBClearEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.MBClearEnabled) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  FBClear (TAA): $(if ($script:RuntimeState.FBClearEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.FBClearEnabled) { 'Good' } else { 'Warning' })
+        
+        # Check CPU vendor for immunity
+        if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
+            Write-ColorOutput "  [AMD CPU detected - immune to Intel-specific MDS/L1TF/TAA]" -Color Good
+        }
+        Write-ColorOutput ""
+    }
+}
+else {
+    Write-ColorOutput "`n[Registry-Only Detection]" -Color Warning
+    Write-Verbose "NtQuerySystemInformation API not available - using registry detection only"
+    Write-ColorOutput "  Note: Runtime state verification unavailable (API not supported on this OS)" -Color Warning
+    Write-ColorOutput "  Detection will rely on registry configuration only`n" -Color Info
+}
+
+# 1. Speculative Store Bypass Disable (SSBD)
+$Results += Test-SideChannelMitigation -Name "Speculative Store Bypass Disable" `
+    -Description "Mitigates Speculative Store Bypass (Variant 4) attacks" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+    -RegistryName "FeatureSettingsOverride" `
+    -ExpectedValue 72 `
+    -Recommendation "Enable to mitigate SSB attacks. Set FeatureSettingsOverride to 72" `
+    -Impact "Minimal performance impact on most workloads"
+
+# 2. Speculative Store Bypass Disable Mask
+$Results += Test-SideChannelMitigation -Name "SSBD Feature Mask" `
+    -Description "Feature mask for Speculative Store Bypass Disable" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+    -RegistryName "FeatureSettingsOverrideMask" `
+    -ExpectedValue 3 `
+    -Recommendation "Set to 3 to enable SSBD feature mask" `
+    -Impact "Works in conjunction with FeatureSettingsOverride"
+
+# 3. Branch Target Injection (BTI) Mitigation - Spectre Variant 2
+$Results += Test-SideChannelMitigation -Name "Branch Target Injection Mitigation" `
+    -Description "Mitigates Branch Target Injection (Spectre Variant 2)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "DisablePageCombining" `
+    -ExpectedValue 0 `
+    -Recommendation "Enable BTI mitigation to protect against Spectre V2 attacks" `
+    -Impact "Minimal performance impact on modern CPUs"
+
+# 4. Kernel VA Shadow (KVAS) for Meltdown Protection
+$Results += Test-SideChannelMitigation -Name "Kernel VA Shadow (Meltdown Protection)" `
+    -Description "Kernel Virtual Address Shadowing to mitigate Meltdown attacks" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+    -RegistryName "EnableKernelVaShadow" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable KVAS to protect against Meltdown (CVE-2017-5754)" `
+    -Impact "Medium performance impact, essential for Meltdown protection"
+
+# 5. Hardware Mitigations
+$Results += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
+    -Description "Enable hardware-based security mitigations when available" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "MitigationOptions" `
+    -ExpectedValue "2000000000000000" `
+    -Recommendation "Hardware mitigations are enabled. The core mitigation flag (0x2000000000000000) is set with additional options." `
+    -Impact "Hardware-dependent, modern CPUs have better performance"
+
+# 6. Exception Chain Validation
+# Note: DisableExceptionChainValidation = 0 or Not Set means validation is ENABLED (secure)
+$exceptionChainValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisableExceptionChainValidation"
+if ($null -eq $exceptionChainValue -or $exceptionChainValue -eq 0) {
+    # Validation is enabled (secure state)
+    $Results += [PSCustomObject]@{
+        Name           = "Exception Chain Validation"
+        Description    = "Validates exception handler chains to prevent SEH exploitation"
+        Status         = "Enabled"
+        RuntimeStatus  = "N/A"
+        CurrentValue   = if ($null -eq $exceptionChainValue) { "0 (Default - Not Set)" } else { $exceptionChainValue }
+        ExpectedValue  = 0
+        RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        RegistryName   = "DisableExceptionChainValidation"
+        Recommendation = "Exception chain validation is enabled - no action required"
+        Impact         = "Prevents SEH (Structured Exception Handler) exploitation techniques"
+        CanBeEnabled   = $true
+    }
+}
+else {
+    # Validation is disabled (insecure state)
+    $Results += [PSCustomObject]@{
+        Name           = "Exception Chain Validation"
+        Description    = "Validates exception handler chains to prevent SEH exploitation"
+        Status         = "Disabled"
+        RuntimeStatus  = "N/A"
+        CurrentValue   = $exceptionChainValue
+        ExpectedValue  = 0
+        RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        RegistryName   = "DisableExceptionChainValidation"
+        Recommendation = "Set DisableExceptionChainValidation to 0 to enable validation"
+        Impact         = "Prevents SEH (Structured Exception Handler) exploitation techniques"
+        CanBeEnabled   = $true
+    }
+}
+
+# 7. SMAP (Supervisor Mode Access Prevention)  
+$Results += Test-SideChannelMitigation -Name "Supervisor Mode Access Prevention" `
+    -Description "Prevents kernel access to user-mode pages" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
+    -RegistryName "MoveImages" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable ASLR for images to improve security" `
+    -Impact "Improves resistance to memory corruption attacks"
+
+# 8. Intel TSX (Transactional Synchronization Extensions) Disable
+$Results += Test-SideChannelMitigation -Name "Intel TSX Disable" `
+    -Description "Disable Intel TSX to prevent TSX-related vulnerabilities" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "DisableTsx" `
+    -ExpectedValue 1 `
+    -Recommendation "Disable TSX if not required by applications" `
+    -Impact "May affect applications that rely on TSX, but improves security"
+
+# 9. Retpoline Support Check (Informational)
+$Results += [PSCustomObject]@{
+    Name           = "Retpoline Support"
+    Description    = "Compiler-based mitigation for indirect branch speculation"
+    Status         = "Information"
+    RuntimeStatus  = if ($script:RuntimeState.RetpolineEnabled) { "Active" } elseif ($script:RuntimeState.EnhancedIBRS) { "Not Needed" } else { "N/A" }
+    CurrentValue   = "Check with compiler and application vendors"
+    ExpectedValue  = "Enabled in compiled binaries"
+    RegistryPath   = "N/A - Compiler Feature"
+    RegistryName   = "N/A"
+    Recommendation = "Ensure applications are compiled with retpoline support"
+    Impact         = "Compiler and application dependent"
+    CanBeEnabled   = $false
+}
+
+# 10. Enhanced IBRS (Indirect Branch Restricted Speculation)
+$Results += Test-SideChannelMitigation -Name "Enhanced IBRS" `
+    -Description "Enhanced Indirect Branch Restricted Speculation" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "IbrsEnabled" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable Enhanced IBRS for Spectre V2 protection on supported CPUs" `
+    -Impact "Minimal performance impact on CPUs with Enhanced IBRS support"
+
+# ===================================================================
+# ADDITIONAL CVE MITIGATIONS - HIGH PERFORMANCE IMPACT WARNING
+# ===================================================================
+Write-ColorOutput "`nChecking Additional CVE Mitigations (Performance Impact Warning)..." -Color Warning
+
+# 11. L1 Terminal Fault (L1TF) - CVE-2018-3620, CVE-2018-3646
+$Results += Test-SideChannelMitigation -Name "L1TF Mitigation" `
+    -Description "L1 Terminal Fault protection (CVE-2018-3620/3646)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "L1TFMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable L1TF protection. WARNING: High performance impact in virtualized environments" `
+    -Impact "HIGH - May require disabling hyperthreading on older Hyper-V versions"
+
+# 12. MDS Mitigation - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
+$Results += Test-SideChannelMitigation -Name "MDS Mitigation" `
+    -Description "Microarchitectural Data Sampling protection (CVE-2018-11091/12126/12127/12130)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "MDSMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable MDS protection. WARNING: Moderate performance impact on Intel CPUs" `
+    -Impact "MODERATE-HIGH - 3-8% performance impact, may require SMT disable"
+
+# 13. Windows Kernel Information Disclosure - CVE-2019-11135  
+$Results += Test-SideChannelMitigation -Name "CVE-2019-11135 Mitigation" `
+    -Description "Windows Kernel Information Disclosure Vulnerability protection" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "TSXAsyncAbortLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable TAA/TSX mitigation. Performance impact varies by workload" `
+    -Impact "MODERATE - Application-dependent performance impact"
+
+# 14. SBDR/SBDS Mitigation - CVE-2022-21123, CVE-2022-21125
+$Results += Test-SideChannelMitigation -Name "SBDR/SBDS Mitigation" `
+    -Description "Shared Buffer Data Read/Sampling protection (CVE-2022-21123/21125)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "SBDRMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable SBDR/SBDS protection for recent Intel CPUs" `
+    -Impact "LOW-MODERATE - Performance impact varies by CPU generation"
+
+# 15. SRBDS Update - CVE-2022-21127
+$Results += Test-SideChannelMitigation -Name "SRBDS Update Mitigation" `
+    -Description "Special Register Buffer Data Sampling Update protection (CVE-2022-21127)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "SRBDSMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable SRBDS Update protection for affected Intel CPUs" `
+    -Impact "LOW - Minimal performance impact on most workloads"
+
+# 16. DRPW Mitigation - CVE-2022-21166
+$Results += Test-SideChannelMitigation -Name "DRPW Mitigation" `
+    -Description "Device Register Partial Write protection (CVE-2022-21166)" `
+    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
+    -RegistryName "DRPWMitigationLevel" `
+    -ExpectedValue 1 `
+    -Recommendation "Enable DRPW protection for Intel CPUs with affected components" `
+    -Impact "LOW - Typically minimal performance impact"
+
+# Check Windows Defender features
+Write-ColorOutput "`nChecking Windows Security Features..." -Color Header
+
+# Windows Defender Exploit Guard
+$exploitGuard = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System" -Name "ASLR_ForceRelocateImages"
+$Results += [PSCustomObject]@{
+    Name           = "Windows Defender Exploit Guard ASLR"
+    Description    = "Address Space Layout Randomization force relocate images"
+    Status         = if ($exploitGuard -eq 1) { "Enabled" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
+    CurrentValue   = if ($null -ne $exploitGuard) { $exploitGuard } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SOFTWARE\Microsoft\Windows Defender\Windows Defender Exploit Guard\Exploit Protection\System"
+    RegistryName   = "ASLR_ForceRelocateImages"
+    Recommendation = "Enable ASLR force relocate images for better security"
+    Impact         = "Improves resistance to memory corruption attacks"
+    CanBeEnabled   = $true
+}
+
+# Virtualization-Specific Security Checks
+Write-ColorOutput "`nChecking Virtualization-Specific Security Features..." -Color Header
+
+# 1. Virtualization Based Security (VBS)
+$vbsEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard" -Name "EnableVirtualizationBasedSecurity"
+$Results += [PSCustomObject]@{
+    Name           = "Virtualization Based Security (VBS)"
+    Description    = "Hardware-based security features using hypervisor"
+    Status         = if ($vbsEnabled -eq 1) { "Enabled" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
+    CurrentValue   = if ($null -ne $vbsEnabled) { $vbsEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard"
+    RegistryName   = "EnableVirtualizationBasedSecurity"
+    Recommendation = "Enable VBS for hardware-based security isolation"
+    Impact         = "Requires UEFI, Secure Boot, and compatible hardware"
+    CanBeEnabled   = $true
+}
+
+# Get hardware requirements info
+$hwRequirements = Get-HardwareRequirements
+
+# 1a. UEFI Firmware Check
+$uefiStatus = "Unknown - Check System Information"
+$uefiValue = "Manual verification required"
+$uefiRecommendation = "Check system information or BIOS settings to determine firmware type"
+
+if ($hwRequirements.IsUEFI) {
+    $uefiStatus = "UEFI Firmware Active"
+    $uefiValue = "Modern UEFI firmware"
+    $uefiRecommendation = "UEFI firmware is active - supports modern security features"
+}
+else {
+    $uefiStatus = "Legacy BIOS Mode"
+    $uefiValue = "Legacy BIOS or CSM mode"
+    $uefiRecommendation = "Upgrade to UEFI mode for advanced security (may require OS reinstall in UEFI mode)"
+}
+
+$Results += [PSCustomObject]@{
+    Name           = "UEFI Firmware (not Legacy BIOS)"
+    Description    = "Modern firmware interface required for advanced security features"
+    Status         = $uefiStatus
+    RuntimeStatus  = "N/A"
+    CurrentValue   = $uefiValue
+    ExpectedValue  = "UEFI Firmware Active"
+    RegistryPath   = "System Firmware (Hardware)"
+    RegistryName   = "Firmware Type"
+    Recommendation = $uefiRecommendation
+    Impact         = "Required for Secure Boot, VBS, and other security features"
+    CanBeEnabled   = $false
+}
+
+# 1b. Secure Boot Check
+$secureBootStatus = "Unknown - Check UEFI Settings"
+$secureBootValue = "Manual verification required"
+$secureBootRecommendation = "Access UEFI firmware settings to verify Secure Boot status"
+$canEnableSecureBoot = $false
+
+if ($hwRequirements.SecureBootEnabled) {
+    $secureBootStatus = "Enabled"
+    $secureBootValue = "Active"
+    $secureBootRecommendation = "Secure Boot is properly enabled - no action required"
+    $canEnableSecureBoot = $true
+}
+elseif ($hwRequirements.SecureBootCapable) {
+    $secureBootStatus = "Available but Disabled"
+    $secureBootValue = "Hardware supports but not enabled"
+    $secureBootRecommendation = "Enable Secure Boot in UEFI firmware settings (requires UEFI mode, not Legacy BIOS)"
+    $canEnableSecureBoot = $true
+}
+elseif ($hwRequirements.IsUEFI) {
+    $secureBootStatus = "UEFI Present - Secure Boot Unknown"
+    $secureBootValue = "Check UEFI firmware manually"
+    $secureBootRecommendation = "Access UEFI setup during boot to enable Secure Boot if available"
+    $canEnableSecureBoot = $true
+}
+else {
+    $secureBootStatus = "Not Available (Legacy BIOS)"
+    $secureBootValue = "Requires UEFI firmware"
+    $secureBootRecommendation = "Upgrade to UEFI firmware to support Secure Boot (requires reinstall in UEFI mode)"
+    $canEnableSecureBoot = $false
+}
+
+$Results += [PSCustomObject]@{
+    Name           = "Secure Boot"
+    Description    = "Prevents unauthorized bootloaders and ensures boot integrity"
+    Status         = $secureBootStatus
+    RuntimeStatus  = "N/A"
+    CurrentValue   = $secureBootValue
+    ExpectedValue  = "Enabled"
+    RegistryPath   = "UEFI Firmware Setting"
+    RegistryName   = "Secure Boot"
+    Recommendation = $secureBootRecommendation
+    Impact         = "Essential for VBS and prevents boot-level malware"
+    CanBeEnabled   = $canEnableSecureBoot
+}
+
+# 1c. TPM 2.0 Check
+$tpmStatus = "Unknown - Check Hardware"
+$tpmValue = "Manual verification required"
+$tpmRecommendation = "Check BIOS/UEFI for TPM settings or hardware installation"
+$canEnableTPM = $false
+
+if ($hwRequirements.TPMPresent) {
+    if ($hwRequirements.TPMVersion -match "2\.0") {
+        $tpmStatus = "TPM 2.0 Enabled"
+        $tpmValue = "Version $($hwRequirements.TPMVersion) - Active"
+        $tpmRecommendation = "TPM 2.0 is properly enabled and functioning"
+        $canEnableTPM = $true
+    }
+    elseif ($hwRequirements.TPMVersion -match "1\.") {
+        $tpmStatus = "TPM 1.x Present (Upgrade Needed)"
+        $tpmValue = "Version $($hwRequirements.TPMVersion) - Insufficient"
+        $tpmRecommendation = "TPM 1.x detected - upgrade to TPM 2.0 chip or enable TPM 2.0 mode in UEFI if available"
+        $canEnableTPM = $false
+    }
+    else {
+        $tpmStatus = "TPM Present (Version Unknown)"
+        $tpmValue = "Version: $($hwRequirements.TPMVersion)"
+        $tpmRecommendation = "TPM detected but version unclear - verify TPM 2.0 compatibility"
+        $canEnableTPM = $true
+    }
+}
+else {
+    $tpmStatus = "Not Detected"
+    $tpmValue = "No TPM found"
+    $tpmRecommendation = "Enable TPM in BIOS/UEFI if available, or install TPM 2.0 hardware module"
+    $canEnableTPM = $false
+}
+
+$Results += [PSCustomObject]@{
+    Name           = "TPM 2.0 (Trusted Platform Module)"
+    Description    = "Hardware security chip for cryptographic operations and key storage"
+    Status         = $tpmStatus
+    RuntimeStatus  = "N/A"
+    CurrentValue   = $tpmValue
+    ExpectedValue  = "TPM 2.0 Enabled"
+    RegistryPath   = "Hardware/UEFI Setting"
+    RegistryName   = "TPM 2.0"
+    Recommendation = $tpmRecommendation
+    Impact         = "Required for Credential Guard, BitLocker, and VBS features"
+    CanBeEnabled   = $canEnableTPM
+}
+
+# 1d. CPU Virtualization Support Check
+$vtxStatus = "Unknown - Manual BIOS Check Required"
+$vtxValue = "Check BIOS/UEFI Settings"
+$vtxRecommendation = "Verify VT-x (Intel) or AMD-V (AMD) is enabled in BIOS/UEFI firmware settings"
+
+if ($hwRequirements.VTxSupport) {
+    # Additional check to see if Hyper-V is actually working
+    if ($virtInfo.HyperVStatus -eq "Enabled" -or (Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue).State -eq "Enabled") {
+        $vtxStatus = "Enabled and Active"
+        $vtxValue = "Hardware virtualization active"
+        $vtxRecommendation = "CPU virtualization is enabled and functioning properly"
+    }
+    else {
+        $vtxStatus = "Hardware Available but Inactive"
+        $vtxValue = "Enable Hyper-V to verify full functionality"
+        $vtxRecommendation = "CPU virtualization detected - enable Hyper-V role to verify complete functionality"
+    }
+}
+else {
+    $vtxStatus = "Not Detected or Disabled"
+    $vtxValue = "Enable in BIOS/UEFI"
+    $vtxRecommendation = "Enable VT-x (Intel) or AMD-V (AMD) in BIOS/UEFI firmware settings - required for VBS/HVCI"
+}
+
+$Results += [PSCustomObject]@{
+    Name           = "CPU Virtualization Support (VT-x/AMD-V)"
+    Description    = "Hardware virtualization extensions required for hypervisor-based security"
+    Status         = $vtxStatus
+    RuntimeStatus  = "N/A"
+    CurrentValue   = $vtxValue
+    ExpectedValue  = "Enabled and Active"
+    RegistryPath   = "BIOS/UEFI Setting (Hardware Feature)"
+    RegistryName   = "Intel VT-x / AMD-V"
+    Recommendation = $vtxRecommendation
+    Impact         = "Essential for Hyper-V, VBS, and virtualization-based security"
+    CanBeEnabled   = $true
+}
+
+# 1e. IOMMU/VT-d Support Check
+$Results += [PSCustomObject]@{
+    Name           = "IOMMU/VT-d Support"
+    Description    = "Input/Output Memory Management Unit for secure DMA isolation"
+    Status         = if ($hwRequirements.IOMMUSupport -match "Enabled") { "Enabled" } else { "Disabled" }
+    RuntimeStatus  = "N/A"
+    CurrentValue   = $hwRequirements.IOMMUSupport
+    ExpectedValue  = "Enabled"
+    RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
+    RegistryName   = "Intel VT-d / AMD IOMMU (AMD-Vi)"
+    Recommendation = if ($hwRequirements.IOMMUSupport -match "Enabled") { "IOMMU/VT-d is enabled - optimal configuration for DMA protection" } else { "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI settings for enhanced DMA protection and HVCI support" }
+    Impact         = "Provides DMA isolation, prevents PCIe/Thunderbolt attacks, required for full HVCI protection"
+    CanBeEnabled   = $false
+}
+
+# 2. Hypervisor-protected Code Integrity (HVCI)
+$hvciEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity" -Name "Enabled"
+$Results += [PSCustomObject]@{
+    Name           = "Hypervisor-protected Code Integrity (HVCI)"
+    Description    = "Hardware-based code integrity enforcement"
+    Status         = if ($hvciEnabled -eq 1) { "Enabled" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
+    CurrentValue   = if ($null -ne $hvciEnabled) { $hvciEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
+    RegistryName   = "Enabled"
+    Recommendation = "Enable HVCI for kernel-mode code integrity"
+    Impact         = "May cause compatibility issues with unsigned drivers"
+    CanBeEnabled   = $true
+}
+
+# 3. Credential Guard
+$credGuardEnabled = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa" -Name "LsaCfgFlags"
+$Results += [PSCustomObject]@{
+    Name           = "Credential Guard"
+    Description    = "Protects domain credentials using VBS"
+    Status         = if ($credGuardEnabled -eq 1) { "Enabled" } elseif ($credGuardEnabled -eq 2) { "Enabled with UEFI Lock" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
+    CurrentValue   = if ($null -ne $credGuardEnabled) { $credGuardEnabled } else { "Not Set" }
+    ExpectedValue  = 1
+    RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+    RegistryName   = "LsaCfgFlags"
+    Recommendation = "Enable Credential Guard to protect against credential theft"
+    Impact         = "Requires VBS and may affect some applications"
+    CanBeEnabled   = $true
+}
+
+# VM-Specific Checks
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "`nVM Guest-Specific Security Checks:" -Color Header
+    
+    # 4. VM Guest SLAT Support Check
+    $Results += [PSCustomObject]@{
+        Name           = "VM Guest: SLAT Support"
+        Description    = "Second Level Address Translation support in guest"
+        Status         = "Information"
+        RuntimeStatus  = "N/A"
+        CurrentValue   = "Check hypervisor configuration"
+        ExpectedValue  = "Enabled on host"
+        RegistryPath   = "N/A"
+        RegistryName   = "N/A"
+        Recommendation = "Ensure host hypervisor has SLAT (Intel EPT/AMD RVI) enabled"
+        Impact         = "Critical for VM memory isolation and side-channel protection"
+        CanBeEnabled   = $false
+    }
+    
+    # 5. VM Tools Security Features
+    if ($virtInfo.HypervisorVendor -eq "VMware") {
+        $vmToolsVersion = Get-RegistryValue -Path "HKLM:\SOFTWARE\VMware, Inc.\VMware Tools" -Name "InstallPath"
+        $Results += [PSCustomObject]@{
+            Name           = "VMware Tools Security Features"
+            Description    = "VMware Tools with side-channel mitigations"
+            Status         = if ($vmToolsVersion) { "Enabled" } else { "Not Configured" }
+            RuntimeStatus  = "N/A"
+            CurrentValue   = if ($vmToolsVersion) { "Present" } else { "Missing" }
+            ExpectedValue  = "Latest Version"
+            RegistryPath   = "N/A"
+            RegistryName   = "N/A"
+            Recommendation = "Update VMware Tools to latest version for security patches"
+            Impact         = "Newer versions include side-channel vulnerability mitigations"
+            CanBeEnabled   = $false
+        }
+    }
+}
+else {
+    # Physical Host or Hypervisor-Specific Checks
+    Write-ColorOutput "`nHypervisor Host-Specific Security Checks:" -Color Header
+    Write-ColorOutput "Checking host-level virtualization security features..." -Color Info
+    
+    # 6. Hyper-V Core Scheduler (OS version dependent)
+    if ($virtInfo.HyperVStatus -eq "Enabled") {
+        # Get OS build number to determine if Core Scheduler is default
+        $osBuildNumber = [int](Get-ItemProperty "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
+        
+        # Core Scheduler became default in:
+        # - Windows 11 (Build 22000+)
+        # - Windows Server 2022 (Build 20348+)
+        $needsCoreSchedulerConfig = $osBuildNumber -lt 20348
+        
+        $coreScheduler = Get-RegistryValue -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -Name "CoreSchedulerType"
+        
+        $coreSchedulerStatus = if ($needsCoreSchedulerConfig) {
+            if ($coreScheduler -eq 1) { "Enabled" } else { "Not Configured" }
+        }
+        else {
+            "Enabled"  # Newer OS versions have it enabled by default - mark as Enabled to exclude from recommendations
+        }
+        
+        $coreSchedulerRecommendation = if ($needsCoreSchedulerConfig) {
+            "Enable Core Scheduler for SMT security: bcdedit /set hypervisorschedulertype core"
+        }
+        else {
+            "Core Scheduler is enabled by default in this Windows version (Build $osBuildNumber) - no action required"
+        }
+        
+        $Results += [PSCustomObject]@{
+            Name           = "Hyper-V Core Scheduler"
+            Description    = "SMT-aware scheduler for VM isolation (prevents cross-VM side-channel attacks)"
+            Status         = $coreSchedulerStatus
+            CurrentValue   = if ($needsCoreSchedulerConfig -and $null -ne $coreScheduler) { $coreScheduler } else { "OS Default" }
+            ExpectedValue  = if ($needsCoreSchedulerConfig) { 1 } else { "Built-in" }
+            RegistryPath   = if ($needsCoreSchedulerConfig) { "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" } else { "N/A" }
+            RegistryName   = if ($needsCoreSchedulerConfig) { "CoreSchedulerType" } else { "N/A" }
+            Recommendation = $coreSchedulerRecommendation
+            Impact         = if ($needsCoreSchedulerConfig) { "Minor performance reduction, significant security improvement" } else { "No action needed - already optimized" }
+            CanBeEnabled   = $true
+        }
+        
+        # 7. Nested Virtualization Security
+        $Results += [PSCustomObject]@{
+            Name           = "Nested Virtualization Security"
+            Description    = "Enable nested virtualization on Hyper-V VMs"
+            Status         = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Not Configured" }
+            CurrentValue   = if ($virtInfo.NestedVirtualizationEnabled) { "Enabled" } else { "Disabled" }
+            ExpectedValue  = "Enabled (with security considerations)"
+            RegistryPath   = "Hyper-V Feature"
+            RegistryName   = "ExposeVirtualizationExtensions"
+            Recommendation = "Enable nested virtualization if required for development"
+            Impact         = "Reduces security score but enables nested hypervisors in VMs"
+            CanBeEnabled   = $virtInfo.HyperVStatus -eq "Enabled"
+        }
+    }
+}
+
+# ============================================================================
+# CORE SECURITY ASSESSMENT RESULTS
+# ============================================================================
+
+# Display results table
+Show-ResultsTable -Results $Results
+
+# Summary
+Write-ColorOutput "`nSecurity Configuration Summary:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
+
+$enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
+$notConfiguredCount = ($Results | Where-Object { $_.Status -eq "Not Configured" }).Count
+$disabledCount = ($Results | Where-Object { $_.Status -eq "Disabled" }).Count
+
+# Define categories for result filtering (must match the categorization at line 401-428)
+$softwareMitigationNames = @(
+    "Speculative Store Bypass Disable",
+    "SSBD Feature Mask", 
+    "Branch Target Injection Mitigation",
+    "Kernel VA Shadow (Meltdown Protection)",
+    "Enhanced IBRS",
+    "Intel TSX Disable",
+    "L1TF Mitigation",
+    "MDS Mitigation",
+    "CVE-2019-11135 Mitigation",
+    "SBDR/SBDS Mitigation",
+    "SRBDS Update Mitigation",
+    "DRPW Mitigation"
+)
+
+$securityFeatureNames = @(
+    "Hardware Security Mitigations",
+    "Exception Chain Validation",
+    "Supervisor Mode Access Prevention",
+    "Windows Defender Exploit Guard ASLR",
+    "Virtualization Based Security (VBS)",
+    "Hypervisor-protected Code Integrity (HVCI)",
+    "Credential Guard"
+)
+
+$hardwarePrerequisiteNames = @(
+    "UEFI Firmware (not Legacy BIOS)",
+    "Secure Boot",
+    "TPM 2.0 (Trusted Platform Module)",
+    "CPU Virtualization Support (VT-x/AMD-V)",
+    "IOMMU/VT-d Support"
+)
+
+# Categorize results using the predefined name lists
+$softwareMitigations = $Results | Where-Object { $_.Name -in $softwareMitigationNames }
+
+$hardwarePrerequisites = $Results | Where-Object { $_.Name -in $hardwarePrerequisiteNames }
+
+$securityFeatures = $Results | Where-Object { $_.Name -in $securityFeatureNames }
+
+# Count software mitigations for scoring (the main security score)
+# Use runtime-aware counting: count as enabled if Status=="Enabled" OR runtime shows active
+$enabledMitigations = 0
+foreach ($item in $softwareMitigations) {
+    $isEnabled = $item.Status -eq "Enabled"
+    
+    # Also check if active in kernel runtime (even if registry says "Not Set")
+    $isRuntimeActive = $false
+    if ($script:RuntimeState.APIAvailable) {
+        $isRuntimeActive = switch ($item.Name) {
+            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+            default { $false }
+        }
+    }
+    
+    if ($isEnabled -or $isRuntimeActive) {
+        $enabledMitigations++
+    }
+}
+
+$notConfiguredMitigations = ($softwareMitigations | Where-Object { 
+        $_.Status -eq "Not Configured" -and -not (
+            ($_.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.BTIEnabled) -or
+            ($_.Name -eq "Speculative Store Bypass Disable" -and $script:RuntimeState.SSBDSystemWide) -or
+            ($_.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and ($script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected)) -or
+            ($_.Name -eq "MDS Mitigation" -and ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected)) -or
+            ($_.Name -eq "Enhanced IBRS" -and $script:RuntimeState.EnhancedIBRS)
+        )
+    }).Count  
+$disabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Disabled" }).Count
+$totalMitigations = $softwareMitigations.Count
+
+# Count security features separately  
+$enabledFeatures = ($securityFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
+if ($null -eq $enabledFeatures) { $enabledFeatures = 0 }
+$totalFeatures = $securityFeatures.Count
+
+# Count hardware prerequisites (informational)
+$readyHardware = ($hardwarePrerequisites | Where-Object { 
+        $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" 
+    }).Count
+if ($null -eq $readyHardware) { $readyHardware = 0 }
+$totalHardware = $hardwarePrerequisites.Count
+
+# Show breakdown
+Write-ColorOutput "`nSecurity Assessment Categories:" -Color Info
+Write-ColorOutput "- Software Mitigations: $enabledMitigations/$totalMitigations enabled" -Color Info
+Write-ColorOutput "- Security Features: $enabledFeatures/$totalFeatures enabled" -Color Info  
+Write-ColorOutput "- Hardware Prerequisites: $readyHardware/$totalHardware ready" -Color Info
+
+# Calculate primary security score based on software mitigations only
+$mitigationPercent = if ($totalMitigations -gt 0) { [math]::Round(($enabledMitigations / $totalMitigations) * 100, 1) } else { 0 }
+
+$configuredPercent = $mitigationPercent
+
+# Visual status breakdown - focus on software mitigations for primary score
+Write-Host "`nSecurity Status Overview:" -ForegroundColor $Colors['Header']
+Write-Host "=========================" -ForegroundColor $Colors['Header']
+
+Write-Host ("`n" + $Emojis.Shield + "  SOFTWARE MITIGATIONS (Primary Score):") -ForegroundColor $Colors['Header']
+Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
+Write-Host "$enabledMitigations" -NoNewline -ForegroundColor $Colors['Good']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
+
+Write-Host "[-] NOT SET:       " -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host "$notConfiguredMitigations" -NoNewline -ForegroundColor $Colors['Warning']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
+
+Write-Host "[-] DISABLED:      " -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host "$disabledMitigations" -NoNewline -ForegroundColor $Colors['Bad']
+Write-Host " / $totalMitigations mitigations" -ForegroundColor Gray
+
+if ($totalFeatures -gt 0) {
+    Write-Host ("`n" + $Emojis.Lock + " SECURITY FEATURES:") -ForegroundColor $Colors['Header'] 
+    Write-Host "[+] ENABLED:       " -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host "$enabledFeatures" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " / $totalFeatures features" -ForegroundColor Gray
+}
+
+if ($totalHardware -gt 0) {
+    Write-Host ("`n" + $Emojis.Wrench + " HARDWARE PREREQUISITES:") -ForegroundColor $Colors['Header']
+    Write-Host "[+] READY:         " -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host "$readyHardware" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " / $totalHardware components" -ForegroundColor Gray
+}
+
+Write-Host "`nOverall Mitigation Score: " -NoNewline -ForegroundColor $Colors['Info']
+$levelColor = if ($configuredPercent -ge 80) { 'Good' } elseif ($configuredPercent -ge 60) { 'Warning' } else { 'Bad' }
+Write-Host "$configuredPercent%" -ForegroundColor $Colors[$levelColor]
+
+# Security level indicator with Unicode blocks (PowerShell 5.1 compatible)
+$BlockFull = Get-Icon -Name BlockFull
+$BlockLight = Get-Icon -Name BlockLight
+
+$filledBlocks = [math]::Floor($configuredPercent / 10)
+$emptyBlocks = 10 - $filledBlocks
+
+Write-Host "Mitigation Progress: [" -NoNewline -ForegroundColor Gray
+if ($filledBlocks -gt 0) {
+    Write-Host ($BlockFull * $filledBlocks) -NoNewline -ForegroundColor $Colors[$levelColor]
+}
+if ($emptyBlocks -gt 0) {
+    Write-Host ($BlockLight * $emptyBlocks) -NoNewline -ForegroundColor DarkGray
+}
+Write-Host "] $configuredPercent%" -ForegroundColor Gray
+
+# Show what the score means
+Write-Host "`nScore Explanation:" -ForegroundColor $Colors['Info']
+Write-Host "* Mitigation Score: Based on registry-configurable side-channel protections" -ForegroundColor Gray
+Write-Host "* Security Features: Windows security services (VBS, HVCI, etc.)" -ForegroundColor Gray  
+Write-Host "* Hardware Prerequisites: Platform readiness for advanced security" -ForegroundColor Gray
+
+# ============================================================================
+# END OF CORE SECURITY ASSESSMENT
+# ============================================================================
+# The sections below provide additional detailed information and educational
+# content about security features, hardware requirements, and dependencies.
+# ============================================================================
+
+# Interactive mitigation selection function
+function Select-Mitigations {
+    param(
+        [array]$AvailableMitigations,
+        [switch]$WhatIf
+    )
+    
+    Write-ColorOutput "`nInteractive Mitigation Selection:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    
+    if ($WhatIf) {
+        Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied" -Color Warning
+    }
+    
+    # Display CPU compatibility info
+    Write-ColorOutput "`nCPU Detected: $($cpuInfo.Manufacturer) - $($cpuInfo.Name)" -Color Info
+    Write-ColorOutput "Note: Only CPU-compatible mitigations are shown." -Color Info
+    
+    Write-ColorOutput "`nThe following mitigations are not configured and can be enabled:" -Color Info
+    Write-ColorOutput "Use numbers to select (for example: 1,3,5 or 1-3 or all for all mitigations):" -Color Info
+    Write-ColorOutput "Enter 0 to apply no mitigations and exit:`n" -Color Info
+    
+    # Display available mitigations with numbers
+    $index = 1
+    foreach ($mitigation in $AvailableMitigations) {
+        $impact = switch ($mitigation.Name) {
+            { $_ -match "Spectre|BTI|IBRS|SSBD|SRBDS|DRPW" } { "Low" }
+            { $_ -match "Meltdown|KVAS|SBDR|SBDS|CVE-2019-11135" } { "Medium" }
+            { $_ -match "L1TF|MDS" } { "High" }
+            { $_ -match "TSX|Hardware" } { "Variable" }
+            { $_ -match "VBS|HVCI" } { "High" }
+            { $_ -eq "Nested Virtualization Security" } { "Security Risk" }
+            default { "Unknown" }
+        }
+        
+        $description = switch ($mitigation.Name) {
+            "Speculative Store Bypass Disable" { "Protects against Spectre Variant 4" }
+            "Branch Target Injection Mitigation" { "Protects against Spectre Variant 2" }
+            "Kernel VA Shadow" { "Meltdown protection (KPTI)" }
+            "Hardware Security Mitigations" { "CPU-level side-channel protections" }
+            "Intel TSX Disable" { "Prevents TSX-based attacks" }
+            "Enhanced IBRS" { "Intel hardware mitigation" }
+            "L1TF Mitigation" { "L1 Terminal Fault protection (may require SMT disable)" }
+            "MDS Mitigation" { "Microarchitectural Data Sampling protection (Intel)" }
+            "CVE-2019-11135 Mitigation" { "Windows Kernel Information Disclosure protection" }
+            "SBDR/SBDS Mitigation" { "Shared Buffer Data protection (Intel)" }
+            "SRBDS Update Mitigation" { "Special Register Buffer protection (Intel)" }
+            "DRPW Mitigation" { "Device Register Partial Write protection (Intel)" }
+            "VBS" { "Virtualization Based Security" }
+            "HVCI" { "Hypervisor-protected Code Integrity" }
+            "Nested Virtualization Security" { "Enable nested virtualization (reduces security score)" }
+            default { $mitigation.Description -replace "^CVE-[^:]+: ", "" }
+        }
+        
+        Write-Host "  [$index] " -NoNewline -ForegroundColor Yellow
+        Write-Host $mitigation.Name -NoNewline -ForegroundColor White
+        Write-Host " (Impact: $impact)" -ForegroundColor $(if ($impact -eq "Security Risk") { "Red" } else { "Gray" })
+        Write-Host "      $description" -ForegroundColor $(if ($mitigation.Name -eq "Nested Virtualization Security") { "Yellow" } else { "Gray" })
+        
+        # Special warning for nested virtualization
+        if ($mitigation.Name -eq "Nested Virtualization Security") {
+            Write-Host "      WARNING: This will REDUCE your security score by enabling attack surface" -ForegroundColor Red
+        }
+        
+        $index++
+    }
+    
+    Write-Host ""
+    $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, or 'all', or 0 for none)"
+    
+    # Parse selection
+    $selectedItems = @()
+    
+    if ($selection -eq '0') {
+        # User selected 0 - apply no mitigations
+        Write-ColorOutput "`nNo mitigations selected. Exiting without applying any changes." -Color Info
+        return @()
+    }
+    elseif ($selection -eq 'all') {
+        $selectedItems = $AvailableMitigations
+    }
+    else {
+        $selections = $selection -split ',' | ForEach-Object { $_.Trim() }
+        
+        foreach ($sel in $selections) {
+            if ($sel -match '(\d+)-(\d+)') {
+                # Range selection like "1-3"
+                $start = [int]$matches[1]
+                $end = [int]$matches[2]
+                for ($i = $start; $i -le $end; $i++) {
+                    if ($i -le $AvailableMitigations.Count) {
+                        $selectedItems += $AvailableMitigations[$i - 1]
+                    }
+                }
+            }
+            elseif ($sel -match '^\d+$') {
+                # Single number selection
+                $num = [int]$sel
+                if ($num -le $AvailableMitigations.Count -and $num -gt 0) {
+                    $selectedItems += $AvailableMitigations[$num - 1]
+                }
+            }
+        }
+    }
+    
+    return $selectedItems
+}
+
+function Filter-CPUSpecificMitigations {
+    <#
+    .SYNOPSIS
+    Filters mitigations based on CPU manufacturer compatibility.
+    
+    .DESCRIPTION
+    Removes CPU-specific mitigations that don't apply to the current CPU manufacturer,
+    preventing unnecessary or incompatible mitigations from being applied.
+    #>
+    param(
+        [array]$Mitigations,
+        [string]$CPUManufacturer
+    )
+    
+    # Define CPU-specific mitigation mappings
+    $intelSpecificMitigations = @(
+        "GDS Mitigation",
+        "RFDS Mitigation", 
+        "L1TF Mitigation",
+        "MDS Mitigation",
+        "Intel TSX Disable",
+        "CVE-2019-11135 Mitigation",
+        "SBDR/SBDS Mitigation", 
+        "SRBDS Update Mitigation",
+        "DRPW Mitigation"
+    )
+    
+    $amdSpecificMitigations = @(
+        "SRSO Mitigation"
+    )
+    
+    $filteredMitigations = @()
+    $skippedCount = 0
+    
+    foreach ($mitigation in $Mitigations) {
+        $shouldInclude = $true
+        $reason = ""
+        
+        # Skip Intel-specific mitigations on non-Intel CPUs
+        if ($mitigation.Name -in $intelSpecificMitigations -and $CPUManufacturer -ne "GenuineIntel") {
+            $shouldInclude = $false
+            $reason = "Intel-specific mitigation not applicable on $($CPUManufacturer -replace 'Genuine|Authentic','')"
+        }
+        # Skip AMD-specific mitigations on non-AMD CPUs
+        elseif ($mitigation.Name -in $amdSpecificMitigations -and $CPUManufacturer -ne "AuthenticAMD") {
+            $shouldInclude = $false
+            $reason = "AMD-specific mitigation not applicable on $($CPUManufacturer -replace 'Genuine|Authentic','')"
+        }
+        
+        if ($shouldInclude) {
+            $filteredMitigations += $mitigation
+        }
+        else {
+            $skippedCount++
+            Write-ColorOutput "  [SKIPPED] $($mitigation.Name) - $reason" -Color Info
+        }
+    }
+    
+    if ($skippedCount -gt 0) {
+        Write-ColorOutput "`nFiltered out $skippedCount CPU-incompatible mitigation(s) because you have a $CPUManufacturer CPU." -Color Info
+    }
+    
+    return $filteredMitigations
+}
+
+function Test-MitigationNeedsConfiguration {
+    <#
+    .SYNOPSIS
+    Determines if a mitigation needs configuration based on its status and runtime state.
+    
+    .DESCRIPTION
+    Checks if a mitigation is already properly configured by examining:
+    - Registry status (Enabled, Active, etc.)
+    - Kernel runtime state (for mitigations with runtime detection)
+    - Whether the mitigation can be enabled (CanBeEnabled property)
+    Returns $true if the mitigation needs configuration, $false if already properly configured.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [PSCustomObject]$Mitigation
+    )
+    
+    $status = $Mitigation.Status
+    $canBeEnabled = $Mitigation.CanBeEnabled
+    $itemName = $Mitigation.Name
+    
+    # Already enabled or working properly - no configuration needed
+    if ($status -eq "Enabled" -or
+        $status -match "^UEFI Firmware Active" -or
+        $status -match "^TPM 2.0 Enabled" -or
+        $status -match "^Enabled and Active" -or
+        $status -match "Running" -or
+        $status -match "Enforced" -or
+        ($status -eq "Information" -and $canBeEnabled -eq $false)) {
+        return $false
+    }
+    
+    # Check kernel runtime state if available
+    if ($script:RuntimeState.APIAvailable) {
+        $isRuntimeActive = switch ($itemName) {
+            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+            default { $false }
+        }
+        
+        # If runtime shows it's active, no configuration needed
+        if ($isRuntimeActive) {
+            return $false
+        }
+    }
+    
+    # Not enabled and not active in runtime - needs configuration
+    return $true
+}
+
+# Apply configurations if requested
+if ($Apply) {
+    Write-ColorOutput "`nConfiguration Application:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    $notConfigured = $Results | Where-Object { 
+        (Test-MitigationNeedsConfiguration -Mitigation $_) -and $_.CanBeEnabled
+    }
+    
+    # Filter CPU-specific mitigations
+    if ($notConfigured.Count -gt 0) {
+        Write-ColorOutput "Filtering mitigations for CPU compatibility..." -Color Info
+        $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
+    }
+    
+    # Handle nested virtualization as a special case and filter out other hardware/firmware settings
+    if ($notConfigured.Count -gt 0) {
+        Write-ColorOutput "Filtering hardware/firmware settings..." -Color Info
+        
+        # Extract nested virtualization for special handling
+        $nestedVirtualization = $notConfigured | Where-Object { $_.Name -eq "Nested Virtualization Security" }
+        
+        # Filter out other hardware settings but keep registry-configurable ones
+        $notConfigured = $notConfigured | Where-Object { 
+            $_.RegistryPath -notmatch "Hardware/UEFI|BIOS/UEFI" -and
+            $_.RegistryPath -notmatch "Hardware Feature" -and
+            $_.Name -ne "Nested Virtualization Security"
+        }
+        
+        # Add nested virtualization back as a configurable option if available
+        if ($nestedVirtualization -and $nestedVirtualization.CanBeEnabled) {
+            $notConfigured = @($notConfigured) + $nestedVirtualization
+        }
+        
+        # Show which hardware settings were filtered out (excluding nested virtualization)
+        $hardwareSettings = $Results | Where-Object { 
+            $_.Status -ne "Enabled" -and 
+            $_.CanBeEnabled -and 
+            ($_.RegistryPath -match "Hardware/UEFI|BIOS/UEFI" -or $_.RegistryPath -match "Hardware Feature") -and
+            $_.Name -ne "Nested Virtualization Security"
+        }
+        
+        if ($hardwareSettings.Count -gt 0) {
+            Write-ColorOutput "`nNote: The following settings require hardware/firmware configuration and cannot be applied via registry:" -Color Warning
+            foreach ($setting in $hardwareSettings) {
+                Write-ColorOutput "  - $($setting.Name): $($setting.Recommendation)" -Color Info
+            }
+        }
+    }
+    
+    if ($notConfigured.Count -gt 0) {
+        
+        # Interactive mode - let user select specific mitigations
+        if ($Interactive) {
+            $selectedMitigations = Select-Mitigations -AvailableMitigations $notConfigured -WhatIf:$WhatIf
+            
+            if ($selectedMitigations.Count -eq 0) {
+                Write-ColorOutput "`nNo mitigations selected. Exiting." -Color Warning
+                return
+            }
+            
+            $mitigationsToApply = $selectedMitigations
+        }
+        else {
+            $mitigationsToApply = $notConfigured
+        }
+        
+        if ($WhatIf) {
+            Write-ColorOutput "`nWhatIf: Changes that would be made:" -Color Header
+            Write-ColorOutput ("=" * 50) -Color Header
+            Write-ColorOutput "The following changes would be applied:" -Color Info
+            
+            foreach ($item in $mitigationsToApply) {
+                Write-ColorOutput "`nMitigation: $($item.Name)" -Color Info
+                
+                # Special display for nested virtualization
+                if ($item.Name -eq "Nested Virtualization Security") {
+                    Write-ColorOutput "  Action: Enable nested virtualization on Hyper-V VMs" -Color Gray
+                    Write-ColorOutput "  Method: Set-VMProcessor -ExposeVirtualizationExtensions $true" -Color Gray
+                    Write-ColorOutput "  Scope: All VMs (will be stopped if running)" -Color Gray
+                    Write-ColorOutput "  Security Impact: REDUCES security score - enables VM attack surface" -Color Red
+                }
+                else {
+                    # Regular registry changes
+                    Write-ColorOutput "  Registry Path: $($item.RegistryPath)" -Color Gray
+                    Write-ColorOutput "  Registry Name: $($item.RegistryName)" -Color Gray  
+                    Write-ColorOutput "  New Value: $($item.ExpectedValue)" -Color Gray
+                    $valueType = if ($item.ValueType) { $item.ValueType } else { "REG_DWORD" }
+                    Write-ColorOutput "  Value Type: $valueType" -Color Gray
+                    
+                    # Show impact assessment
+                    $impact = switch ($item.Name) {
+                        { $_ -match "Spectre|BTI|IBRS|SSBD" } { "Minimal performance impact" }
+                        { $_ -match "Meltdown|KVAS" } { "Low-medium performance impact" }
+                        { $_ -match "TSX" } { "May affect TSX-dependent applications" }
+                        { $_ -match "Hardware" } { "Hardware-dependent performance impact" }
+                        default { "Performance impact varies" }
+                    }
+                    Write-ColorOutput "  Expected Impact: $impact" -Color Warning
+                }
+            }
+            
+            Write-ColorOutput "`nWhatIf Summary:" -Color Header
+            Write-ColorOutput "Total changes that would be made: $($mitigationsToApply.Count)" -Color Info
+            Write-ColorOutput "System restart would be required: Yes" -Color Warning
+            Write-ColorOutput "`nTo actually apply these changes, run without -WhatIf parameter." -Color Info
+            
+        }
+        else {
+            Write-ColorOutput "Applying $($mitigationsToApply.Count) security configurations..." -Color Info
+            $successCount = 0
+            
+            foreach ($item in $mitigationsToApply) {
+                Write-ColorOutput "`nConfiguring: $($item.Name)" -Color Info
+                
+                # Special handling for nested virtualization
+                if ($item.Name -eq "Nested Virtualization Security") {
+                    try {
+                        # Get all VMs
+                        $vms = Get-VM -ErrorAction Stop
+                        if ($vms.Count -eq 0) {
+                            Write-ColorOutput "  No VMs found to configure" -Color Warning
+                            continue
+                        }
+                        
+                        Write-ColorOutput "  Found $($vms.Count) VMs. Enabling nested virtualization..." -Color Info
+                        $vmSuccessCount = 0
+                        
+                        foreach ($vm in $vms) {
+                            try {
+                                # Only enable on stopped VMs
+                                if ($vm.State -eq "Running") {
+                                    Write-ColorOutput "  Stopping VM '$($vm.Name)' to enable nested virtualization..." -Color Warning
+                                    Stop-VM -Name $vm.Name -Force -ErrorAction Stop
+                                    # Wait a moment for VM to fully stop
+                                    Start-Sleep -Seconds 3
+                                }
+                                
+                                # Enable nested virtualization
+                                Set-VMProcessor -VMName $vm.Name -ExposeVirtualizationExtensions $true -ErrorAction Stop
+                                Write-ColorOutput "  Enabled nested virtualization for VM '$($vm.Name)'" -Color Good
+                                $vmSuccessCount++
+                            }
+                            catch {
+                                Write-ColorOutput "  Failed to configure VM '$($vm.Name)': $($_.Exception.Message)" -Color Bad
+                            }
+                        }
+                        
+                        if ($vmSuccessCount -eq $vms.Count) {
+                            Write-ColorOutput "  Successfully enabled nested virtualization on all $vmSuccessCount VMs" -Color Good
+                            $successCount++
+                        }
+                        else {
+                            Write-ColorOutput "  Enabled nested virtualization on $vmSuccessCount of $($vms.Count) VMs" -Color Warning
+                        }
+                    }
+                    catch {
+                        Write-ColorOutput "  Failed to configure nested virtualization: $($_.Exception.Message)" -Color Bad
+                    }
+                }
+                else {
+                    # Regular registry-based configuration
+                    if (Set-RegistryValue -Path $item.RegistryPath -Name $item.RegistryName -Value $item.ExpectedValue) {
+                        $successCount++
+                    }
+                }
+            }
+            
+            Write-ColorOutput "`nConfiguration Results:" -Color Header
+            Write-ColorOutput "Successfully applied: $successCount/$($mitigationsToApply.Count)" -Color Good
+            
+            if ($successCount -gt 0) {
+                Write-ColorOutput "`n[!] IMPORTANT: A system restart is required for changes to take effect." -Color Warning
+                Write-ColorOutput "`n" -Color Info
+                $rebootChoice = Read-Host "Would you like to restart your computer now to ensure changes take effect? (Y/N)"
+                if ($rebootChoice -match '^[Yy]') {
+                    Write-ColorOutput "Initiating system restart in 10 seconds..." -Color Warning
+                    Write-ColorOutput "Press Ctrl+C to cancel the restart." -Color Info
+                    Start-Sleep -Seconds 3
+                    Write-ColorOutput "Restarting in 7 seconds..." -Color Warning
+                    Start-Sleep -Seconds 3
+                    Write-ColorOutput "Restarting in 4 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 3 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 2 seconds..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting in 1 second..." -Color Warning
+                    Start-Sleep -Seconds 1
+                    Write-ColorOutput "Restarting now..." -Color Error
+                    Restart-Computer -Force
+                }
+                else {
+                    Write-ColorOutput "Remember to restart your computer manually to ensure all changes take effect." -Color Warning
+                }
+            }
+        }
+    }
+    else {
+        Write-ColorOutput "All mitigations are already properly configured!" -Color Good
+    }
+}
+else {
+    # Recommendations when not applying
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    Write-ColorOutput "Recommendations" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    
+    # Filter out items that are already properly configured using centralized logic
+    $notConfigured = $Results | Where-Object { 
+        Test-MitigationNeedsConfiguration -Mitigation $_
+    }
+    
+    # Filter CPU-specific mitigations in recommendations too
+    if ($notConfigured.Count -gt 0) {
+        $notConfigured = Filter-CPUSpecificMitigations -Mitigations $notConfigured -CPUManufacturer $cpuInfo.Manufacturer
+    }
+    
+    if ($notConfigured.Count -gt 0) {
+        Write-ColorOutput "The following mitigations should be configured:" -Color Warning
+        Write-ColorOutput "" -Color Info
+        
+        # Categorize recommendations by priority and impact
+        $highPriorityLowImpact = @()
+        $mediumPriorityMediumImpact = @()
+        $lowPriorityHighImpact = @()
+        
+        foreach ($item in $notConfigured) {
+            $priority = "Medium"
+            $perfImpact = "Medium"
+            
+            # Determine priority and impact
+            switch -Wildcard ($item.Name) {
+                "*ASLR*" {
+                    $priority = "High"
+                    $perfImpact = "Low"
+                    $highPriorityLowImpact += $item
+                }
+                "*Enhanced IBRS*" {
+                    $priority = "High"
+                    $perfImpact = "Low"
+                    $highPriorityLowImpact += $item
+                }
+                "*SSBD*" {
+                    $priority = "High"
+                    $perfImpact = "Low"
+                    $highPriorityLowImpact += $item
+                }
+                "*Exception Chain*" {
+                    $priority = "High"
+                    $perfImpact = "Low"
+                    $highPriorityLowImpact += $item
+                }
+                "*Hardware Security*" {
+                    $priority = "High"
+                    $perfImpact = "Low"
+                    $highPriorityLowImpact += $item
+                }
+                "*BTI*" {
+                    $priority = "Medium"
+                    $perfImpact = "Medium"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*Kernel VA Shadow*" {
+                    $priority = "Medium"
+                    $perfImpact = "Medium"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*CVE-2019-11135*" {
+                    $priority = "Medium"
+                    $perfImpact = "Medium"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*SBDR*" {
+                    $priority = "Medium"
+                    $perfImpact = "Medium"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*SRBDS*" {
+                    $priority = "Medium"
+                    $perfImpact = "Low"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*DRPW*" {
+                    $priority = "Medium"
+                    $perfImpact = "Low"
+                    $mediumPriorityMediumImpact += $item
+                }
+                "*L1TF*" {
+                    $priority = "Low"
+                    $perfImpact = "High"
+                    $lowPriorityHighImpact += $item
+                }
+                "*MDS*" {
+                    $priority = "Low"
+                    $perfImpact = "High"
+                    $lowPriorityHighImpact += $item
+                }
+                "*TSX*" {
+                    $priority = "Low"
+                    $perfImpact = "Variable"
+                    $lowPriorityHighImpact += $item
+                }
+                default {
+                    $mediumPriorityMediumImpact += $item
+                }
+            }
+        }
+        
+        # Display recommendations by category with context
+        $IconCheck = Get-Icon -Name Check
+        $IconWarning = Get-Icon -Name Warning
+        $IconError = Get-Icon -Name Cross
+        $IconArrow = Get-Icon -Name Arrow
+        $IconInfo = Get-Icon -Name Info
+        $IconStar = Get-Icon -Name Star
+        
+        if ($highPriorityLowImpact.Count -gt 0) {
+            Write-ColorOutput "$IconCheck RECOMMENDED - High Security Benefit, Low Performance Impact:" -Color Good
+            Write-ColorOutput "   (Enable these first - minimal performance cost, good protection)" -Color Gray
+            foreach ($item in $highPriorityLowImpact) {
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
+            }
+            Write-ColorOutput "" -Color Info
+        }
+        
+        if ($mediumPriorityMediumImpact.Count -gt 0) {
+            Write-ColorOutput "$IconWarning CONSIDER - Moderate Security Benefit, Moderate Performance Impact:" -Color Warning
+            Write-ColorOutput "   (Evaluate based on your threat model and performance requirements)" -Color Gray
+            foreach ($item in $mediumPriorityMediumImpact) {
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
+                
+                # Add specific guidance
+                if ($item.Name -match "Kernel VA Shadow|Meltdown") {
+                    Write-ColorOutput "     $IconInfo Already protected if CPU has RDCL hardware immunity" -Color Gray
+                }
+                elseif ($item.Name -match "CVE-2019-11135|TAA") {
+                    Write-ColorOutput "     $IconInfo Intel-specific, affects TSX-enabled CPUs" -Color Gray
+                }
+            }
+            Write-ColorOutput "" -Color Info
+        }
+        
+        if ($lowPriorityHighImpact.Count -gt 0) {
+            Write-ColorOutput "$IconError EVALUATE CAREFULLY - Variable Benefit, High Performance Impact:" -Color Bad
+            Write-ColorOutput "   (Only enable if required by compliance or high-security environments)" -Color Gray
+            foreach ($item in $lowPriorityHighImpact) {
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
+                
+                # Add specific warnings and context
+                if ($item.Name -match "L1TF") {
+                    Write-ColorOutput "     $IconWarning May require disabling hyperthreading for full protection" -Color Yellow
+                    Write-ColorOutput "     $IconWarning Performance impact: 10-30% depending on workload" -Color Yellow
+                    Write-ColorOutput "     $IconInfo Primarily affects virtualized environments and older CPUs" -Color Gray
+                    Write-ColorOutput "     $IconInfo Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
+                }
+                elseif ($item.Name -match "MDS") {
+                    Write-ColorOutput "     $IconWarning Performance impact: 3-8% for most workloads, up to 15% for memory-intensive tasks" -Color Yellow
+                    Write-ColorOutput "     $IconInfo Check if already active via Windows defaults (see kernel runtime status)" -Color Gray
+                    Write-ColorOutput "     $IconInfo Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
+                }
+                elseif ($item.Name -match "TSX") {
+                    Write-ColorOutput "     $IconInfo Only affects applications using Intel TSX instructions" -Color Gray
+                    Write-ColorOutput "     $IconInfo Most applications don't use TSX - impact is minimal" -Color Gray
+                }
+            }
+            Write-ColorOutput "" -Color Info
+        }
+        
+        # Add decision guidance
+        Write-ColorOutput "$IconStar DECISION GUIDANCE:" -Color Header
+        Write-ColorOutput "   $IconArrow Desktop/Workstation: Enable $IconCheck recommended items" -Color Info
+        Write-ColorOutput "   $IconArrow Server (non-virtualized): Enable $IconCheck + consider $IconWarning items" -Color Info
+        Write-ColorOutput "   $IconArrow Hyper-V/VMware Host: Enable $IconCheck + $IconWarning, evaluate $IconError based on tenant trust" -Color Info
+        Write-ColorOutput "   $IconArrow High-Security/Compliance: Enable all items, test performance impact" -Color Info
+        Write-ColorOutput "" -Color Info
+        
+        Write-ColorOutput "To apply these configurations automatically, run:" -Color Info
+        Write-ColorOutput ".\SideChannel_Check.ps1 -Apply" -Color Info
+        Write-ColorOutput "`nFor interactive selection (recommended):" -Color Info
+        Write-ColorOutput ".\SideChannel_Check.ps1 -Apply -Interactive" -Color Good
+        
+        Write-ColorOutput "`nOr manually use these registry commands:" -Color Info
+        Write-ColorOutput "(Filtered for $($cpuInfo.Manufacturer) CPU compatibility)" -Color Info
+        foreach ($item in $notConfigured | Where-Object { $_.CanBeEnabled }) {
+            # Only show registry commands for actual registry configurations
+            if ($item.RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
+                # Special handling for different registry value types
+                $regType = "REG_DWORD"
+                $regValue = $item.ExpectedValue
+                
+                # Handle large hex values (like MitigationOptions)
+                if ($item.ExpectedValue -is [string] -and $item.ExpectedValue.Length -gt 10 -and $item.ExpectedValue -match "^[0-9A-Fa-f]+$") {
+                    try {
+                        $regValue = [Convert]::ToUInt64($item.ExpectedValue, 16)
+                        $regType = "REG_QWORD"
+                    }
+                    catch {
+                        $regValue = $item.ExpectedValue
+                    }
+                }
+                
+                Write-ColorOutput "reg add `"$($item.RegistryPath)`" /v `"$($item.RegistryName)`" /t $regType /d $regValue /f" -Color Info
+            }
+            elseif ($item.RegistryPath -match "Hardware|UEFI|BIOS") {
+                Write-ColorOutput "# Hardware/UEFI: $($item.Name) - Configure in BIOS/UEFI settings" -Color Warning
+            }
+            elseif ($item.RegistryPath -match "Hyper-V") {
+                Write-ColorOutput "# Hyper-V: $($item.Name) - Use Hyper-V PowerShell commands or GUI" -Color Warning
+            }
+            elseif ($item.RegistryPath -match "VMware") {
+                Write-ColorOutput "# VMware: $($item.Name) - Configure on ESXi host" -Color Warning
+            }
+            else {
+                Write-ColorOutput "# Configuration: $($item.Name) - Manual configuration required" -Color Warning
+            }
+        }
+        Write-ColorOutput "`nNote: A system restart may be required after making registry changes." -Color Warning
+        Write-ColorOutput "These are the core KB4073119 documented mitigations. For additional modern CVE mitigations," -Color Info
+        Write-ColorOutput "use Microsoft's official SpeculationControl PowerShell module." -Color Info
+        if ($hasModernCVEs) {
+            Write-ColorOutput "`nAdvanced CVE Mitigations Notice:" -Color Header
+            Write-ColorOutput "- These mitigations target recent vulnerabilities (2018-2023)" -Color Info
+            Write-ColorOutput "- Some mitigations require specific CPU microcode updates" -Color Info
+            Write-ColorOutput "- CPU vendor compatibility varies (Intel vs AMD specific)" -Color Info
+            Write-ColorOutput "- Consider testing in non-production environments first" -Color Warning
+            Write-ColorOutput "- Performance impact varies by CPU generation and workload" -Color Info
+        }
+    }
+    else {
+        Write-ColorOutput "All checked mitigations are properly configured!" -Color Good
+    }
+}
+
+# Handle Revert functionality
+if ($Revert) {
+    Write-ColorOutput "`nMitigation Revert Mode:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    Write-ColorOutput "Scanning for revertable side-channel mitigations..." -Color Info
+    
+    $revertableMitigations = Get-RevertableMitigations
+    
+    if ($revertableMitigations.Count -gt 0) {
+        Write-ColorOutput "`nFound $($revertableMitigations.Count) revertable mitigation(s):" -Color Warning
+        
+        if ($Interactive) {
+            Write-ColorOutput "`n!  WARNING: Reverting mitigations will REDUCE your system's security!" -Color Error
+            Write-ColorOutput "Only proceed if specific mitigations are causing performance issues." -Color Error
+            Write-ColorOutput "Always test in non-production environments first.`n" -Color Error
+            
+            if ($WhatIf) {
+                Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied`n" -Color Warning
+            }
+            
+            Write-ColorOutput "Available mitigations to revert:" -Color Info
+            Write-ColorOutput "Use numbers to select (e.g., 1,3,4 or 1-3 or all for all mitigations):" -Color Info
+            Write-ColorOutput "Enter 0 to revert no mitigations and exit:`n" -Color Info
+            
+            for ($i = 0; $i -lt $revertableMitigations.Count; $i++) {
+                $mitigation = $revertableMitigations[$i]
+                Write-ColorOutput "  [$($i + 1)] $($mitigation.Name) (Impact: $($mitigation.Impact))" -Color Warning
+                Write-ColorOutput "      $($mitigation.Description)" -Color Info
+                Write-ColorOutput "      Security Risk: $($mitigation.SecurityRisk)" -Color Error
+                
+                # Show appropriate configuration location
+                if ($mitigation.Name -eq "Nested Virtualization Security") {
+                    Write-ColorOutput "      Configuration: Hyper-V VM Processor Settings" -Color Gray
+                }
+                elseif ($mitigation.Name -match "VMware.*Nested.*Virtualization") {
+                    Write-ColorOutput "      Configuration: VMware ESXi Host Settings" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "^HKLM:|^HKCU:|^HKEY_") {
+                    Write-ColorOutput "      Registry: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "Hardware|UEFI|BIOS") {
+                    Write-ColorOutput "      Hardware/UEFI: $($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "Hyper-V") {
+                    Write-ColorOutput "      Hyper-V: $($mitigation.RegistryName)" -Color Gray
+                }
+                elseif ($mitigation.RegistryPath -match "VMware") {
+                    Write-ColorOutput "      VMware: $($mitigation.RegistryName)" -Color Gray
+                }
+                else {
+                    Write-ColorOutput "      Configuration: $($mitigation.RegistryPath)\$($mitigation.RegistryName)" -Color Gray
+                }
+                
+                Write-ColorOutput "" -Color Info
+            }
+            
+            $selection = Read-Host "Enter your selection (numbers separated by commas, ranges like 1-3, 'all', or 0 for none)"
+            
+            if ([string]::IsNullOrWhiteSpace($selection)) {
+                Write-ColorOutput "No selection made. Exiting revert mode." -Color Warning
+                return
+            }
+            
+            if ($selection -eq '0') {
+                Write-ColorOutput "No mitigations selected for revert. Exiting without making any changes." -Color Info
+                return
+            }
+            
+            # Parse selection (similar to existing selection logic)
+            $selectedIndices = @()
+            if ($selection.ToLower() -eq 'all') {
+                $selectedIndices = 0..($revertableMitigations.Count - 1)
+            }
+            else {
+                foreach ($part in $selection.Split(',')) {
+                    if ($part.Contains('-')) {
+                        $range = $part.Split('-')
+                        if ($range.Count -eq 2) {
+                            $start = [int]$range[0].Trim() - 1
+                            $end = [int]$range[1].Trim() - 1
+                            $selectedIndices += $start..$end
+                        }
+                    }
+                    else {
+                        $selectedIndices += [int]$part.Trim() - 1
+                    }
+                }
+            }
+            
+            $selectedMitigations = @()
+            foreach ($index in $selectedIndices) {
+                if ($index -ge 0 -and $index -lt $revertableMitigations.Count) {
+                    $selectedMitigations += $revertableMitigations[$index]
+                }
+            }
+            
+            if ($selectedMitigations.Count -gt 0) {
+                Write-ColorOutput "`nSelected $($selectedMitigations.Count) mitigation(s) for revert." -Color Warning
+                
+                if (-not $WhatIf) {
+                    $confirm = Read-Host "`n!  Are you sure you want to REMOVE these security protections? (yes/no)"
+                    if ($confirm.ToLower() -ne 'yes') {
+                        Write-ColorOutput "Revert operation cancelled." -Color Info
+                        return
+                    }
+                }
+                
+                Invoke-MitigationRevert -SelectedMitigations $selectedMitigations -WhatIf:$WhatIf
+            }
+            else {
+                Write-ColorOutput "No valid mitigations selected." -Color Warning
+            }
+        }
+        else {
+            Write-ColorOutput "Non-interactive revert mode is not supported for security reasons." -Color Error
+            Write-ColorOutput "Use -Interactive switch to manually select mitigations to revert." -Color Warning
+        }
+    }
+    else {
+        Write-ColorOutput "No revertable mitigations found." -Color Info
+        Write-ColorOutput "Either no mitigations are currently enabled, or they cannot be safely reverted." -Color Info
+    }
+}
+
+# Virtualization-Specific Recommendations
+Write-ColorOutput "`nVirtualization Security Recommendations:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
+Write-ColorOutput "`nStatus Symbols:" -Color Header
+Write-ColorOutput "[+] Enabled/Recommended - Feature is active or recommended configuration" -Color Info
+Write-ColorOutput "[-] Disabled/Not Recommended - Feature is disabled or not recommended" -Color Info
+Write-ColorOutput "[?] Unknown/Variable - Status depends on configuration or hardware" -Color Info
+
+if ($virtInfo.IsVirtualMachine) {
+    Write-ColorOutput "Running in Virtual Machine - Guest Recommendations:" -Color Info
+    Write-ColorOutput "- Ensure hypervisor host has latest microcode updates" -Color Warning
+    Write-ColorOutput "- Verify hypervisor has side-channel mitigations enabled" -Color Warning
+    Write-ColorOutput "- Keep guest OS and drivers updated" -Color Warning
+    
+    switch ($virtInfo.HypervisorVendor) {
+        "Microsoft" {
+            Write-ColorOutput "`nHyper-V Guest Specific:" -Color Header
+            Write-ColorOutput "- Host should use Core Scheduler (auto-enabled in newer Windows versions)" -Color Info
+            Write-ColorOutput "- Enable Enhanced Session Mode for better security" -Color Info
+            Write-ColorOutput "- Ensure host has VBS/HVCI enabled" -Color Warning
+        }
+        "VMware" {
+            Write-ColorOutput "`nVMware Guest Specific:" -Color Header
+            Write-ColorOutput "- ESXi host should be 6.7 U2+ with Side-Channel Aware Scheduler" -Color Warning
+            Write-ColorOutput "- VM hardware version should be 14+ for latest security features" -Color Warning
+            Write-ColorOutput "- Enable VMware Tools for additional security features" -Color Info
+            
+            # Display comprehensive VMware host security configuration
+            Write-ColorOutput "`nFor VMware Host Administrators:" -Color Warning
+            Write-ColorOutput "Use parameter -ShowVMwareHostSecurity for detailed ESXi security configuration guidance." -Color Warning
+        }
+        "QEMU/KVM" {
+            Write-ColorOutput "`nKVM Guest Specific:" -Color Header
+            Write-ColorOutput "- Host kernel should support spec-ctrl (4.15+)" -Color Warning
+            Write-ColorOutput "- Use CPU flags: `+spec-ctrl,`+ibpb,`+ssbd" -Color Warning
+            Write-ColorOutput "- Enable SLAT (Intel EPT/AMD RVI) on host" -Color Warning
+        }
+        default {
+            Write-ColorOutput "`nGeneral VM Recommendations:" -Color Header
+            Write-ColorOutput "- Contact hypervisor vendor for side-channel mitigation guidance" -Color Warning
+            Write-ColorOutput "- Verify hardware virtualization extensions are properly exposed" -Color Info
+        }
+    }
+}
+else {
+    Write-ColorOutput "Running on Physical Hardware - Host Recommendations:" -Color Info
+    Write-ColorOutput "- Apply CPU microcode updates from manufacturer" -Color Warning
+    Write-ColorOutput "- Enable all available CPU security features in BIOS/UEFI" -Color Warning
+    
+    if ($virtInfo.HyperVStatus -eq "Enabled") {
+        Write-ColorOutput "`nHyper-V Host Specific:" -Color Header
+        
+        # OS version-aware Core Scheduler recommendation
+        $osBuildNumber = [int](Get-ItemProperty "HKLM:SOFTWARE\Microsoft\Windows NT\CurrentVersion").CurrentBuildNumber
+        if ($osBuildNumber -lt 20348) {
+            Write-ColorOutput "- Enable Core Scheduler (required for this OS): bcdedit /set hypervisorschedulertype core" -Color Warning
+            Write-ColorOutput "  ?? Prevents SMT-based side-channel attacks between VMs" -Color Info
+        }
+        else {
+            Write-ColorOutput "- Core Scheduler: [+] Enabled by default (Windows 11/Server 2022+ Build $osBuildNumber)" -Color Good
+        }
+        
+        Write-ColorOutput "- Configure VM isolation policies" -Color Info
+        Write-ColorOutput "- Use Generation 2 VMs for enhanced security" -Color Info
+        Write-ColorOutput "- Enable Secure Boot for VMs when possible" -Color Info
+        
+        # SMT (Hyperthreading) recommendation - context-aware
+        $smtRecommendation = "- Consider disabling SMT/Hyperthreading if security > performance"
+        $smtContext = ""
+        
+        # Check if key mitigations are active
+        $hasEnhancedIBRS = $script:RuntimeState.EnhancedIBRS
+        $hasMDSMitigation = $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected
+        $hasCoreScheduler = $true  # Enabled by default on Windows 11/Server 2022+
+        
+        if ($osBuildNumber -lt 20348) {
+            $hasCoreScheduler = $false  # Older OS may not have Core Scheduler
+        }
+        
+        # Get icons for PS 5.1 compatibility
+        $IconInfo = Get-Icon -Name Info
+        $IconWarning = Get-Icon -Name Warning
+        
+        if ($hasEnhancedIBRS -and $hasMDSMitigation -and $hasCoreScheduler) {
+            $smtContext = "`n  $IconInfo Your system has Enhanced IBRS, MDS mitigation, and Core Scheduler active"
+            $smtContext += "`n  $IconInfo SMT disabling is only needed for extreme security requirements (e.g., multi-tenant cloud)"
+            Write-ColorOutput $smtRecommendation -Color Info
+            Write-ColorOutput $smtContext -Color Gray
+        }
+        elseif (!$hasEnhancedIBRS -or !$hasMDSMitigation) {
+            $smtContext = "`n  $IconWarning WARNING: Missing Enhanced IBRS or MDS mitigation - SMT creates higher risk"
+            $smtContext += "`n  $IconWarning Disabling SMT strongly recommended for multi-tenant environments"
+            $smtContext += "`n  $IconInfo Note: Disabling SMT reduces performance by ~30-40% but eliminates cross-core attacks"
+            Write-ColorOutput $smtRecommendation -Color Warning
+            Write-ColorOutput $smtContext -Color Yellow
+        }
+        else {
+            $smtContext = "`n  $IconInfo SMT creates shared CPU resources between VMs/processes on same physical core"
+            $smtContext += "`n  $IconInfo Consider disabling for: multi-tenant hosting, untrusted VMs, high-security environments"
+            $smtContext += "`n  $IconInfo Note: Disabling SMT reduces performance by ~30-40%"
+            Write-ColorOutput $smtRecommendation -Color Info
+            Write-ColorOutput $smtContext -Color Gray
+        }
+    }
+    
+    Write-ColorOutput "`nGeneral Host Security:" -Color Header
+    Write-ColorOutput "- Enable VBS/HVCI if hardware supports it" -Color Warning
+    Write-ColorOutput "- Use UEFI Secure Boot" -Color Warning
+    Write-ColorOutput "- Enable TPM 2.0 if available" -Color Info
+    Write-ColorOutput "- Configure proper VM resource isolation" -Color Warning
+}
+
+# Show VMware Host Security Configuration if requested
+if ($ShowVMwareHostSecurity) {
+    Show-VMwareHostSecurity
+}
+
+# Export results if requested
+if ($ExportPath) {
+    try {
+        $Results | Export-Csv -Path $ExportPath -NoTypeInformation -Encoding UTF8
+        Write-ColorOutput "`nResults exported to: $ExportPath" -Color Good
+    }
+    catch {
+        Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
+    }
+}
+
+# ============================================================================
+# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
+# ============================================================================
+# The following sections provide detailed technical information about
+# security features, hardware dependencies, and configuration values.
+# These are educational resources for understanding the core assessment above.
+# ============================================================================
+
+if ($Detailed) {
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header  
+    Write-ColorOutput "ADDITIONAL INFORMATION & EDUCATIONAL CONTENT" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    # Section 0: Hardware Prerequisites Detailed Analysis
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+    Write-ColorOutput "HARDWARE PREREQUISITES DETAILED ANALYSIS" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    # Get current hardware status
+    $hwStatus = Get-HardwareRequirements
+
+    # Define emoji symbols for status indicators (PS 5.1 compatible)
+    $IconCheck = Get-Icon -Name Check
+    $IconQuestion = Get-Icon -Name Question
+    $IconCross = Get-Icon -Name Cross
+    $IconArrow = Get-Icon -Name Arrow
+    $IconCross = Get-Icon -Name Cross
+
+    Write-ColorOutput "Hardware Security Assessment:" -Color Info
+    Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconCheck" -NoNewline -ForegroundColor Green
+    Write-Host " Enabled/Good, " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconQuestion" -NoNewline -ForegroundColor Yellow
+    Write-Host " Needs Verification, " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconCross" -NoNewline -ForegroundColor Red
+    Write-Host " Disabled/Missing)" -ForegroundColor Gray
+
+    # Get updated hardware status from our Results array for consistency
+    $uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
+    $secureBootResult = $Results | Where-Object { $_.Name -eq "Secure Boot" }
+    $tpmResult = $Results | Where-Object { $_.Name -match "TPM 2.0" }
+    $vtxResult = $Results | Where-Object { $_.Name -match "CPU Virtualization" }
+    $iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
+
+    # UEFI Status
+    Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
+    $uefiStatusIcon = if ($uefiResult.Status -match "Active") { $IconCheck } else { $IconCross }
+    $uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
+
+    # Secure Boot Status
+    Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
+    $sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { $IconCheck } elseif ($secureBootResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
+    $sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
+
+    # TPM Status
+    Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
+    $tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $IconCheck } elseif ($tpmResult.Status -match "Present|Unknown") { $IconQuestion } else { $IconCross }
+    $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
+                
+    # CPU Virtualization Status
+    Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
+    $vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { $IconCheck } elseif ($vtxResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
+    $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
+
+    # IOMMU Status
+    Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
+    $iommuStatusIcon = if ($iommuResult.Status -eq "Enabled") { $IconCheck } elseif ($iommuResult.Status -eq "Disabled") { $IconCross } else { $IconQuestion }
+    $iommuColor = if ($iommuResult.Status -eq "Enabled") { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
+    if ($iommuResult.CurrentValue -ne $iommuResult.Status) {
+        Write-Host "  $IconArrow Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
+    }
+
+    Write-ColorOutput "`nRequired CPU Features:" -Color Info
+    Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
+    Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Info
+    Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
+    Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color $(if ($hwStatus.TPMPresent -and $hwStatus.SecureBootEnabled -and $hwStatus.IsUEFI) { 'Good' } else { 'Warning' })
+
+    Write-ColorOutput "`nAdministrator Action Items:" -Color Header
+    Write-ColorOutput "===========================" -Color Header
+
+    # Generate specific action items based on current status
+    $actionItems = @()
+
+    if (!$hwStatus.IsUEFI) {
+        $actionItems += "- CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
+    }
+
+    if ($hwStatus.IsUEFI -and !$hwStatus.SecureBootEnabled) {
+        $actionItems += "- Access UEFI firmware settings and enable Secure Boot"
+    }
+
+    if (!$hwStatus.TPMPresent) {
+        $actionItems += "- Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
+    }
+    elseif ($hwStatus.TPMVersion -notmatch "2\.0") {
+        $actionItems += "- Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
+    }
+
+    if (!$hwStatus.VTxSupport) {
+        $actionItems += "- Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
+    }
+
+    if ($hwStatus.IOMMUSupport -notmatch "^Enabled") {
+        $actionItems += "- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
+    }
+
+    # Always include firmware update recommendation
+    $actionItems += "- Update system firmware/BIOS to latest version for security fixes"
+    $actionItems += "- Update CPU microcode through Windows Update or vendor tools"
+
+    if ($actionItems.Count -gt 0) {
+        Write-ColorOutput "`nRequired Actions for Optimal Security:" -Color Warning
+        foreach ($item in $actionItems) {
+            Write-ColorOutput $item -Color Warning
+        }
+    }
+    else {
+        Write-ColorOutput "`nHardware Security Status: All critical components properly configured!" -Color Good
+    }
+
+    Write-ColorOutput "`nManual Verification Steps:" -Color Info
+    Write-ColorOutput "- Boot into UEFI/BIOS setup to verify settings" -Color Info
+    Write-ColorOutput "- Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
+    Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color Info
+    Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
+
+    Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
+
+    $IconCheck = Get-Icon -Name Check
+    $IconCross = Get-Icon -Name Cross
+    $IconQuestion = Get-Icon -Name Question
+
+    $uefiStatusText = if ($hwStatus.IsUEFI) { "$IconCheck Met" } else { "$IconCross Not Met" }
+    $uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
+    Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
+    $secureBootStatusText = if ($hwStatus.SecureBootCapable) { "$IconCheck Available" } else { "$IconCross Not Available" }
+    $secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
+    Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
+    $tpmStatusText = if ($hwStatus.TPMPresent) { "$IconCheck Present" } else { "$IconCross Missing" }
+    $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
+    Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
+    Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
+
+    # Section 1: Additional Runtime Details
+    if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
+        Write-ColorOutput "`n" -Color Header
+        Write-ColorOutput ("=" * 80) -Color Header
+        Write-ColorOutput "DETAILED KERNEL RUNTIME FLAGS" -Color Header
+        Write-ColorOutput ("=" * 80) -Color Header
+        Write-ColorOutput "Advanced runtime mitigation details from NtQuerySystemInformation API:" -Color Info
+    
+        # Show additional runtime flags not displayed in main table
+        Write-ColorOutput "`nAdvanced Protections:" -Color Header
+    
+        if ($script:RuntimeState.RetpolineEnabled) {
+            $iconRetpoline = Get-Icon -Name Check
+            Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
+        }
+    
+        if ($script:RuntimeState.EnhancedIBRS) {
+            $iconEIBRS = Get-Icon -Name Check
+            Write-Host "  $iconEIBRS Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)" -ForegroundColor $Colors['Good']
+        }
+    
+        if ($script:RuntimeState.IBRSPreferred) {
+            $iconIBRS = Get-Icon -Name Check
+            Write-Host "  $iconIBRS IBRS Preferred: CPU recommends IBRS over retpoline" -ForegroundColor $Colors['Good']
+        }
+    
+        if ($script:RuntimeKVAState.APIAvailable -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
+            $iconPCID = Get-Icon -Name Check
+            Write-Host "  $iconPCID PCID Optimization: ACTIVE (reduces KPTI performance impact)" -ForegroundColor $Colors['Good']
+        }
+    
+        if ($script:RuntimeKVAState.L1TFFlushSupported) {
+            $iconL1TF = Get-Icon -Name Check
+            Write-Host "  $iconL1TF L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)" -ForegroundColor $Colors['Good']
+        }
+    
+        # CPU Vendor-specific immunities
+        Write-ColorOutput "`nHardware Immunity Status:" -Color Header
+        if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
+            $iconAMD = Get-Icon -Name Check
+            Write-Host "  $iconAMD AMD CPU Detected" -ForegroundColor $Colors['Good']
+            Write-Host "    - Immune to: Meltdown, L1TF, MDS, TAA" -ForegroundColor $Colors['Good']
+        }
+        elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
+            Write-Host "  Intel CPU Detected" -ForegroundColor $Colors['Info']
+            if ($script:RuntimeState.RDCLHardwareProtected) {
+                $iconRDCL = Get-Icon -Name Check
+                Write-Host "    $iconRDCL RDCL Protected: Hardware immunity to Meltdown" -ForegroundColor $Colors['Good']
+            }
+            if ($script:RuntimeState.MDSHardwareProtected) {
+                $iconMDS = Get-Icon -Name Check
+                Write-Host "    $iconMDS MDS Protected: Hardware immunity to MDS" -ForegroundColor $Colors['Good']
+            }
+            if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
+                $iconTAA = Get-Icon -Name Check
+                Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
+            }
+        }
+    } # End of if ($script:RuntimeState.APIAvailable...)
+
+    # Section 2: VBS/HVCI Detailed Status Analysis
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+    Write-ColorOutput "DETAILED SECURITY ANALYSIS (VBS/HVCI)" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    try {
+        $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+        if (!$vbsStatus) {
+            $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+        }
+    }
+    catch {
+        $vbsStatus = $null
+    }
+
+    if ($vbsStatus) {
+        Write-ColorOutput "`nVirtualization Based Security Detailed Status:" -Color Header
+        Write-ColorOutput "=================================================" -Color Header
+    
+        # VBS Hardware Requirements vs Runtime Status
+        $vbsHwReady = $vbsStatus.VirtualizationBasedSecurityHardwareRequirementState -eq 1
+        $vbsRunning = $vbsStatus.VirtualizationBasedSecurityStatus -eq 2
+        $hvciHwReady = $vbsStatus.HypervisorEnforcedCodeIntegrityHardwareRequirementState -eq 1
+        $hvciRunning = $vbsStatus.CodeIntegrityPolicyEnforcementStatus -eq 2
+    
+        Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
+        Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+        $vbsHwReadyText = if ($vbsHwReady) { "+ Yes" } else { "- No" }
+        $vbsHwReadyColor = if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+        Write-Host $vbsHwReadyText -ForegroundColor $vbsHwReadyColor
+        Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+        $vbsRunningText = if ($vbsRunning) { "+ Yes" } else { "- No" }
+        $vbsRunningColor = if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+        Write-Host $vbsRunningText -ForegroundColor $vbsRunningColor
+    
+        Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
+        Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+        $hvciHwReadyText = if ($hvciHwReady) { "+ Yes" } else { "- No" }
+        $hvciHwReadyColor = if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+        Write-Host $hvciHwReadyText -ForegroundColor $hvciHwReadyColor
+        Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+        $hvciRunningText = if ($hvciRunning) { "+ Yes" } else { "- No" }
+        $hvciRunningColor = if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+        Write-Host $hvciRunningText -ForegroundColor $hvciRunningColor
+    
+        # Explanation of the difference
+        if (!$vbsHwReady -and $vbsRunning) {
+            Write-ColorOutput "`nNOTE: VBS is running despite hardware readiness showing 'No'." -Color Info
+            Write-ColorOutput "   This indicates VBS is enabled via software/policy, not full hardware support." -Color Info
+        }
+        if (!$hvciHwReady -and $hvciRunning) {
+            Write-ColorOutput "`nNOTE: HVCI is active despite hardware readiness showing 'No'." -Color Info
+            Write-ColorOutput "   This indicates HVCI is using compatible mode or software enforcement." -Color Info
+        }
+    
+        Write-ColorOutput "`nSecurity Services Details:" -Color Info
+        Write-ColorOutput "Running Services: $($vbsStatus.SecurityServicesRunning -join ', ')" -Color Info
+        Write-ColorOutput "Configured Services: $($vbsStatus.SecurityServicesConfigured -join ', ')" -Color Info
+    
+        # Service explanation
+        $serviceExplanation = @{
+            "1" = "Credential Guard"
+            "2" = "HVCI (Hypervisor-protected Code Integrity)"
+            "3" = "System Guard Secure Launch"
+            "4" = "SMM Firmware Measurement"
+        }
+    
+        if ($vbsStatus.SecurityServicesRunning) {
+            Write-ColorOutput "`nActive Security Services:" -Color Info
+            foreach ($service in $vbsStatus.SecurityServicesRunning) {
+                $serviceName = $serviceExplanation[$service.ToString()]
+                if ($serviceName) {
+                    Write-ColorOutput "  - $serviceName" -Color Good
+                }
+                else {
+                    Write-ColorOutput "  - Service ID: $service" -Color Info
+                }
+            }
+        }
+    
+        # Detailed explanation of VBS/HVCI status differences
+        Write-ColorOutput "`n" + "-"*60 -Color Header
+        Write-ColorOutput "VBS/HVCI Status Explanation:" -Color Header
+        Write-ColorOutput "-"*60 -Color Header
+        Write-ColorOutput "- 'Hardware Ready' = System meets full hardware requirements" -Color Info
+        Write-ColorOutput "- 'Currently Active' = Feature is actually running right now" -Color Info
+        Write-ColorOutput "`nWhy might Hardware Ready = No but Active = Yes?" -Color Warning
+        Write-ColorOutput "1. VBS/HVCI can run in 'compatible mode' without full HW support" -Color Info
+        Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
+        Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
+        Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
+    
+        $IconCheck = Get-Icon -Name Check
+        Write-ColorOutput "`n$IconCheck What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
+    }
+    else {
+        Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
+        Write-ColorOutput "VBS Status: Not Available (Win32_DeviceGuard not accessible)" -Color Warning
+        Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
+    }
+
+    # Section 3: Security Feature Dependency Matrix
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+    Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    Write-ColorOutput "`nThis matrix shows hardware requirements and software fallback options for each" -Color Info
+    Write-ColorOutput "Windows security feature. Understanding these dependencies helps you determine" -Color Info
+    Write-ColorOutput "which features can be enabled and what trade-offs exist." -Color Info
+
+    # Define dependency matrix data
+    $dependencyMatrix = @(
+        @{
+            Feature          = "Secure Boot"
+            HardwareRequired = "UEFI firmware with Secure Boot capability"
+            SoftwareFallback = "No"
+            Impact           = "Without Secure Boot, bootloader attacks are possible"
+            Notes            = "Required for most modern security features"
+        },
+        @{
+            Feature          = "TPM 2.0"
+            HardwareRequired = "Trusted Platform Module 2.0 chip"
+            SoftwareFallback = "Partial (BitLocker with password/USB key)"
+            Impact           = "Reduced cryptographic key security, no hardware root of trust"
+            Notes            = "Firmware TPM (fTPM) acceptable for most features"
+        },
+        @{
+            Feature          = "VBS (Virtualization Based Security)"
+            HardwareRequired = "CPU virtualization (VT-x/AMD-V) + SLAT/EPT"
+            SoftwareFallback = "Yes (software mode, weaker isolation)"
+            Impact           = "Software mode provides less isolation between secure kernel and normal kernel"
+            Notes            = "Hardware mode strongly recommended for production systems"
+        },
+        @{
+            Feature          = "HVCI (Hypervisor-protected Code Integrity)"
+            HardwareRequired = "CPU virtualization + IOMMU (VT-d/AMD-Vi)"
+            SoftwareFallback = "Yes (compatible mode, some features disabled)"
+            Impact           = "Compatible mode may have performance overhead, fewer driver protections"
+            Notes            = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
+        },
+        @{
+            Feature          = "Credential Guard"
+            HardwareRequired = "VBS + TPM 2.0 (recommended)"
+            SoftwareFallback = "Yes (works without TPM, less secure credential storage)"
+            Impact           = "Credentials stored in memory without hardware isolation"
+            Notes            = "Requires VBS; TPM makes credential extraction nearly impossible"
+        },
+        @{
+            Feature          = "BitLocker Drive Encryption"
+            HardwareRequired = "TPM 2.0 (recommended)"
+            SoftwareFallback = "Yes (password or USB key startup)"
+            Impact           = "Password/USB key vulnerable to physical attacks; no sealed keys"
+            Notes            = "TPM-based BitLocker provides transparent boot experience"
+        },
+        @{
+            Feature          = "DRTM (Dynamic Root of Trust)"
+            HardwareRequired = "Intel TXT or AMD Secure Startup"
+            SoftwareFallback = "No"
+            Impact           = "Cannot establish measured launch; vulnerable to bootkit persistence"
+            Notes            = "System Guard Secure Launch requires this for integrity verification"
+        },
+        @{
+            Feature          = "Kernel DMA Protection"
+            HardwareRequired = "IOMMU (VT-d/AMD-Vi) with pre-boot protection"
+            SoftwareFallback = "No"
+            Impact           = "DMA attacks via Thunderbolt/USB4 remain possible"
+            Notes            = "Protects against physical attacks via PCIe/Thunderbolt devices"
+        },
+        @{
+            Feature          = "Hardware Stack Protection"
+            HardwareRequired = "Intel CET or AMD Shadow Stack"
+            SoftwareFallback = "No"
+            Impact           = "Return-oriented programming (ROP) attacks easier to execute"
+            Notes            = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
+        },
+        @{
+            Feature          = "Microsoft Pluton"
+            HardwareRequired = "Integrated Pluton security processor"
+            SoftwareFallback = "N/A (not required for OS operation)"
+            Impact           = "Falls back to discrete TPM; no integrated firmware attack protection"
+            Notes            = "Optional - only available on select recent CPUs"
+        }
+    )
+
+    # Display dependency matrix in formatted table
+    Write-ColorOutput "`n" -Color Info
+    Write-Host ("{0,-46} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
+    Write-Host ("{0,-46} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
+
+    foreach ($feature in $dependencyMatrix) {
+        $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
+            "Yes*" { "[" + $Emojis.Success + " Yes]" }
+            "Partial*" { "[~ Part]" }
+            "No" { "[" + $Emojis.Error + " No ]" }
+            "N/A*" { "[  N/A ]" }
+            default { "[  ?  ]" }
+        }
+    
+        $fallbackColor = switch -Wildcard ($feature.SoftwareFallback) {
+            "Yes*" { $Colors['Good'] }
+            "Partial*" { $Colors['Warning'] }
+            "No" { $Colors['Bad'] }
+            "N/A*" { $Colors['Info'] }
+            default { $Colors['Info'] }
+        }
+    
+        Write-Host ("{0,-46}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
+        Write-Host (" {0,-12}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
+        Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
+    }
+
+    Write-ColorOutput "`n" + "-"*80 -Color Header
+    Write-ColorOutput "Legend:" -Color Header
+    Write-ColorOutput ("  " + $Emojis.Success + " Yes  = Software fallback available (reduced security/performance)") -Color Good
+    Write-ColorOutput ("  ~ Part = Partial fallback (limited functionality)") -Color Warning
+    Write-ColorOutput ("  " + $Emojis.Error + " No   = No fallback - strict hardware requirement") -Color Bad
+    Write-ColorOutput "  N/A  = Optional feature, not required for OS operation" -Color Info
+
+    Write-ColorOutput "`nKey Insights:" -Color Header
+    Write-ColorOutput ("  " + $Emojis.Info + " VBS/HVCI can run in compatible mode without full hardware support") -Color Info
+    Write-ColorOutput ("  " + $Emojis.Warning + " Compatible mode may impact performance or reduce protection effectiveness") -Color Warning
+    Write-ColorOutput ("  " + $Emojis.Lock + " Features without fallback (DRTM, DMA Protection) require hardware upgrade") -Color Bad
+    Write-ColorOutput ("  " + $Emojis.Success + " Most critical security features (VBS, HVCI, Credential Guard) have fallbacks") -Color Good
+
+    # Get current system capabilities to provide tailored recommendations
+    $hasTPM = $false
+    $hasSecureBoot = $false
+    $hasVirtualization = $false
+    $hasIOMMU = $false
+
+    # Check for TPM
+    try {
+        $tpm = Get-Tpm -ErrorAction SilentlyContinue
+        $hasTPM = $tpm.TpmPresent -and $tpm.TpmReady
+    }
+    catch { }
+
+    # Check for Secure Boot
+    try {
+        $hasSecureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+    }
+    catch { }
+
+    # Check for Virtualization - improved detection
+    $hasVirtualization = $false
+
+    try {
+        $hyperVFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
+        if ($hyperVFeature -and $hyperVFeature.State -eq 'Enabled') {
+            $hasVirtualization = $true
+        }
+    }
+    catch { }
+
+    if (!$hasVirtualization) {
+        try {
+            $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+            if ($computerSystem.HypervisorPresent) {
+                $hasVirtualization = $true
+            }
+        }
+        catch { }
+    }
+
+    if (!$hasVirtualization -and $vbsStatus) {
+        if ($vbsStatus.AvailableSecurityProperties -contains 1) {
+            $hasVirtualization = $true
+        }
+    }
+
+    if (!$hasVirtualization) {
+        try {
+            $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($cpu.VirtualizationFirmwareEnabled -or $cpu.VMMonitorModeExtensions) {
+                $hasVirtualization = $true
+            }
+        }
+        catch { }
+    }
+
+    # Check for IOMMU
+    $hasIOMMU = $false
+
+    if ($vbsStatus) {
+        $availableProps = $vbsStatus.AvailableSecurityProperties
+        if ($availableProps -contains 2) {
+            $hasIOMMU = $true
+        }
+    }
+
+    if (!$hasIOMMU -and $virtInfo.HyperVStatus -eq "Enabled") {
+        try {
+            $hvStatus = Get-VMHost -ErrorAction SilentlyContinue
+            if ($hvStatus) {
+                $hasIOMMU = $true
+            }
+        }
+        catch { }
+    }
+
+    if (!$hasIOMMU) {
+        if ($cpuInfo.Manufacturer -match "Intel") {
+            $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
+            $hasIOMMU = ($vtdReg -eq 1)
+        }
+        elseif ($cpuInfo.Manufacturer -match "AMD") {
+            $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
+            $hasIOMMU = ($amdViReg -eq 1)
+        }
+    }
+
+    # Section 4: Hardware Security Mitigation Value Matrix
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+    Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+    Write-ColorOutput "`nThe Hardware Security Mitigations (MitigationOptions) registry value is a bit-field" -Color Info
+    Write-ColorOutput "that controls various CPU-level security features. Here's what the flags mean:" -Color Info
+
+    Write-ColorOutput "`nCommon Hardware Mitigation Flags:" -Color Header
+    Write-ColorOutput "=================================" -Color Header
+
+    # Get current MitigationOptions value for comparison
+    $currentMitigationValue = $null
+    $mitigationResult = $Results | Where-Object { $_.Name -eq "Hardware Security Mitigations" }
+    if ($mitigationResult -and $mitigationResult.CurrentValue -ne "Not Set") {
+        try {
+            if ($mitigationResult.CurrentValue -is [string] -and $mitigationResult.CurrentValue -match "^[0-9A-Fa-f]+$") {
+                $currentMitigationValue = [Convert]::ToUInt64($mitigationResult.CurrentValue, 16)
+            }
+            elseif ($mitigationResult.CurrentValue -is [uint64]) {
+                $currentMitigationValue = $mitigationResult.CurrentValue
+            }
+        }
+        catch {
+            $currentMitigationValue = $null
+        }
+    }
+
+    # Define known mitigation flags
+    $mitigationFlags = @(
+        @{ Flag = 0x0000000000000001; Name = "CFG (Control Flow Guard)"; Description = "Prevents ROP/JOP attacks" },
+        @{ Flag = 0x0000000000000002; Name = "CFG Export Suppression"; Description = "Disables CFG for export functions" },
+        @{ Flag = 0x0000000000000004; Name = "CFG Strict Mode"; Description = "Stricter CFG enforcement" },
+        @{ Flag = 0x0000000000000008; Name = "DEP (Data Execution Prevention)"; Description = "Prevents code execution in data pages" },
+        @{ Flag = 0x0000000000000010; Name = "DEP ATL Thunk Emulation"; Description = "Legacy ATL thunk compatibility" },
+        @{ Flag = 0x0000000000000020; Name = "SEHOP (SEH Overwrite Protection)"; Description = "Protects exception handlers" },
+        @{ Flag = 0x0000000000000040; Name = "Heap Terminate on Corruption"; Description = "Immediately terminates on heap corruption" },
+        @{ Flag = 0x0000000000000080; Name = "Bottom-up ASLR"; Description = "Randomizes memory layout" },
+        @{ Flag = 0x0000000000000100; Name = "High Entropy ASLR"; Description = "64-bit address space randomization" },
+        @{ Flag = 0x0000000000000200; Name = "Force Relocate Images"; Description = "Forces ASLR even for non-ASLR images" },
+        @{ Flag = 0x0000000000000400; Name = "Heap Terminate on Corruption (Enhanced)"; Description = "Enhanced heap protection" },
+        @{ Flag = 0x0000000000001000; Name = "Stack Pivot Protection"; Description = "Prevents stack pivoting attacks" },
+        @{ Flag = 0x0000000000002000; Name = "Import Address Filtering"; Description = "Filters dangerous API imports" },
+        @{ Flag = 0x0000000000004000; Name = "Module Signature Enforcement"; Description = "Requires signed modules" },
+        @{ Flag = 0x0000000000008000; Name = "Font Disable"; Description = "Disables loading untrusted fonts" },
+        @{ Flag = 0x0000000000010000; Name = "Image Load Signature Mitigation"; Description = "Validates image signatures" },
+        @{ Flag = 0x0000000000020000; Name = "Non-System Font Disable"; Description = "Blocks non-system fonts" },
+        @{ Flag = 0x0000000000040000; Name = "Audit Non-System Font Loading"; Description = "Audits font loading" },
+        @{ Flag = 0x0000000000080000; Name = "Child Process Policy"; Description = "Restricts child process creation" },
+        @{ Flag = 0x0000000000100000; Name = "Payload Restriction Policy"; Description = "Prevents payload execution" },
+        @{ Flag = 0x0000000001000000; Name = "CET (Intel CET Shadow Stack)"; Description = "Hardware-assisted CFI" },
+        @{ Flag = 0x0000000002000000; Name = "CET Strict Mode"; Description = "Strict CET enforcement" },
+        @{ Flag = 0x0000000004000000; Name = "CET Dynamic Code"; Description = "CET for dynamic code" },
+        @{ Flag = 0x0000000008000000; Name = "Intel MPX (Memory Protection Extensions)"; Description = "Hardware bounds checking (deprecated)" },
+        @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
+    )
+
+    # Define Unicode arrow for table annotation
+    $IconArrowTable = Get-Icon -Name Arrow
+
+    Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
+    Write-ColorOutput "----------          ------      ---------------" -Color Header
+
+    foreach ($flag in $mitigationFlags | Sort-Object Flag) {
+        $flagValue = "0x{0:X16}" -f $flag.Flag
+        $isEnabled = if ($currentMitigationValue) { 
+            ($currentMitigationValue -band $flag.Flag) -eq $flag.Flag 
+        }
+        else { 
+            $false 
+        }
+    
+        $statusIcon = if ($isEnabled) { "+" } else { "-" }
+        $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
+    
+        Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
+        Write-Host ("{0,-10}" -f $statusIcon) -NoNewline -ForegroundColor $Colors[$statusColor]
+        Write-Host "$($flag.Name)" -ForegroundColor White
+    
+        if ($flag.Flag -eq 0x2000000000000000) {
+            Write-ColorOutput "                               $IconArrowTable This is the primary flag for side-channel mitigations!" -Color Info
+        }
+    }
+
+    if ($currentMitigationValue) {
+        Write-ColorOutput "`nCurrent MitigationOptions Value:" -Color Header
+        Write-Host "Hex:     " -NoNewline -ForegroundColor Gray  
+        Write-Host ("0x{0:X}" -f $currentMitigationValue) -ForegroundColor White
+    
+        $enabledCount = ($mitigationFlags | Where-Object { ($currentMitigationValue -band $_.Flag) -eq $_.Flag }).Count
+        $totalFlags = $mitigationFlags.Count
+        Write-Host "Enabled: " -NoNewline -ForegroundColor Gray
+        Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
+        Write-Host " of $totalFlags known flags" -ForegroundColor Gray
+    }
+    else {
+        Write-ColorOutput "`nCurrent MitigationOptions Value: Not Set" -Color Warning
+        Write-ColorOutput "This means Windows is using default hardware mitigation settings." -Color Info
+    }
+
+    Write-ColorOutput "`nRecommended Minimum Value:" -Color Header
+    Write-ColorOutput "0x2000000000000000 (Core Hardware Security Features)" -Color Good
+    Write-ColorOutput "`nNote: The exact flags enabled depend on your CPU capabilities and Windows version." -Color Info
+    Write-ColorOutput "Some flags are only available on newer processors or Windows versions." -Color Info
+
+} # End of if ($Detailed)
+else {
+    # When -Detailed is not used, show a helpful message
+    Write-ColorOutput "`n" -Color Info
+    Write-ColorOutput "For detailed technical analysis, hardware dependency matrices, and flag breakdowns," -Color Info
+    Write-ColorOutput "run with the -Detailed parameter:" -Color Info
+    Write-ColorOutput "  .\SideChannel_Check.ps1 -Detailed" -Color Good
+}
+
+# ============================================================================
+# END OF ADDITIONAL INFORMATION
+# ============================================================================
+
+Write-ColorOutput "`nSide-channel vulnerability check completed." -Color Header
+
+
+
+
+

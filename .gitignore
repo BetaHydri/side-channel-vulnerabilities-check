@@ -1,9 +1,11 @@
 # Log files
-Logs/
+v1/Logs/
+v2/Logs/
 *.log
 
 # Backup files
-Backups/
+v1/Backups/
+v2/Backups/
 *.json
 
 # Test exports
@@ -11,7 +13,8 @@ test_*.csv
 *_test.csv
 
 # Config files (if containing sensitive data)
-Config/
+v1/Config/
+v2/Config/
 
 # PowerShell transcript files
 PowerShell_transcript.*
