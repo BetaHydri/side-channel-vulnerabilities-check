@@ -164,7 +164,7 @@ Interactively select and apply security mitigations with two selection modes.
 - `Q` - Quit without changes
 
 ### 3. **RevertInteractive**
-Restore most recent backup configuration.
+**Quick undo:** Instantly revert to your most recent backup.
 
 ```powershell
 # Revert to last backup
@@ -174,14 +174,23 @@ Restore most recent backup configuration.
 .\SideChannel_Check_v2.ps1 -Mode RevertInteractive -WhatIf
 ```
 
+**When to use:**
+- ✅ You just applied changes and want to undo them quickly
+- ✅ System is unstable after applying mitigations
+- ✅ Simple one-step rollback to last known good state
+
 **Features:**
+- ✅ Automatically finds your most recent backup
+- ✅ Complete restore only (all settings from that backup)
 - ✅ Shows backup metadata (timestamp, computer, user)
 - ✅ Confirmation prompt before reverting
 - ✅ WhatIf preview of changes
 - ✅ Detailed restore summary
 
+**What it does:** No browsing, no selection - just instant rollback to your latest backup.
+
 ### 4. **Backup**
-Create a backup of current mitigation settings.
+**Manual snapshot:** Create a backup before making changes or for safekeeping.
 
 ```powershell
 # Create backup
@@ -191,6 +200,12 @@ Create a backup of current mitigation settings.
 .\SideChannel_Check_v2.ps1 -Mode Backup -WhatIf
 ```
 
+**When to use:**
+- ✅ Before testing changes in production
+- ✅ Creating a checkpoint before major configuration updates
+- ✅ Scheduled backups for compliance/audit purposes
+- ✅ Want to create multiple backup points to compare later
+
 **Backup Contents:**
 - Timestamp (ISO 8601 format)
 - Computer name
@@ -199,23 +214,36 @@ Create a backup of current mitigation settings.
 
 **Backup Location:** `.\Backups\Backup_YYYYMMDD_HHMMSS.json`
 
+**Note:** ApplyInteractive mode **automatically creates a backup** before applying changes, so manual backup is optional in that workflow.
+
 ### 5. **Restore**
-Browse and restore from any available backup with selective restoration.
+**Advanced recovery:** Browse all backups and choose what to restore (selective or complete).
 
 ```powershell
 # Interactive restore
 .\SideChannel_Check_v2.ps1 -Mode Restore
 ```
 
+**When to use:**
+- ✅ Need to restore from an older backup (not just the latest)
+- ✅ Want to restore only specific mitigations, not everything
+- ✅ Comparing multiple backups before deciding which to restore
+- ✅ Recovering from older configuration states
+- ✅ Granular recovery (cherry-pick individual settings)
+
 **Restore Options:**
 - **[A] All mitigations** - Restore complete backup (all settings)
-- **[S] Select individual** - Choose specific mitigations to restore
+- **[S] Select individual** - Choose specific mitigations to restore (granular recovery)
 - **[Q] Cancel** - Exit without changes
+
+**Difference from RevertInteractive:**
+- **RevertInteractive** = Quick undo to latest backup (one command, no choices)
+- **Restore** = Browse all backups, choose which one, choose what to restore (flexible)
 
 **Features:**
 - ✅ Lists all available backups with age and metadata
 - ✅ Shows backup details (computer, user, timestamp, mitigation count)
-- ✅ Interactive backup selection
+- ✅ Interactive backup selection (choose from any backup, not just latest)
 - ✅ Selective restoration - restore only what you need
 - ✅ Full or partial restore support
 - ✅ WhatIf preview available

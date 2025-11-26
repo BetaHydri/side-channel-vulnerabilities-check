@@ -61,7 +61,7 @@ Selectively apply mitigations with two view modes.
 ---
 
 ### 3️⃣ **RevertInteractive**
-Revert to most recent backup quickly.
+**Quick undo:** Instantly revert to your most recent backup.
 
 ```powershell
 # Preview revert
@@ -71,10 +71,17 @@ Revert to most recent backup quickly.
 .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
 ```
 
+**When to use:**
+- ✅ You just applied changes and want to undo them quickly
+- ✅ System is unstable after applying mitigations
+- ✅ Simple one-step rollback to last known good state
+
+**What it does:** Automatically finds and restores your most recent backup (complete restore only).
+
 ---
 
 ### 4️⃣ **Backup**
-Create configuration backup manually.
+**Manual snapshot:** Create a backup before making changes or for safekeeping.
 
 ```powershell
 # Preview backup
@@ -84,22 +91,54 @@ Create configuration backup manually.
 .\SideChannel_Check_v2.ps1 -Mode Backup
 ```
 
-**Note:** Backups are created automatically before ApplyInteractive mode.
+**When to use:**
+- ✅ Before testing changes in production
+- ✅ Creating a checkpoint before major configuration updates
+- ✅ Scheduled backups for compliance/audit purposes
+
+**Note:** ApplyInteractive mode **automatically creates a backup** before applying changes, so manual backup is optional in that workflow.
 
 ---
 
 ### 5️⃣ **Restore**
-Browse and restore from any available backup with selective options.
+**Advanced recovery:** Browse all backups and choose what to restore (selective or complete).
 
 ```powershell
 # Interactive restore
 .\SideChannel_Check_v2.ps1 -Mode Restore
 ```
 
+**When to use:**
+- ✅ Need to restore from an older backup (not just the latest)
+- ✅ Want to restore only specific mitigations, not everything
+- ✅ Comparing multiple backups before deciding which to restore
+- ✅ Recovering from older configuration states
+
 **Restore Options:**
 - **[A] All** - Restore complete backup (all settings)
-- **[S] Select** - Choose individual mitigations to restore
+- **[S] Select** - Choose individual mitigations to restore (granular recovery)
 - **[Q] Cancel** - Exit without changes
+
+**Difference from RevertInteractive:**
+- **RevertInteractive** = Quick undo to latest backup (one command, no choices)
+- **Restore** = Browse all backups, choose which one, choose what to restore (flexible)
+
+---
+
+## 🔄 Mode Comparison Quick Reference
+
+| Mode | Purpose | Backup Selection | Restore Options | Use Case |
+|------|---------|------------------|-----------------|----------|
+| **RevertInteractive** | Quick undo | Latest only (automatic) | Complete only | "Oops, undo that!" |
+| **Restore** | Advanced recovery | Choose any backup | Complete or Selective | "I need that setting from 3 days ago" |
+| **Backup** | Create snapshot | N/A | N/A | "Checkpoint before changes" |
+| **ApplyInteractive** | Apply mitigations | Auto-creates backup | N/A | "Harden my system" |
+
+**Decision Tree:**
+- Need to **undo recent changes**? → Use **RevertInteractive** (fastest)
+- Need **older backup** or **specific settings**? → Use **Restore** (flexible)
+- About to **test something risky**? → Use **Backup** first (safety net)
+- Want to **harden system**? → Use **ApplyInteractive** (auto-backup included)
 
 ---
 
@@ -111,19 +150,38 @@ Browse and restore from any available backup with selective options.
 .\SideChannel_Check_v2.ps1 -ExportPath "audit_$(Get-Date -Format 'yyyyMMdd').csv"
 ```
 
-### Safe Testing
+### Safe Hardening (Recommended)
 ```powershell
-# Create backup first
-.\SideChannel_Check_v2.ps1 -Mode Backup
+# Step 1: Review what needs fixing
+.\SideChannel_Check_v2.ps1 -ShowDetails
 
-# Apply with preview
+# Step 2: Preview what will change
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 
-# Apply if satisfied
+# Step 3: Apply changes (automatic backup created)
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
 
-# Revert if needed
+# Step 4 (if problems): Quick undo
 .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+```
+
+### Manual Backup Before Changes
+```powershell
+# Optional: Create named checkpoint first
+.\SideChannel_Check_v2.ps1 -Mode Backup
+
+# Apply changes (creates another backup automatically)
+.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
+
+# If needed: Restore from specific backup
+.\SideChannel_Check_v2.ps1 -Mode Restore
+```
+
+### Selective Recovery
+```powershell
+# Browse all backups and restore only specific mitigations
+.\SideChannel_Check_v2.ps1 -Mode Restore
+# Choose backup, then select [S] for selective restore
 ```
 
 ### Educational Review
