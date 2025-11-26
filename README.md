@@ -617,13 +617,24 @@ Skipped (hardware-only): 3
 ✓ Assessment exported successfully to: security_assessment.csv
 ```
 
+**CSV Features:**
+- **18 columns** with complete, untruncated data
+- **Semicolon (;) delimiter** to avoid conflicts with comma-separated dependency lists
+- **Full PrerequisiteFor lists** (e.g., "Secure Boot, VBS, HVCI, Credential Guard")
+- **All URL references** for external documentation
+- **Platform information** (All/Physical/HyperVHost/etc.)
+- **Compatible with both PowerShell 5.1 and 7+**
+
 **CSV Content Preview:**
 ```csv
-Id,Name,CVE,Category,RegistryStatus,RuntimeStatus,OverallStatus,ActionNeeded,Impact,Description,Recommendation
-SSBD,"Speculative Store Bypass Disable",CVE-2018-3639,Critical,Enabled,Active,Protected,No,Low,"Prevents Speculative Store Bypass attacks","Enable to protect against speculative execution vulnerabilities"
-KVAS,"Kernel VA Shadow (Meltdown Protection)",CVE-2017-5754,Critical,Enabled,Active,Protected,No,Medium,"Page table isolation to prevent Meltdown attacks","Critical for Meltdown protection; modern CPUs have hardware immunity"
+Id;Name;Category;Status;RegistryStatus;RuntimeStatus;ActionNeeded;CVE;Platform;Impact;PrerequisiteFor;CurrentValue;ExpectedValue;Description;Recommendation;RegistryPath;RegistryName;URL
+SSBD;Speculative Store Bypass Disable;Critical;Protected;Enabled;Active;No;CVE-2018-3639;All;Low;-;72;72;Prevents Speculative Store Bypass (Variant 4) attacks;Enable to protect against speculative execution vulnerabilities;HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management;FeatureSettingsOverride;https://nvd.nist.gov/vuln/detail/CVE-2018-3639
+VBS;Virtualization Based Security;Optional;Protected;Enabled;N/A;No;Kernel Isolation;All;Low;HVCI, Credential Guard;1;1;Hardware-based security isolation using virtualization;Enable for enhanced kernel isolation (requires hardware support);HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard;EnableVirtualizationBasedSecurity;https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs
+UEFI;UEFI Firmware;Prerequisite;Active;N/A;Active;No;Boot Security Prerequisite;All;None;Secure Boot, VBS, HVCI, Credential Guard;True;;UEFI firmware mode (required for Secure Boot and modern security);UEFI mode required for Secure Boot, VBS, and HVCI;HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State;UEFISecureBootEnabled;https://uefi.org/specifications
 ...
 ```
+
+**Note:** The CSV uses semicolons (;) as delimiters instead of commas to preserve comma-separated lists in the PrerequisiteFor column and other fields. This ensures data integrity when importing into Excel or other CSV tools.
 
 ---
 
