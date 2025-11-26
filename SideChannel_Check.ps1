@@ -499,13 +499,29 @@ function Show-ResultsTable {
                             }
                         }
                         else {
-                            $runtimeState = "$iconDisabled Inactive"
-                            $runtimeColor = "Red"
+                            # Runtime shows inactive - check for hardware immunity FIRST before marking as Pending
+                            $hasHardwareImmunity = $false
                             
-                            # Check if registry says enabled but runtime is inactive
-                            if ($result.Status -eq "Enabled") {
-                                $runtimeState = "$iconWarning Pending"
-                                $runtimeColor = "Yellow"
+                            if ($result.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and $script:RuntimeState.RDCLHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                                $hasHardwareImmunity = $true
+                            }
+                            elseif ($result.Name -eq "MDS Mitigation" -and $script:RuntimeState.MDSHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                                $hasHardwareImmunity = $true
+                            }
+                            
+                            if (-not $hasHardwareImmunity) {
+                                $runtimeState = "$iconDisabled Inactive"
+                                $runtimeColor = "Red"
+                                
+                                # Check if registry says enabled but runtime is inactive (and no hardware immunity)
+                                if ($result.Status -eq "Enabled") {
+                                    $runtimeState = "$iconWarning Pending"
+                                    $runtimeColor = "Yellow"
+                                }
                             }
                         }
                     }
@@ -541,14 +557,40 @@ function Show-ResultsTable {
                 # Show runtime state column with note
                 $tableData | Format-Table -Property 'Mitigation Name', 'Registry Status', 'Kernel Runtime', 'Impact' -AutoSize -Wrap
                 
-                # Check for discrepancies in this category
-                $discrepancies = $tableData | Where-Object { $_.'Kernel Runtime' -like "*Pending*" -or $_.'Kernel Runtime' -like "*$iconWarning*" }
-                if ($discrepancies.Count -gt 0) {
+                # Check for discrepancies in this category and provide detailed explanations
+                $pendingItems = $tableData | Where-Object { $_.'Kernel Runtime' -like "*Pending*" }
+                $activeButNotConfigured = $tableData | Where-Object { $_.'Kernel Runtime' -like "*$iconWarning*Active*" -and $_.'Registry Status' -notlike "*Enabled*" }
+                
+                if ($pendingItems.Count -gt 0) {
                     $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
-                    $iconReboot = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("21BB", 16))
-                    Write-Host "  $iconWarning " -NoNewline -ForegroundColor Yellow
-                    Write-Host "Registry/Runtime discrepancy detected - " -NoNewline -ForegroundColor Yellow
-                    Write-Host "$iconReboot Reboot required" -ForegroundColor Cyan
+                    $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                    Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
+                    Write-Host "DISCREPANCY DETECTED - Registry says 'Enabled' but Kernel shows 'Inactive'" -ForegroundColor Yellow
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "TRUST: Kernel Runtime (authoritative) - Protection is NOT currently active" -ForegroundColor Cyan
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Possible causes:" -ForegroundColor Gray
+                    Write-Host "     1. Windows may have overridden the setting (Group Policy, security baseline)" -ForegroundColor Gray
+                    Write-Host "     2. CPU/hardware doesn't support this mitigation" -ForegroundColor Gray
+                    Write-Host "     3. Conflicting registry settings preventing activation" -ForegroundColor Gray
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Action: Review with 'Get-SpeculationControlSettings' for hardware capability check" -ForegroundColor White
+                }
+                
+                if ($activeButNotConfigured.Count -gt 0) {
+                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+                    $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                    Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
+                    Write-Host "DISCREPANCY DETECTED - Registry says 'Not Set' but Kernel shows 'Active'" -ForegroundColor Yellow
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Green
+                    Write-Host "TRUST: Kernel Runtime (authoritative) - Protection IS currently active" -ForegroundColor Green
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
+                    Write-Host "Likely causes:" -ForegroundColor Gray
+                    Write-Host "     1. Windows enabled it by default (modern Windows behavior)" -ForegroundColor Gray
+                    Write-Host "     2. Group Policy or security baseline enforcing the setting" -ForegroundColor Gray
+                    Write-Host "     3. CPU has hardware-level immunity (no registry config needed)" -ForegroundColor Gray
+                    Write-Host "  $iconInfo " -NoNewline -ForegroundColor Green
+                    Write-Host "Status: PROTECTED - No action needed (protection is working)" -ForegroundColor Green
                 }
             }
             else {
@@ -646,20 +688,29 @@ function Show-ResultsTable {
     # Runtime state explanation if API is available
     if ($script:RuntimeState.APIAvailable) {
         $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
-        Write-ColorOutput "`n$iconInfo KERNEL RUNTIME STATE" -Color Info
-        Write-ColorOutput "  Registry Status: Configuration stored in registry (may require reboot)" -Color Gray
-        Write-ColorOutput "  Kernel Runtime: Actual protection status in running kernel (authoritative)" -Color Gray
+        $iconStar = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16))
+        Write-ColorOutput "`n$iconInfo KERNEL RUNTIME STATE - WHICH TO TRUST?" -Color Info
+        Write-Host "  $iconStar " -NoNewline -ForegroundColor Yellow
+        Write-Host "ALWAYS TRUST: Kernel Runtime (shows actual protection status)" -ForegroundColor Yellow
+        Write-Host "  Registry Status: What you configured (may not be active yet)" -ForegroundColor Gray
+        Write-Host "  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)" -ForegroundColor Cyan
         
         $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
         $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+        $iconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))
+        Write-Host "`n  Runtime Status Meanings:" -ForegroundColor White
         Write-Host "  $iconCheck Active" -ForegroundColor Green -NoNewline
-        Write-Host " - Protection actively running in kernel" -ForegroundColor Gray
+        Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
+        Write-Host "  $iconCross Inactive" -ForegroundColor Red -NoNewline
+        Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
         Write-Host "  $iconWarning Pending" -ForegroundColor Yellow -NoNewline
-        Write-Host " - Configured but not active (reboot needed)" -ForegroundColor Gray
+        Write-Host " - Registry says 'Enabled' but kernel is NOT active (check compatibility)" -ForegroundColor Gray
+        Write-Host "  $iconWarning Active" -ForegroundColor Yellow -NoNewline
+        Write-Host " - Registry says 'Not Set' but kernel IS active (Windows default/policy)" -ForegroundColor Gray
         Write-Host "  $iconCheck Immune" -ForegroundColor Cyan -NoNewline
-        Write-Host " - CPU has hardware immunity" -ForegroundColor Gray
+        Write-Host " - CPU has hardware immunity (no software mitigation needed)" -ForegroundColor Gray
         Write-Host "  $iconCheck Retpoline" -ForegroundColor Green -NoNewline
-        Write-Host " - Software mitigation active" -ForegroundColor Gray
+        Write-Host " - Software mitigation is active" -ForegroundColor Gray
     }
 }
 

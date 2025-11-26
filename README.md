@@ -20,42 +20,59 @@ Unlike registry-only tools, this script queries the **actual Windows kernel** to
 
 - ✅ **NtQuerySystemInformation API** - Same method used by Microsoft's official SpeculationControl module
 - ✅ **30+ Runtime Flags** - Detects Spectre v2 (BTI, Retpoline, Enhanced IBRS), Spectre v4 (SSBD), MDS, TAA, L1TF, and more
-- ✅ **Registry vs Runtime Comparison** - Identifies when configuration differs from active state
-- ✅ **Reboot Detection** - Warns when registry changes haven't taken effect yet
-- ✅ **Hardware Immunity Detection** - Detects CPUs with built-in protection (e.g., RDCL for Meltdown)
+- ✅ **Integrated Table Display** - Shows Registry Status AND Kernel Runtime side-by-side for each mitigation
+- ✅ **Discrepancy Detection** - Identifies when configuration differs from active state with clear explanations
+- ✅ **"Which to Trust" Guidance** - Explicitly tells users whether to trust registry or runtime state
+- ✅ **Reboot Detection** - Warns when registry changes haven't taken effect yet (⚠ Pending status)
+- ✅ **Hardware Immunity Detection** - Detects CPUs with built-in protection (e.g., RDCL for Meltdown, MDS immunity)
 - ✅ **PowerShell 5.1+ Compatible** - Works on Windows Server 2016+ without upgrades
 
 ### Example Runtime Detection Output
 ```
 [Runtime State Detection Active]
-NtQuerySystemInformation API available - will compare registry vs runtime state
+NtQuerySystemInformation API initialized - querying kernel runtime state
 
-Runtime Mitigation Flags (from kernel):
-  BTI (Spectre v2): ✓ Active
-  Retpoline: ✓ Active
-  Enhanced IBRS: ✓ Active
-  SSBD System-Wide: ✓ Active
-  MBClear (MDS): ✓ Active
-  FBClear (TAA): ✗ Inactive
+🛡  SOFTWARE MITIGATIONS
+============================================================
 
-Branch Target Injection Mitigation : ✓ ENABLED (Value: 0)
-     ✓ Runtime matches registry
+Mitigation Name                        Registry Status Kernel Runtime Impact
+---------------                        --------------- -------------- ------
+Speculative Store Bypass Disable       ✓ Enabled       ✓ Active       Minimal performance impact
+Branch Target Injection Mitigation     ✓ Enabled       ✓ Active       Minimal performance impact
+Kernel VA Shadow (Meltdown Protection) ✓ Enabled       ⚠ Pending      Medium performance impact
+MDS Mitigation                         ✗ Not Set       ⚠ Active       MODERATE-HIGH impact
+Enhanced IBRS                          ✓ Enabled       ✓ Active       Minimal performance impact
 
-========================================
-Runtime Mitigation State Summary
-========================================
+  ⚠ DISCREPANCY DETECTED - Registry says 'Enabled' but Kernel shows 'Inactive'
+  ℹ TRUST: Kernel Runtime (authoritative) - Protection is NOT currently active
+  ℹ Possible causes:
+     1. Windows may have overridden the setting (Group Policy, security baseline)
+     2. CPU/hardware doesn't support this mitigation
+     3. Conflicting registry settings preventing activation
+  ℹ Action: Review with 'Get-SpeculationControlSettings' for hardware capability check
 
-Kernel-Level Protection Status (NtQuerySystemInformation):
-  ✓ Spectre v2 (BTI): ACTIVE
-    ✓ Retpoline: ACTIVE (software mitigation)
-    ✓ Enhanced IBRS: ACTIVE (hardware support)
-  ✓ Spectre v4 (SSBD): ACTIVE
-  ✓ MDS (Microarchitectural Data Sampling): IMMUNE (hardware)
-  ✗ TAA (TSX Async Abort): VULNERABLE
-  ✗ Meltdown (KVA Shadow): INACTIVE
-    ✓ L1D Flush: SUPPORTED (L1TF mitigation)
+  ⚠ DISCREPANCY DETECTED - Registry says 'Not Set' but Kernel shows 'Active'
+  ℹ TRUST: Kernel Runtime (authoritative) - Protection IS currently active
+  ℹ Likely causes:
+     1. Windows enabled it by default (modern Windows behavior)
+     2. Group Policy or security baseline enforcing the setting
+     3. CPU has hardware-level immunity (no registry config needed)
+  ℹ Status: PROTECTED - No action needed (protection is working)
 
-  [Intel CPU: Hardware-protected against Meltdown (RDCL)]
+Category Score: 10/12 enabled (83.3%)
+
+ℹ KERNEL RUNTIME STATE - WHICH TO TRUST?
+  ⭐ ALWAYS TRUST: Kernel Runtime (shows actual protection status)
+  Registry Status: What you configured (may not be active yet)
+  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)
+
+  Runtime Status Meanings:
+  ✓ Active - Protection is running (you are protected)
+  ✗ Inactive - Protection is NOT running (you are vulnerable)
+  ⚠ Pending - Registry says 'Enabled' but kernel is NOT active (check compatibility)
+  ⚠ Active - Registry says 'Not Set' but kernel IS active (Windows default/policy)
+  ✓ Immune - CPU has hardware immunity (no software mitigation needed)
+  ✓ Retpoline - Software mitigation is active
 ```
 
 ### Comparison with Microsoft's SpeculationControl Module
@@ -377,9 +394,22 @@ Security Level: [████████░░] 15/18 enabled
 ✗ Not Set  - Registry value not configured (using defaults)
 
 [>>] CATEGORY DESCRIPTIONS
-[SW] SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
-[SF] SECURITY FEATURES: Advanced Windows security technologies
-[HW] HARDWARE PREREQUISITES: Required hardware security capabilities
+🛡   SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
+🔒 SECURITY FEATURES: Advanced Windows security technologies
+🔧 HARDWARE PREREQUISITES: Required hardware security capabilities
+
+ℹ KERNEL RUNTIME STATE - WHICH TO TRUST?
+  ⭐ ALWAYS TRUST: Kernel Runtime (shows actual protection status)
+  Registry Status: What you configured (may not be active yet)
+  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)
+
+  Runtime Status Meanings:
+  ✓ Active - Protection is running (you are protected)
+  ✗ Inactive - Protection is NOT running (you are vulnerable)
+  ⚠ Pending - Registry says 'Enabled' but kernel is NOT active (check compatibility)
+  ⚠ Active - Registry says 'Not Set' but kernel IS active (Windows default/policy)
+  ✓ Immune - CPU has hardware immunity (no software mitigation needed)
+  ✓ Retpoline - Software mitigation is active
 
 === SECURITY CONFIGURATION SUMMARY ===
 
@@ -783,30 +813,63 @@ foreach ($VMHost in $VMHosts) {
 **Registry-Based Detection** (Always Available):
 - Checks configured mitigation policy in Windows registry
 - Shows what *should* be applied after reboot
+- Displayed in "Registry Status" column
 
 **Runtime Kernel-Level Detection** (Recommended):
-- Uses NtQuerySystemInformation Win32 API
-- Shows what mitigations are *actually active* right now
+- Uses NtQuerySystemInformation Win32 API (same as Microsoft SpeculationControl)
+- Shows what mitigations are *actually active* right now in the kernel
+- Displayed in "Kernel Runtime" column alongside registry status
 - Automatically enabled on Windows 10/11 and Server 2016+
 - Falls back gracefully to registry-only mode if API unavailable
 
-### Why Both Registry AND Runtime Detection?
+### Integrated Table Display with Discrepancy Detection
 
-**Registry** shows your **configuration** (what you've set)  
-**Runtime** shows your **active state** (what's actually protecting you)
+The tool shows **both** registry and runtime state side-by-side in a single table:
 
-**Example scenario**:
 ```
-Registry: BTI Enabled ✓
-Runtime:  BTI Inactive ✗
-Warning:  ⚠️ Reboot required to activate registry changes
+Mitigation Name                        Registry Status Kernel Runtime Impact
+---------------                        --------------- -------------- ------
+Branch Target Injection Mitigation     ✓ Enabled       ✓ Active       Minimal impact
+Kernel VA Shadow (Meltdown Protection) ✓ Enabled       ⚠ Pending      Medium impact
+MDS Mitigation                         ✗ Not Set       ⚠ Active       MODERATE impact
 ```
 
-This dual-detection ensures you know:
-1. What you've configured
-2. What's currently active
-3. Whether a reboot is needed
-4. If Group Policy is overriding local settings
+**When discrepancies are detected**, the tool provides clear guidance:
+
+**Scenario 1: Registry Enabled but Runtime Inactive (⚠ Pending)**
+```
+  ⚠ DISCREPANCY DETECTED - Registry says 'Enabled' but Kernel shows 'Inactive'
+  ℹ TRUST: Kernel Runtime (authoritative) - Protection is NOT currently active
+  ℹ Possible causes:
+     1. Windows may have overridden the setting (Group Policy, security baseline)
+     2. CPU/hardware doesn't support this mitigation
+     3. Conflicting registry settings preventing activation
+  ℹ Action: Review with 'Get-SpeculationControlSettings' for hardware capability check
+```
+
+**Scenario 2: Registry Not Set but Runtime Active (⚠ Active yellow)**
+```
+  ⚠ DISCREPANCY DETECTED - Registry says 'Not Set' but Kernel shows 'Active'
+  ℹ TRUST: Kernel Runtime (authoritative) - Protection IS currently active
+  ℹ Likely causes:
+     1. Windows enabled it by default (modern Windows behavior)
+     2. Group Policy or security baseline enforcing the setting
+     3. CPU has hardware-level immunity (no registry config needed)
+  ℹ Status: PROTECTED - No action needed (protection is working)
+```
+
+### Which State to Trust?
+
+**⭐ ALWAYS TRUST: Kernel Runtime** - This shows actual active protection
+
+- **Registry Status**: What you configured (may not be active yet)
+- **Kernel Runtime**: What's ACTUALLY running in the kernel (authoritative)
+
+This integrated dual-detection ensures you know:
+1. What you've configured (registry)
+2. What's currently active (kernel runtime)
+3. Whether there are discrepancies requiring attention
+4. Clear guidance on which state represents reality
 
 ## 📋 Command Reference
 
@@ -1144,8 +1207,8 @@ This matrix transforms complex Microsoft security documentation into **actionabl
 
 ---
 
-**Version:** 2.8  
+**Version:** 3.0  
 **Author:** Jan Tiedemann  
 **Compatibility:** Windows 10/11, Server 2016+  
-**PowerShell:** 5.1+ (fully compatible)  
+**PowerShell:** 5.1+ (fully compatible with runtime detection)  
 **Repository:** [GitHub - BetaHydri/side-channel-vulnerabilities-check](https://github.com/BetaHydri/side-channel-vulnerabilities-check)
