@@ -2783,8 +2783,8 @@ $dependencyMatrix = @(
 
 # Display dependency matrix in formatted table
 Write-ColorOutput "`n" -Color Info
-Write-Host ("{0,-40} {1,-10} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
-Write-Host ("{0,-40} {1,-10} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-40} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-40} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
 
 foreach ($feature in $dependencyMatrix) {
     $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
@@ -2804,7 +2804,7 @@ foreach ($feature in $dependencyMatrix) {
     }
     
     Write-Host ("{0,-40}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
-    Write-Host (" {0,-10}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
+    Write-Host (" {0,-12}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
     Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
 }
 
@@ -3022,8 +3022,8 @@ $mitigationFlags = @(
     @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
 )
 
-Write-ColorOutput "`nFlag Value          Status    Mitigation Name" -Color Header
-Write-ColorOutput "----------          ------    ---------------" -Color Header
+Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
+Write-ColorOutput "----------          ------      ---------------" -Color Header
 
 foreach ($flag in $mitigationFlags | Sort-Object Flag) {
     $flagValue = "0x{0:X16}" -f $flag.Flag
@@ -3038,8 +3038,8 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
     $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
     
     Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
-    Write-Host "$statusIcon" -NoNewline -ForegroundColor $Colors[$statusColor]
-    Write-Host "       $($flag.Name)" -ForegroundColor White
+    Write-Host ("{0,-10}" -f $statusIcon) -NoNewline -ForegroundColor $Colors[$statusColor]
+    Write-Host "$($flag.Name)" -ForegroundColor White
     
     if ($flag.Flag -eq 0x2000000000000000) {
         Write-ColorOutput "                               --> This is the primary flag for side-channel mitigations!" -Color Info
