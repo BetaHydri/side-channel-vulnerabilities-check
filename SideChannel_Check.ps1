@@ -4558,67 +4558,75 @@ else {
         }
         
         # Display recommendations by category with context
+        $IconCheck = Get-Icon -Name Check
+        $IconWarning = Get-Icon -Name Warning
+        $IconError = Get-Icon -Name Cross
+        $IconBullet = Get-Icon -Name Bullet
+        $IconArrow = Get-Icon -Name Arrow
+        $IconInfo = Get-Icon -Name Info
+        $IconLightBulb = Get-Icon -Name Lightbulb
+        
         if ($highPriorityLowImpact.Count -gt 0) {
-            Write-ColorOutput "🟢 RECOMMENDED - High Security Benefit, Low Performance Impact:" -Color Good
+            Write-ColorOutput "$IconCheck RECOMMENDED - High Security Benefit, Low Performance Impact:" -Color Good
             Write-ColorOutput "   (Enable these first - minimal performance cost, good protection)" -Color Gray
             foreach ($item in $highPriorityLowImpact) {
-                Write-ColorOutput "   • $($item.Name)" -Color Warning
-                Write-ColorOutput "     └ $($item.Recommendation)" -Color Gray
+                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
             }
             Write-ColorOutput "" -Color Info
         }
         
         if ($mediumPriorityMediumImpact.Count -gt 0) {
-            Write-ColorOutput "🟡 CONSIDER - Moderate Security Benefit, Moderate Performance Impact:" -Color Warning
+            Write-ColorOutput "$IconWarning CONSIDER - Moderate Security Benefit, Moderate Performance Impact:" -Color Warning
             Write-ColorOutput "   (Evaluate based on your threat model and performance requirements)" -Color Gray
             foreach ($item in $mediumPriorityMediumImpact) {
-                Write-ColorOutput "   • $($item.Name)" -Color Warning
-                Write-ColorOutput "     └ $($item.Recommendation)" -Color Gray
+                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
                 
                 # Add specific guidance
                 if ($item.Name -match "Kernel VA Shadow|Meltdown") {
-                    Write-ColorOutput "     ℹ Already protected if CPU has RDCL hardware immunity" -Color Gray
+                    Write-ColorOutput "     $IconInfo Already protected if CPU has RDCL hardware immunity" -Color Gray
                 }
                 elseif ($item.Name -match "CVE-2019-11135|TAA") {
-                    Write-ColorOutput "     ℹ Intel-specific, affects TSX-enabled CPUs" -Color Gray
+                    Write-ColorOutput "     $IconInfo Intel-specific, affects TSX-enabled CPUs" -Color Gray
                 }
             }
             Write-ColorOutput "" -Color Info
         }
         
         if ($lowPriorityHighImpact.Count -gt 0) {
-            Write-ColorOutput "🔴 EVALUATE CAREFULLY - Variable Benefit, High Performance Impact:" -Color Bad
+            Write-ColorOutput "$IconError EVALUATE CAREFULLY - Variable Benefit, High Performance Impact:" -Color Bad
             Write-ColorOutput "   (Only enable if required by compliance or high-security environments)" -Color Gray
             foreach ($item in $lowPriorityHighImpact) {
-                Write-ColorOutput "   • $($item.Name)" -Color Warning
-                Write-ColorOutput "     └ $($item.Recommendation)" -Color Gray
+                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
                 
                 # Add specific warnings and context
                 if ($item.Name -match "L1TF") {
-                    Write-ColorOutput "     ⚠ May require disabling hyperthreading for full protection" -Color Yellow
-                    Write-ColorOutput "     ⚠ Performance impact: 10-30% depending on workload" -Color Yellow
-                    Write-ColorOutput "     ℹ Primarily affects virtualized environments and older CPUs" -Color Gray
-                    Write-ColorOutput "     ℹ Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
+                    Write-ColorOutput "     $IconWarning May require disabling hyperthreading for full protection" -Color Yellow
+                    Write-ColorOutput "     $IconWarning Performance impact: 10-30% depending on workload" -Color Yellow
+                    Write-ColorOutput "     $IconInfo Primarily affects virtualized environments and older CPUs" -Color Gray
+                    Write-ColorOutput "     $IconInfo Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
                 }
                 elseif ($item.Name -match "MDS") {
-                    Write-ColorOutput "     ⚠ Performance impact: 3-8% for most workloads, up to 15% for memory-intensive tasks" -Color Yellow
-                    Write-ColorOutput "     ℹ Check if already active via Windows defaults (see kernel runtime status)" -Color Gray
-                    Write-ColorOutput "     ℹ Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
+                    Write-ColorOutput "     $IconWarning Performance impact: 3-8% for most workloads, up to 15% for memory-intensive tasks" -Color Yellow
+                    Write-ColorOutput "     $IconInfo Check if already active via Windows defaults (see kernel runtime status)" -Color Gray
+                    Write-ColorOutput "     $IconInfo Modern CPUs (10th gen Intel+) have hardware immunity" -Color Gray
                 }
                 elseif ($item.Name -match "TSX") {
-                    Write-ColorOutput "     ℹ Only affects applications using Intel TSX instructions" -Color Gray
-                    Write-ColorOutput "     ℹ Most applications don't use TSX - impact is minimal" -Color Gray
+                    Write-ColorOutput "     $IconInfo Only affects applications using Intel TSX instructions" -Color Gray
+                    Write-ColorOutput "     $IconInfo Most applications don't use TSX - impact is minimal" -Color Gray
                 }
             }
             Write-ColorOutput "" -Color Info
         }
         
         # Add decision guidance
-        Write-ColorOutput "💡 DECISION GUIDANCE:" -Color Header
-        Write-ColorOutput "   • Desktop/Workstation: Enable 🟢 recommended items" -Color Info
-        Write-ColorOutput "   • Server (non-virtualized): Enable 🟢 + consider 🟡 items" -Color Info
-        Write-ColorOutput "   • Hyper-V/VMware Host: Enable 🟢 + 🟡, evaluate 🔴 based on tenant trust" -Color Info
-        Write-ColorOutput "   • High-Security/Compliance: Enable all items, test performance impact" -Color Info
+        Write-ColorOutput "$IconLightBulb DECISION GUIDANCE:" -Color Header
+        Write-ColorOutput "   $IconBullet Desktop/Workstation: Enable $IconCheck recommended items" -Color Info
+        Write-ColorOutput "   $IconBullet Server (non-virtualized): Enable $IconCheck + consider $IconWarning items" -Color Info
+        Write-ColorOutput "   $IconBullet Hyper-V/VMware Host: Enable $IconCheck + $IconWarning, evaluate $IconError based on tenant trust" -Color Info
+        Write-ColorOutput "   $IconBullet High-Security/Compliance: Enable all items, test performance impact" -Color Info
         Write-ColorOutput "" -Color Info
         
         Write-ColorOutput "To apply these configurations automatically, run:" -Color Info
@@ -4879,23 +4887,27 @@ else {
             $hasCoreScheduler = $false  # Older OS may not have Core Scheduler
         }
         
+        # Get icons for PS 5.1 compatibility
+        $IconInfo = Get-Icon -Name Info
+        $IconWarning = Get-Icon -Name Warning
+        
         if ($hasEnhancedIBRS -and $hasMDSMitigation -and $hasCoreScheduler) {
-            $smtContext = "`n  ℹ Your system has Enhanced IBRS, MDS mitigation, and Core Scheduler active"
-            $smtContext += "`n  ℹ SMT disabling is only needed for extreme security requirements (e.g., multi-tenant cloud)"
+            $smtContext = "`n  $IconInfo Your system has Enhanced IBRS, MDS mitigation, and Core Scheduler active"
+            $smtContext += "`n  $IconInfo SMT disabling is only needed for extreme security requirements (e.g., multi-tenant cloud)"
             Write-ColorOutput $smtRecommendation -Color Info
             Write-ColorOutput $smtContext -Color Gray
         }
         elseif (!$hasEnhancedIBRS -or !$hasMDSMitigation) {
-            $smtContext = "`n  ⚠ WARNING: Missing Enhanced IBRS or MDS mitigation - SMT creates higher risk"
-            $smtContext += "`n  ⚠ Disabling SMT strongly recommended for multi-tenant environments"
-            $smtContext += "`n  ℹ Note: Disabling SMT reduces performance by ~30-40% but eliminates cross-core attacks"
+            $smtContext = "`n  $IconWarning WARNING: Missing Enhanced IBRS or MDS mitigation - SMT creates higher risk"
+            $smtContext += "`n  $IconWarning Disabling SMT strongly recommended for multi-tenant environments"
+            $smtContext += "`n  $IconInfo Note: Disabling SMT reduces performance by ~30-40% but eliminates cross-core attacks"
             Write-ColorOutput $smtRecommendation -Color Warning
             Write-ColorOutput $smtContext -Color Yellow
         }
         else {
-            $smtContext = "`n  ℹ SMT creates shared CPU resources between VMs/processes on same physical core"
-            $smtContext += "`n  ℹ Consider disabling for: multi-tenant hosting, untrusted VMs, high-security environments"
-            $smtContext += "`n  ℹ Note: Disabling SMT reduces performance by ~30-40%"
+            $smtContext = "`n  $IconInfo SMT creates shared CPU resources between VMs/processes on same physical core"
+            $smtContext += "`n  $IconInfo Consider disabling for: multi-tenant hosting, untrusted VMs, high-security environments"
+            $smtContext += "`n  $IconInfo Note: Disabling SMT reduces performance by ~30-40%"
             Write-ColorOutput $smtRecommendation -Color Info
             Write-ColorOutput $smtContext -Color Gray
         }
