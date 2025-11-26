@@ -1850,7 +1850,26 @@ function Start-SideChannelCheck {
                 
                 for ($i = 0; $i -lt $backups.Count; $i++) {
                     $backup = $backups[$i]
-                    $timestamp = [DateTime]::Parse($backup.Timestamp)
+                    
+                    # Parse timestamp - try as DateTime first, then as string
+                    try {
+                        if ($backup.Timestamp -is [DateTime]) {
+                            $timestamp = $backup.Timestamp
+                        } else {
+                            # Try parsing as ISO 8601 format or culture-invariant
+                            $timestamp = [DateTime]::Parse($backup.Timestamp, [System.Globalization.CultureInfo]::InvariantCulture)
+                        }
+                    } catch {
+                        # Fallback: try to parse using current culture
+                        try {
+                            $timestamp = [DateTime]$backup.Timestamp
+                        } catch {
+                            # Last resort: use file timestamp
+                            $timestamp = (Get-Item $backup.File).LastWriteTime
+                            Write-Log "Could not parse timestamp for $($backup.FileName), using file date" -Level Warning
+                        }
+                    }
+                    
                     $age = (Get-Date) - $timestamp
                     $ageStr = if ($age.Days -gt 0) { "$($age.Days)d ago" } 
                               elseif ($age.Hours -gt 0) { "$($age.Hours)h ago" } 
