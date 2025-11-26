@@ -716,6 +716,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable to prevent SEH exploitation'
+            URL              = 'https://learn.microsoft.com/en-us/windows/win32/secbp/control-flow-guard'
         },
         @{
             Id               = 'SMAP'
@@ -730,6 +731,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable to prevent privilege escalation attacks'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/secure-coding/supervisor-mode-access-prevention.html'
         },
         @{
             Id               = 'VBS'
@@ -745,6 +747,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable for enhanced kernel isolation (requires hardware support)'
             HardwareRequired = 'VBS'
+            URL              = 'https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs'
         },
         @{
             Id               = 'HVCI'
@@ -760,6 +763,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable for kernel code integrity enforcement (requires VBS)'
             HardwareRequired = 'HVCI'
+            URL              = 'https://learn.microsoft.com/en-us/windows/security/hardware-security/enable-virtualization-based-protection-of-code-integrity'
         },
         @{
             Id               = 'CredentialGuard'
@@ -775,6 +779,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable for domain credential protection (requires VBS)'
             HardwareRequired = 'VBS'
+            URL              = 'https://learn.microsoft.com/en-us/windows/security/identity-protection/credential-guard/credential-guard'
         },
         @{
             Id               = 'HyperVCoreScheduler'
@@ -789,6 +794,7 @@ function Get-MitigationDefinitions {
             Platform         = 'HyperVHost'
             RuntimeDetection = $null
             Recommendation   = 'Enable on Hyper-V hosts for multi-tenant environments'
+            URL              = 'https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types'
         },
         
         # Hardware Prerequisites (Informational)
@@ -806,6 +812,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'UEFI mode required for Secure Boot, VBS, and HVCI'
             IsPrerequisite   = $true
+            URL              = 'https://uefi.org/specifications'
         },
         @{
             Id               = 'SecureBoot'
@@ -821,6 +828,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable in UEFI firmware settings for boot security'
             IsPrerequisite   = $true
+            URL              = 'https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-secure-boot'
         },
         @{
             Id               = 'TPM'
@@ -836,6 +844,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'TPM 2.0 required for BitLocker, Credential Guard, and VBS'
             IsPrerequisite   = $true
+            URL              = 'https://trustedcomputinggroup.org/resource/tpm-library-specification/'
         },
         @{
             Id               = 'VTx'
@@ -851,6 +860,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable in BIOS/UEFI for Hyper-V and VBS support'
             IsPrerequisite   = $true
+            URL              = 'https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html'
         },
         @{
             Id               = 'IOMMU'
@@ -866,6 +876,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Required for HVCI and advanced VBS features'
             IsPrerequisite   = $true
+            URL              = 'https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology-for-directed-io.html'
         }
     )
 }
