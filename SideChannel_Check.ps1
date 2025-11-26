@@ -167,14 +167,21 @@ $PSVersion = $PSVersionTable.PSVersion.Major
 $UseEmojis = $false  # Simplified approach for maximum compatibility
 
 # Define simple, consistent category markers
+# Define Unicode emoji symbols (PowerShell 5.1 compatible)
+$EmojiShield = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16))    # 🛡️ Shield
+$EmojiLock = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16))      # 🔐 Lock
+$EmojiWrench = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16))    # 🔧 Wrench
+$EmojiGear = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16))       # ⚙️ Gear
+$EmojiChart = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16))     # 📊 Chart
+
 $Emojis = @{
-    Shield    = "[SW]"     # Software Mitigations
-    Lock      = "[SF]"       # Security Features  
-    Wrench    = "[HW]"     # Hardware Prerequisites
-    Gear      = "[OT]"       # Other Mitigations
-    Chart     = "[>>]"      # Summary/Progress
-    Clipboard = "[--]"  # Status Legend
-    Target    = "[>>]"     # Category Descriptions
+    Shield    = "$EmojiShield "     # 🛡️ Software Mitigations
+    Lock      = "$EmojiLock"        # 🔐 Security Features  
+    Wrench    = "$EmojiWrench"      # 🔧 Hardware Prerequisites
+    Gear      = "$EmojiGear"        # ⚙️ Other Mitigations
+    Chart     = "[>>]"              # Summary/Progress (keep ASCII for tables)
+    Clipboard = "[--]"              # Status Legend (keep ASCII for tables)
+    Target    = "[>>]"              # Category Descriptions (keep ASCII for tables)
 }
 
 # Color coding for output
