@@ -1326,26 +1326,42 @@ function Test-SideChannelMitigation {
     # Determine runtime status from kernel API
     $runtimeStatus = "N/A"
     if ($script:RuntimeState.APIAvailable) {
-        $runtimeActive = switch ($Name) {
-            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
-            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+        $runtimeActive = $null
+        $isImmune = $false
+        
+        switch ($Name) {
+            "Branch Target Injection Mitigation" { 
+                $runtimeActive = $script:RuntimeState.BTIEnabled 
+            }
+            "Speculative Store Bypass Disable" { 
+                $runtimeActive = $script:RuntimeState.SSBDSystemWide 
+            }
             "Kernel VA Shadow (Meltdown Protection)" { 
-                if ($script:RuntimeState.RDCLHardwareProtected) { "Immune" }
-                else { $script:RuntimeKVAState.KVAShadowEnabled }
+                if ($script:RuntimeState.RDCLHardwareProtected) {
+                    $isImmune = $true
+                }
+                else {
+                    $runtimeActive = $script:RuntimeKVAState.KVAShadowEnabled
+                }
             }
             "MDS Mitigation" { 
-                if ($script:RuntimeState.MDSHardwareProtected) { "Immune" }
-                else { $script:RuntimeState.MBClearEnabled }
+                if ($script:RuntimeState.MDSHardwareProtected) {
+                    $isImmune = $true
+                }
+                else {
+                    $runtimeActive = $script:RuntimeState.MBClearEnabled
+                }
             }
-            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
-            default { $null }
+            "Enhanced IBRS" { 
+                $runtimeActive = $script:RuntimeState.EnhancedIBRS 
+            }
         }
         
-        if ($null -ne $runtimeActive) {
-            if ($runtimeActive -eq "Immune") {
-                $runtimeStatus = "Hardware Immune"
-            }
-            elseif ($runtimeActive) {
+        if ($isImmune) {
+            $runtimeStatus = "Hardware Immune"
+        }
+        elseif ($null -ne $runtimeActive) {
+            if ($runtimeActive) {
                 $runtimeStatus = "Active"
             }
             else {
@@ -3334,6 +3350,7 @@ $Results += [PSCustomObject]@{
     Name           = "TPM 2.0 (Trusted Platform Module)"
     Description    = "Hardware security chip for cryptographic operations and key storage"
     Status         = $tpmStatus
+    RuntimeStatus  = "N/A"
     CurrentValue   = $tpmValue
     ExpectedValue  = "TPM 2.0 Enabled"
     RegistryPath   = "Hardware/UEFI Setting"
@@ -3371,6 +3388,7 @@ $Results += [PSCustomObject]@{
     Name           = "CPU Virtualization Support (VT-x/AMD-V)"
     Description    = "Hardware virtualization extensions required for hypervisor-based security"
     Status         = $vtxStatus
+    RuntimeStatus  = "N/A"
     CurrentValue   = $vtxValue
     ExpectedValue  = "Enabled and Active"
     RegistryPath   = "BIOS/UEFI Setting (Hardware Feature)"
@@ -3385,6 +3403,7 @@ $Results += [PSCustomObject]@{
     Name           = "IOMMU/VT-d Support"
     Description    = "Input/Output Memory Management Unit for secure DMA isolation"
     Status         = if ($hwRequirements.IOMMUSupport -match "Enabled") { "Enabled" } else { "Disabled" }
+    RuntimeStatus  = "N/A"
     CurrentValue   = $hwRequirements.IOMMUSupport
     ExpectedValue  = "Enabled"
     RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
@@ -3400,6 +3419,7 @@ $Results += [PSCustomObject]@{
     Name           = "Hypervisor-protected Code Integrity (HVCI)"
     Description    = "Hardware-based code integrity enforcement"
     Status         = if ($hvciEnabled -eq 1) { "Enabled" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
     CurrentValue   = if ($null -ne $hvciEnabled) { $hvciEnabled } else { "Not Set" }
     ExpectedValue  = 1
     RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity"
@@ -3415,6 +3435,7 @@ $Results += [PSCustomObject]@{
     Name           = "Credential Guard"
     Description    = "Protects domain credentials using VBS"
     Status         = if ($credGuardEnabled -eq 1) { "Enabled" } elseif ($credGuardEnabled -eq 2) { "Enabled with UEFI Lock" } else { "Not Configured" }
+    RuntimeStatus  = "N/A"
     CurrentValue   = if ($null -ne $credGuardEnabled) { $credGuardEnabled } else { "Not Set" }
     ExpectedValue  = 1
     RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
@@ -3433,6 +3454,7 @@ if ($virtInfo.IsVirtualMachine) {
         Name           = "VM Guest: SLAT Support"
         Description    = "Second Level Address Translation support in guest"
         Status         = "Information"
+        RuntimeStatus  = "N/A"
         CurrentValue   = "Check hypervisor configuration"
         ExpectedValue  = "Enabled on host"
         RegistryPath   = "N/A"
@@ -3449,6 +3471,7 @@ if ($virtInfo.IsVirtualMachine) {
             Name           = "VMware Tools Security Features"
             Description    = "VMware Tools with side-channel mitigations"
             Status         = if ($vmToolsVersion) { "Enabled" } else { "Not Configured" }
+            RuntimeStatus  = "N/A"
             CurrentValue   = if ($vmToolsVersion) { "Present" } else { "Missing" }
             ExpectedValue  = "Latest Version"
             RegistryPath   = "N/A"
