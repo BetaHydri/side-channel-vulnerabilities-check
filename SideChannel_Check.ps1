@@ -166,22 +166,80 @@ $Results = @()
 $PSVersion = $PSVersionTable.PSVersion.Major
 $UseEmojis = $false  # Simplified approach for maximum compatibility
 
-# Define simple, consistent category markers
-# Define Unicode emoji symbols (PowerShell 5.1 compatible)
-$EmojiShield = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16))    # 🛡️ Shield
-$EmojiLock = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16))      # 🔐 Lock
-$EmojiWrench = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16))    # 🔧 Wrench
-$EmojiGear = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16))       # ⚙️ Gear
-$EmojiChart = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16))     # 📊 Chart
+# ============================================================================
+# Icon Helper Function (PowerShell 5.1+ Compatible)
+# ============================================================================
+function Get-Icon {
+    <#
+    .SYNOPSIS
+        Returns Unicode icons compatible with PowerShell 5.1+
+    
+    .DESCRIPTION
+        Centralizes all emoji/icon generation using ConvertFromUtf32 for
+        maximum compatibility across PowerShell 5.1 and 7.x versions.
+    
+    .PARAMETER Name
+        The name of the icon to retrieve
+    
+    .EXAMPLE
+        Get-Icon -Name Enabled
+        Returns: ✓
+    
+    .EXAMPLE
+        Get-Icon -Name Warning
+        Returns: ⚠
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [ValidateSet(
+            'Enabled', 'Disabled', 'Warning', 'Info', 'Success', 'Error',
+            'Check', 'Cross', 'Question', 'Star', 'Arrow', 'Shield',
+            'Lock', 'Wrench', 'Gear', 'Chart', 'BlockFull', 'BlockLight'
+        )]
+        [string]$Name
+    )
+    
+    switch ($Name) {
+        # Status Icons
+        'Enabled'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Disabled'   { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Warning'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16)) }  # ⚠
+        'Info'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16)) }  # ℹ
+        'Success'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Error'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        
+        # Common Symbols
+        'Check'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Cross'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Question'   { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) }  # ❓
+        'Star'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16)) }  # ⭐
+        'Arrow'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16)) }  # └
+        
+        # Category Icons
+        'Shield'     { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16)) } # 🛡️
+        'Lock'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16)) } # 🔐
+        'Wrench'     { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16)) } # 🔧
+        'Gear'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16)) }  # ⚙
+        'Chart'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16)) } # 📊
+        
+        # Progress Bar Characters
+        'BlockFull'  { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16)) }  # █
+        'BlockLight' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16)) }  # ░
+        
+        default      { '' }
+    }
+}
 
+# Define simple, consistent category markers using Get-Icon function
 $Emojis = @{
-    Shield    = "$EmojiShield "     # 🛡️ Software Mitigations
-    Lock      = "$EmojiLock"        # 🔐 Security Features  
-    Wrench    = "$EmojiWrench"      # 🔧 Hardware Prerequisites
-    Gear      = "$EmojiGear"        # ⚙️ Other Mitigations
-    Chart     = "[>>]"              # Summary/Progress (keep ASCII for tables)
-    Clipboard = "[--]"              # Status Legend (keep ASCII for tables)
-    Target    = "[>>]"              # Category Descriptions (keep ASCII for tables)
+    Shield    = "$(Get-Icon -Name Shield) "    # 🛡️ Software Mitigations
+    Lock      = "$(Get-Icon -Name Lock)"       # 🔐 Security Features  
+    Wrench    = "$(Get-Icon -Name Wrench)"     # 🔧 Hardware Prerequisites
+    Gear      = "$(Get-Icon -Name Gear)"       # ⚙️ Other Mitigations
+    Chart     = "[>>]"                         # Summary/Progress (keep ASCII for tables)
+    Clipboard = "[--]"                         # Status Legend (keep ASCII for tables)
+    Target    = "[>>]"                         # Category Descriptions (keep ASCII for tables)
 }
 
 # Color coding for output
@@ -562,8 +620,8 @@ function Show-ResultsTable {
                 $activeButNotConfigured = $tableData | Where-Object { $_.'Kernel Runtime' -like "*$iconWarning*Active*" -and $_.'Registry Status' -notlike "*Enabled*" }
                 
                 if ($pendingItems.Count -gt 0) {
-                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
-                    $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                    $iconWarning = Get-Icon -Name Warning
+                    $iconInfo = Get-Icon -Name Info
                     Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
                     Write-Host "DISCREPANCY DETECTED - Registry says 'Enabled' but Kernel shows 'Inactive'" -ForegroundColor Yellow
                     Write-Host "  $iconInfo " -NoNewline -ForegroundColor Cyan
@@ -578,8 +636,8 @@ function Show-ResultsTable {
                 }
                 
                 if ($activeButNotConfigured.Count -gt 0) {
-                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
-                    $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                    $iconWarning = Get-Icon -Name Warning
+                    $iconInfo = Get-Icon -Name Info
                     Write-Host "`n  $iconWarning " -NoNewline -ForegroundColor Yellow
                     Write-Host "DISCREPANCY DETECTED - Registry says 'Not Set' but Kernel shows 'Active'" -ForegroundColor Yellow
                     Write-Host "  $iconInfo " -NoNewline -ForegroundColor Green
@@ -651,8 +709,8 @@ function Show-ResultsTable {
     }
     
     # Create visual progress bar with Unicode blocks (PowerShell 5.1 compatible)
-    $BlockFull = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16))   # █ Full block
-    $BlockLight = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16))  # ░ Light shade
+    $BlockFull = Get-Icon -Name BlockFull
+    $BlockLight = Get-Icon -Name BlockLight
     
     $filledBlocks = [math]::Floor($overallPercentage / 10)
     $emptyBlocks = 10 - $filledBlocks
@@ -669,8 +727,8 @@ function Show-ResultsTable {
     Write-Host "] $totalEnabled/$totalCount enabled" -ForegroundColor Gray
     
     # Display color-coded status legend with emoji symbols
-    $IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
-    $IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))  # ✗
+    $IconCheck = Get-Icon -Name Check
+    $IconCross = Get-Icon -Name Cross
     
     Write-ColorOutput ("`n" + $Emojis.Clipboard + " STATUS LEGEND") -Color Header
     Write-Host "$IconCheck Enabled" -ForegroundColor $Colors['Good'] -NoNewline
@@ -687,17 +745,17 @@ function Show-ResultsTable {
     
     # Runtime state explanation if API is available
     if ($script:RuntimeState.APIAvailable) {
-        $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
-        $iconStar = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16))
+        $iconInfo = Get-Icon -Name Info
+        $iconStar = Get-Icon -Name Star
         Write-ColorOutput "`n$iconInfo KERNEL RUNTIME STATE - WHICH TO TRUST?" -Color Info
         Write-Host "  $iconStar " -NoNewline -ForegroundColor Yellow
         Write-Host "ALWAYS TRUST: Kernel Runtime (shows actual protection status)" -ForegroundColor Yellow
         Write-Host "  Registry Status: What you configured (may not be active yet)" -ForegroundColor Gray
         Write-Host "  Kernel Runtime: What's ACTUALLY running in the kernel (authoritative)" -ForegroundColor Cyan
         
-        $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
-        $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
-        $iconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))
+        $iconCheck = Get-Icon -Name Check
+        $iconWarning = Get-Icon -Name Warning
+        $iconCross = Get-Icon -Name Cross
         Write-Host "`n  Runtime Status Meanings:" -ForegroundColor White
         Write-Host "  $iconCheck Active" -ForegroundColor Green -NoNewline
         Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
@@ -1235,8 +1293,8 @@ function Test-SideChannelMitigation {
     }
     else {
         # Enhanced console output with clear status indicators and emoji symbols
-        $iconEnabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
-        $iconDisabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) # ✗
+        $iconEnabled = Get-Icon -Name Enabled
+        $iconDisabled = Get-Icon -Name Disabled
         
         $statusIndicator = switch ($status) {
             "Enabled" { "$iconEnabled ENABLED" }
@@ -1304,7 +1362,7 @@ function Test-SideChannelMitigation {
             
             # Show retpoline status for BTI
             if ($Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.RetpolineEnabled) {
-                $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))  # ℹ
+                $iconInfo = Get-Icon -Name Info
                 Write-Host "     $iconInfo Retpoline: Active (software mitigation)" -ForegroundColor Cyan
             }
         }
@@ -2644,8 +2702,8 @@ Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Co
 Write-ColorOutput "Based on Microsoft KB4073119 + Extended Modern CVE Coverage`n" -Color Info
 
 # Display operation mode (PS 5.1 compatible emoji icons)
-$IconGear = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16))    # ⚙ Gear
-$IconChart = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16))  # 📊 Chart
+$IconGear = Get-Icon -Name Gear
+$IconChart = Get-Icon -Name Chart
 
 if ($Apply -or $Revert) {
     if ($Apply) {
@@ -3344,7 +3402,7 @@ if ($vbsStatus) {
     Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
     Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
     
-    $IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+    $IconCheck = Get-Icon -Name Check
     Write-ColorOutput "`n$IconCheck What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
 }
 else {
@@ -3678,7 +3736,7 @@ $mitigationFlags = @(
 )
 
 # Define Unicode arrow for table annotation (PS 5.1 compatible)
-$IconArrowTable = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16))  # └
+$IconArrowTable = Get-Icon -Name Arrow
 
 Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
 Write-ColorOutput "----------          ------      ---------------" -Color Header
@@ -3841,8 +3899,8 @@ $levelColor = if ($configuredPercent -ge 80) { 'Good' } elseif ($configuredPerce
 Write-Host "$configuredPercent%" -ForegroundColor $Colors[$levelColor]
 
 # Security level indicator with Unicode blocks (PowerShell 5.1 compatible)
-$BlockFull = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16))   # █ Full block
-$BlockLight = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16))  # ░ Light shade
+$BlockFull = Get-Icon -Name BlockFull
+$BlockLight = Get-Icon -Name BlockLight
 
 $filledBlocks = [math]::Floor($configuredPercent / 10)
 $emptyBlocks = 10 - $filledBlocks
@@ -4522,11 +4580,11 @@ Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ==="
 $hwStatus = Get-HardwareRequirements
 
 # Define emoji symbols for status indicators (PS 5.1 compatible)
-$IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))    # ✓ Check mark
-$IconQuestion = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) # ❓ Question mark
-$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗ Cross mark
-$IconArrow = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16))    # └ Box drawing character
-$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗ Cross mark
+$IconCheck = Get-Icon -Name Check
+$IconQuestion = Get-Icon -Name Question
+$IconCross = Get-Icon -Name Cross
+$IconArrow = Get-Icon -Name Arrow
+$IconCross = Get-Icon -Name Cross
 
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
 Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
@@ -4634,9 +4692,9 @@ Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization
 
 Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
 
-$IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))    # ✓
-$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗
-$IconQuestion = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) # ❓
+$IconCheck = Get-Icon -Name Check
+$IconCross = Get-Icon -Name Cross
+$IconQuestion = Get-Icon -Name Question
 
 $uefiStatusText = if ($hwStatus.IsUEFI) { "$IconCheck Met" } else { "$IconCross Not Met" }
 $uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
@@ -4667,49 +4725,49 @@ if ($script:RuntimeState.APIAvailable -and $Detailed -and -not $Apply -and -not 
     Write-ColorOutput "`nAdvanced Protections:" -Color Header
     
     if ($script:RuntimeState.RetpolineEnabled) {
-        $iconRetpoline = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconRetpoline = Get-Icon -Name Check
         Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
     }
     
     if ($script:RuntimeState.EnhancedIBRS) {
-        $iconEIBRS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconEIBRS = Get-Icon -Name Check
         Write-Host "  $iconEIBRS Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)" -ForegroundColor $Colors['Good']
     }
     
     if ($script:RuntimeState.IBRSPreferred) {
-        $iconIBRS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconIBRS = Get-Icon -Name Check
         Write-Host "  $iconIBRS IBRS Preferred: CPU recommends IBRS over retpoline" -ForegroundColor $Colors['Good']
     }
     
     if ($script:RuntimeKVAState.APIAvailable -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
-        $iconPCID = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconPCID = Get-Icon -Name Check
         Write-Host "  $iconPCID PCID Optimization: ACTIVE (reduces KPTI performance impact)" -ForegroundColor $Colors['Good']
     }
     
     if ($script:RuntimeKVAState.L1TFFlushSupported) {
-        $iconL1TF = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconL1TF = Get-Icon -Name Check
         Write-Host "  $iconL1TF L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)" -ForegroundColor $Colors['Good']
     }
     
     # CPU Vendor-specific immunities
     Write-ColorOutput "`nHardware Immunity Status:" -Color Header
     if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
-        $iconAMD = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconAMD = Get-Icon -Name Check
         Write-Host "  $iconAMD AMD CPU Detected" -ForegroundColor $Colors['Good']
         Write-Host "    - Immune to: Meltdown, L1TF, MDS, TAA" -ForegroundColor $Colors['Good']
     }
     elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
         Write-Host "  Intel CPU Detected" -ForegroundColor $Colors['Info']
         if ($script:RuntimeState.RDCLHardwareProtected) {
-            $iconRDCL = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            $iconRDCL = Get-Icon -Name Check
             Write-Host "    $iconRDCL RDCL Protected: Hardware immunity to Meltdown" -ForegroundColor $Colors['Good']
         }
         if ($script:RuntimeState.MDSHardwareProtected) {
-            $iconMDS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            $iconMDS = Get-Icon -Name Check
             Write-Host "    $iconMDS MDS Protected: Hardware immunity to MDS" -ForegroundColor $Colors['Good']
         }
         if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
-            $iconTAA = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            $iconTAA = Get-Icon -Name Check
             Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
         }
     }
