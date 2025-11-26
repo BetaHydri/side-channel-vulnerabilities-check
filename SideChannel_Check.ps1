@@ -2835,8 +2835,102 @@ elseif ($virtInfo.HyperVStatus -eq "Enabled") {
     Write-ColorOutput "Nested Virtualization: Disabled" -Color Warning
 }
 
+# Display System Capabilities early
+Write-ColorOutput "`nYour System Capabilities:" -Color Header
 
-Write-ColorOutput "Checking Side-Channel Vulnerability Mitigations...`n" -Color Header
+# Gather platform security capabilities
+try {
+    # UEFI Secure Boot
+    $hasSecureBoot = $false
+    try {
+        $secureBootStatus = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+        $hasSecureBoot = $secureBootStatus -eq $true
+    } catch { }
+    
+    # TPM 2.0
+    $hasTPM = $false
+    try {
+        $tpmInfo = Get-Tpm -ErrorAction SilentlyContinue
+        $hasTPM = ($null -ne $tpmInfo) -and ($tpmInfo.TpmPresent -eq $true) -and ($tpmInfo.TpmReady -eq $true)
+    } catch { }
+    
+    # Virtualization - Check if Hyper-V is enabled or VBS is running (both require CPU virtualization)
+    $hasVirtualization = ($virtInfo.HyperVStatus -eq "Enabled") -or ($virtInfo.VBSStatus -eq "Running") -or ($virtInfo.HVCIStatus -match "Enforced|Audit")
+    
+    # IOMMU detection - Check the same way as the main hardware check does
+    $hasIOMMU = $false
+    $iommuResult = $Results | Where-Object { $_.Name -eq "IOMMU/VT-d Support" } | Select-Object -First 1
+    if ($iommuResult) {
+        $hasIOMMU = $iommuResult.Status -eq "Enabled"
+    }
+    else {
+        # Fallback: Check VBS DMA Protection capability
+        try {
+            $vbsCheck = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+            if ($vbsCheck -and $vbsCheck.AvailableSecurityProperties -contains 7) {
+                $hasIOMMU = $true
+            }
+        }
+        catch { }
+        
+        # Secondary fallback: Check registry keys
+        if (!$hasIOMMU) {
+            if ($cpuInfo.Manufacturer -match "Intel") {
+                $vtdReg = Get-RegistryValue -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\intelppm\\Parameters" -Name "VTdEnabled"
+                $hasIOMMU = ($vtdReg -eq 1)
+            }
+            elseif ($cpuInfo.Manufacturer -match "AMD") {
+                $amdViReg = Get-RegistryValue -Path "HKLM:\\SYSTEM\\CurrentControlSet\\Services\\amdppm\\Parameters" -Name "IOMMUEnabled"
+                $hasIOMMU = ($amdViReg -eq 1)
+            }
+        }
+    }
+    
+    Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
+    $secureBootText = if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }
+    $secureBootColor = if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $secureBootText -ForegroundColor $secureBootColor
+
+    Write-Host "  TPM 2.0:          " -NoNewline -ForegroundColor Gray
+    $tpmText = if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }
+    $tpmColor = if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $tpmText -ForegroundColor $tpmColor
+
+    Write-Host "  Virtualization:   " -NoNewline -ForegroundColor Gray
+    $virtText = if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }
+    $virtColor = if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $virtText -ForegroundColor $virtColor
+
+    Write-Host "  IOMMU (VT-d/Vi):  " -NoNewline -ForegroundColor Gray
+    $iommuText = if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }
+    $iommuColor = if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host $iommuText -ForegroundColor $iommuColor
+
+    Write-ColorOutput "`nRecommendations for Your System:" -Color Header
+
+    if (!$hasSecureBoot) {
+        Write-ColorOutput ("  " + $Emojis.Error + " Enable Secure Boot in UEFI firmware settings (CRITICAL)") -Color Bad
+    }
+    if (!$hasTPM) {
+        Write-ColorOutput ("  " + $Emojis.Warning + " No TPM detected - BitLocker will require password/USB key") -Color Warning
+        Write-ColorOutput "    Consider enabling fTPM (firmware TPM) in BIOS if available" -Color Info
+    }
+    if (!$hasVirtualization) {
+        Write-ColorOutput ("  " + $Emojis.Error + " Enable CPU virtualization in BIOS/UEFI (required for VBS/HVCI)") -Color Bad
+    }
+    if (!$hasIOMMU) {
+        Write-ColorOutput ("  " + $Emojis.Warning + " IOMMU not detected - HVCI will use compatible mode") -Color Warning
+        Write-ColorOutput "    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection" -Color Info
+    }
+    if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
+        Write-ColorOutput ("  " + $Emojis.Success + " Your system meets all hardware requirements for full security features!") -Color Good
+    }
+}
+catch {
+    Write-ColorOutput "`nWarning: Could not assess platform security capabilities: $($_.Exception.Message)" -Color Warning
+}
+
+Write-ColorOutput "`nChecking Side-Channel Vulnerability Mitigations...`n" -Color Header
 
 # Query runtime kernel state for comparison with registry settings
 Write-Verbose "Querying runtime mitigation state via NtQuerySystemInformation API..."
@@ -3385,494 +3479,7 @@ else {
 }
 
 # ============================================================================
-# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
-# ============================================================================
-# The following sections provide in-depth technical details, dependency
-# matrices, and educational information about security features.
-# ============================================================================
-
-# Section break before detailed analysis
-Write-ColorOutput "`n" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-Write-ColorOutput "DETAILED SECURITY ANALYSIS" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-
-# Check if Virtualization Based Security is available (detailed status)
-try {
-    $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
-    if (!$vbsStatus) {
-        $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
-    }
-}
-catch {
-    $vbsStatus = $null
-}
-
-if ($vbsStatus) {
-    Write-ColorOutput "`nVirtualization Based Security Detailed Status:" -Color Header
-    Write-ColorOutput "=================================================" -Color Header
-    
-    # VBS Hardware Requirements vs Runtime Status
-    $vbsHwReady = $vbsStatus.VirtualizationBasedSecurityHardwareRequirementState -eq 1
-    $vbsRunning = $vbsStatus.VirtualizationBasedSecurityStatus -eq 2
-    $hvciHwReady = $vbsStatus.HypervisorEnforcedCodeIntegrityHardwareRequirementState -eq 1
-    $hvciRunning = $vbsStatus.CodeIntegrityPolicyEnforcementStatus -eq 2
-    
-    Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
-    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    $vbsHwReadyText = if ($vbsHwReady) { "+ Yes" } else { "- No" }
-    $vbsHwReadyColor = if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
-    Write-Host $vbsHwReadyText -ForegroundColor $vbsHwReadyColor
-    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
-    $vbsRunningText = if ($vbsRunning) { "+ Yes" } else { "- No" }
-    $vbsRunningColor = if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] }
-    Write-Host $vbsRunningText -ForegroundColor $vbsRunningColor
-    
-    Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
-    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
-    $hvciHwReadyText = if ($hvciHwReady) { "+ Yes" } else { "- No" }
-    $hvciHwReadyColor = if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
-    Write-Host $hvciHwReadyText -ForegroundColor $hvciHwReadyColor
-    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
-    $hvciRunningText = if ($hvciRunning) { "+ Yes" } else { "- No" }
-    $hvciRunningColor = if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] }
-    Write-Host $hvciRunningText -ForegroundColor $hvciRunningColor
-    
-    # Explanation of the difference
-    if (!$vbsHwReady -and $vbsRunning) {
-        Write-ColorOutput "`nNOTE: VBS is running despite hardware readiness showing 'No'." -Color Info
-        Write-ColorOutput "   This indicates VBS is enabled via software/policy, not full hardware support." -Color Info
-    }
-    if (!$hvciHwReady -and $hvciRunning) {
-        Write-ColorOutput "`nNOTE: HVCI is active despite hardware readiness showing 'No'." -Color Info
-        Write-ColorOutput "   This indicates HVCI is using compatible mode or software enforcement." -Color Info
-    }
-    
-    Write-ColorOutput "`nSecurity Services Details:" -Color Info
-    Write-ColorOutput "Running Services: $($vbsStatus.SecurityServicesRunning -join ', ')" -Color Info
-    Write-ColorOutput "Configured Services: $($vbsStatus.SecurityServicesConfigured -join ', ')" -Color Info
-    
-    # Service explanation
-    $serviceExplanation = @{
-        "1" = "Credential Guard"
-        "2" = "HVCI (Hypervisor-protected Code Integrity)"
-        "3" = "System Guard Secure Launch"
-        "4" = "SMM Firmware Measurement"
-    }
-    
-    if ($vbsStatus.SecurityServicesRunning) {
-        Write-ColorOutput "`nActive Security Services:" -Color Info
-        foreach ($service in $vbsStatus.SecurityServicesRunning) {
-            $serviceName = $serviceExplanation[$service.ToString()]
-            if ($serviceName) {
-                Write-ColorOutput "  - $serviceName" -Color Good
-            }
-            else {
-                Write-ColorOutput "  - Service ID: $service" -Color Info
-            }
-        }
-    }
-    
-    # Detailed explanation of VBS/HVCI status differences
-    Write-ColorOutput "`n" + "-"*60 -Color Header
-    Write-ColorOutput "VBS/HVCI Status Explanation:" -Color Header
-    Write-ColorOutput "-"*60 -Color Header
-    Write-ColorOutput "- 'Hardware Ready' = System meets full hardware requirements" -Color Info
-    Write-ColorOutput "- 'Currently Active' = Feature is actually running right now" -Color Info
-    Write-ColorOutput "`nWhy might Hardware Ready = No but Active = Yes?" -Color Warning
-    Write-ColorOutput "1. VBS/HVCI can run in 'compatible mode' without full HW support" -Color Info
-    Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
-    Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
-    Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
-    
-    $IconCheck = Get-Icon -Name Check
-    Write-ColorOutput "`n$IconCheck What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
-}
-else {
-    Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
-    Write-ColorOutput "VBS Status: Not Available (Win32_DeviceGuard not accessible)" -Color Warning
-    Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
-}
-
-# Security Feature Dependency Matrix
-Write-ColorOutput "`n" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-
-Write-ColorOutput "`nThis matrix shows hardware requirements and software fallback options for each" -Color Info
-Write-ColorOutput "Windows security feature. Understanding these dependencies helps you determine" -Color Info
-Write-ColorOutput "which features can be enabled and what trade-offs exist." -Color Info
-
-# Define dependency matrix data
-$dependencyMatrix = @(
-    @{
-        Feature          = "Secure Boot"
-        HardwareRequired = "UEFI firmware with Secure Boot capability"
-        SoftwareFallback = "No"
-        Impact           = "Without Secure Boot, bootloader attacks are possible"
-        Notes            = "Required for most modern security features"
-    },
-    @{
-        Feature          = "TPM 2.0"
-        HardwareRequired = "Trusted Platform Module 2.0 chip"
-        SoftwareFallback = "Partial (BitLocker with password/USB key)"
-        Impact           = "Reduced cryptographic key security, no hardware root of trust"
-        Notes            = "Firmware TPM (fTPM) acceptable for most features"
-    },
-    @{
-        Feature          = "VBS (Virtualization Based Security)"
-        HardwareRequired = "CPU virtualization (VT-x/AMD-V) + SLAT/EPT"
-        SoftwareFallback = "Yes (software mode, weaker isolation)"
-        Impact           = "Software mode provides less isolation between secure kernel and normal kernel"
-        Notes            = "Hardware mode strongly recommended for production systems"
-    },
-    @{
-        Feature          = "HVCI (Hypervisor-protected Code Integrity)"
-        HardwareRequired = "CPU virtualization + IOMMU (VT-d/AMD-Vi)"
-        SoftwareFallback = "Yes (compatible mode, some features disabled)"
-        Impact           = "Compatible mode may have performance overhead, fewer driver protections"
-        Notes            = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
-    },
-    @{
-        Feature          = "Credential Guard"
-        HardwareRequired = "VBS + TPM 2.0 (recommended)"
-        SoftwareFallback = "Yes (works without TPM, less secure credential storage)"
-        Impact           = "Credentials stored in memory without hardware isolation"
-        Notes            = "Requires VBS; TPM makes credential extraction nearly impossible"
-    },
-    @{
-        Feature          = "BitLocker Drive Encryption"
-        HardwareRequired = "TPM 2.0 (recommended)"
-        SoftwareFallback = "Yes (password or USB key startup)"
-        Impact           = "Password/USB key vulnerable to physical attacks; no sealed keys"
-        Notes            = "TPM-based BitLocker provides transparent boot experience"
-    },
-    @{
-        Feature          = "DRTM (Dynamic Root of Trust)"
-        HardwareRequired = "Intel TXT or AMD Secure Startup"
-        SoftwareFallback = "No"
-        Impact           = "Cannot establish measured launch; vulnerable to bootkit persistence"
-        Notes            = "System Guard Secure Launch requires this for integrity verification"
-    },
-    @{
-        Feature          = "Kernel DMA Protection"
-        HardwareRequired = "IOMMU (VT-d/AMD-Vi) with pre-boot protection"
-        SoftwareFallback = "No"
-        Impact           = "DMA attacks via Thunderbolt/USB4 remain possible"
-        Notes            = "Protects against physical attacks via PCIe/Thunderbolt devices"
-    },
-    @{
-        Feature          = "Hardware Stack Protection"
-        HardwareRequired = "Intel CET or AMD Shadow Stack"
-        SoftwareFallback = "No"
-        Impact           = "Return-oriented programming (ROP) attacks easier to execute"
-        Notes            = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
-    },
-    @{
-        Feature          = "Microsoft Pluton"
-        HardwareRequired = "Integrated Pluton security processor"
-        SoftwareFallback = "N/A (not required for OS operation)"
-        Impact           = "Falls back to discrete TPM; no integrated firmware attack protection"
-        Notes            = "Optional - only available on select recent CPUs"
-    }
-)
-
-# Display dependency matrix in formatted table
-Write-ColorOutput "`n" -Color Info
-Write-Host ("{0,-46} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
-Write-Host ("{0,-46} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
-
-foreach ($feature in $dependencyMatrix) {
-    $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
-        "Yes*" { "[" + $Emojis.Success + " Yes]" }
-        "Partial*" { "[~ Part]" }
-        "No" { "[" + $Emojis.Error + " No ]" }
-        "N/A*" { "[  N/A ]" }
-        default { "[  ?  ]" }
-    }
-    
-    $fallbackColor = switch -Wildcard ($feature.SoftwareFallback) {
-        "Yes*" { $Colors['Good'] }
-        "Partial*" { $Colors['Warning'] }
-        "No" { $Colors['Bad'] }
-        "N/A*" { $Colors['Info'] }
-        default { $Colors['Info'] }
-    }
-    
-    Write-Host ("{0,-46}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
-    Write-Host (" {0,-12}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
-    Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
-}
-
-Write-ColorOutput "`n" + "-"*80 -Color Header
-Write-ColorOutput "Legend:" -Color Header
-Write-ColorOutput ("  " + $Emojis.Success + " Yes  = Software fallback available (reduced security/performance)") -Color Good
-Write-ColorOutput ("  ~ Part = Partial fallback (limited functionality)") -Color Warning
-Write-ColorOutput ("  " + $Emojis.Error + " No   = No fallback - strict hardware requirement") -Color Bad
-Write-ColorOutput "  N/A  = Optional feature, not required for OS operation" -Color Info
-
-Write-ColorOutput "`nKey Insights:" -Color Header
-Write-ColorOutput ("  " + $Emojis.Info + " VBS/HVCI can run in compatible mode without full hardware support") -Color Info
-Write-ColorOutput ("  " + $Emojis.Warning + " Compatible mode may impact performance or reduce protection effectiveness") -Color Warning
-Write-ColorOutput ("  " + $Emojis.Lock + " Features without fallback (DRTM, DMA Protection) require hardware upgrade") -Color Bad
-Write-ColorOutput ("  " + $Emojis.Success + " Most critical security features (VBS, HVCI, Credential Guard) have fallbacks") -Color Good
-
-# Get current system capabilities to provide tailored recommendations
-$hasTPM = $false
-$hasSecureBoot = $false
-$hasVirtualization = $false
-$hasIOMMU = $false
-
-# Check for TPM
-try {
-    $tpm = Get-Tpm -ErrorAction SilentlyContinue
-    $hasTPM = $tpm.TpmPresent -and $tpm.TpmReady
-}
-catch { }
-
-# Check for Secure Boot
-try {
-    $hasSecureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
-}
-catch { }
-
-# Check for Virtualization - improved detection
-# When Hyper-V is running, CPU virtualization extensions are controlled by the hypervisor
-# So we need to check multiple sources
-$hasVirtualization = $false
-
-# Method 1: Check if Hyper-V is enabled (implies virtualization is available)
-try {
-    $hyperVFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
-    if ($hyperVFeature -and $hyperVFeature.State -eq 'Enabled') {
-        $hasVirtualization = $true
-    }
-}
-catch { }
-
-# Method 2: Check for hypervisor presence
-if (!$hasVirtualization) {
-    try {
-        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
-        if ($computerSystem.HypervisorPresent) {
-            $hasVirtualization = $true
-        }
-    }
-    catch { }
-}
-
-# Method 3: Check VBS properties (indicates virtualization support)
-if (!$hasVirtualization -and $vbsStatus) {
-    # If VBS is available, virtualization must be enabled
-    if ($vbsStatus.AvailableSecurityProperties -contains 1) {
-        $hasVirtualization = $true
-    }
-}
-
-# Method 4: Check CPU directly (only works when Hyper-V is NOT running)
-if (!$hasVirtualization) {
-    try {
-        $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
-        if ($cpu.VirtualizationFirmwareEnabled -or $cpu.VMMonitorModeExtensions) {
-            $hasVirtualization = $true
-        }
-    }
-    catch { }
-}
-
-# Check for IOMMU (VT-d / AMD-Vi) - improved detection
-$hasIOMMU = $false
-
-# Method 1: Check VBS AvailableSecurityProperties
-# Property 2 = SLAT (Second Level Address Translation / EPT)
-# Property 7 = DMA Protection (requires IOMMU)
-if ($vbsStatus) {
-    $availableProps = $vbsStatus.AvailableSecurityProperties
-    # Check if SLAT (property 2) and DMA protection (property 7) are available
-    if ($availableProps -contains 2) {
-        $hasIOMMU = $true  # SLAT/EPT implies IOMMU is available
-    }
-}
-
-# Method 2: Check Hyper-V specific IOMMU indicators
-if (!$hasIOMMU -and $virtInfo.HyperVStatus -eq "Enabled") {
-    # If Hyper-V is running with VBS, IOMMU is likely available
-    try {
-        $hvStatus = Get-VMHost -ErrorAction SilentlyContinue
-        if ($hvStatus) {
-            # Hyper-V host cmdlets available means we're on a Hyper-V host with full features
-            $hasIOMMU = $true
-        }
-    }
-    catch { }
-}
-
-# Method 3: Check registry (legacy method, less reliable)
-if (!$hasIOMMU) {
-    if ($cpuInfo.Manufacturer -match "Intel") {
-        $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
-        $hasIOMMU = ($vtdReg -eq 1)
-    }
-    elseif ($cpuInfo.Manufacturer -match "AMD") {
-        $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
-        $hasIOMMU = ($amdViReg -eq 1)
-    }
-}
-
-Write-ColorOutput "`nYour System Capabilities:" -Color Header
-Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
-$secureBootText = if ($hasSecureBoot) { "+ Enabled" } else { "- Not Enabled" }
-$secureBootColor = if ($hasSecureBoot) { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host $secureBootText -ForegroundColor $secureBootColor
-
-Write-Host "  TPM 2.0:          " -NoNewline -ForegroundColor Gray
-$tpmText = if ($hasTPM) { "+ Present & Ready" } else { "- Not Available" }
-$tpmColor = if ($hasTPM) { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host $tpmText -ForegroundColor $tpmColor
-
-Write-Host "  Virtualization:   " -NoNewline -ForegroundColor Gray
-$virtText = if ($hasVirtualization) { "+ Enabled" } else { "- Not Enabled" }
-$virtColor = if ($hasVirtualization) { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host $virtText -ForegroundColor $virtColor
-
-Write-Host "  IOMMU (VT-d/Vi):  " -NoNewline -ForegroundColor Gray
-$iommuText = if ($hasIOMMU) { "+ Enabled" } else { "- Not Detected" }
-$iommuColor = if ($hasIOMMU) { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host $iommuText -ForegroundColor $iommuColor
-
-# Provide tailored recommendations based on capabilities
-Write-ColorOutput "`nRecommendations for Your System:" -Color Header
-
-if (!$hasSecureBoot) {
-    Write-ColorOutput ("  " + $Emojis.Error + " Enable Secure Boot in UEFI firmware settings (CRITICAL)") -Color Bad
-}
-if (!$hasTPM) {
-    Write-ColorOutput ("  " + $Emojis.Warning + " No TPM detected - BitLocker will require password/USB key") -Color Warning
-    Write-ColorOutput "    Consider enabling fTPM (firmware TPM) in BIOS if available" -Color Info
-}
-if (!$hasVirtualization) {
-    Write-ColorOutput ("  " + $Emojis.Error + " Enable CPU virtualization in BIOS/UEFI (required for VBS/HVCI)") -Color Bad
-}
-if (!$hasIOMMU) {
-    Write-ColorOutput ("  " + $Emojis.Warning + " IOMMU not detected - HVCI will use compatible mode") -Color Warning
-    Write-ColorOutput "    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection" -Color Info
-}
-if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
-    Write-ColorOutput ("  " + $Emojis.Success + " Your system meets all hardware requirements for full security features!") -Color Good
-}
-
-# Hardware Security Mitigation Value Matrix for detailed output
-Write-ColorOutput "`n" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
-Write-ColorOutput ("=" * 80) -Color Header
-
-Write-ColorOutput "`nThe Hardware Security Mitigations (MitigationOptions) registry value is a bit-field" -Color Info
-Write-ColorOutput "that controls various CPU-level security features. Here's what the flags mean:" -Color Info
-
-Write-ColorOutput "`nCommon Hardware Mitigation Flags:" -Color Header
-Write-ColorOutput "=================================" -Color Header
-
-# Get current MitigationOptions value for comparison
-$currentMitigationValue = $null
-$mitigationResult = $Results | Where-Object { $_.Name -eq "Hardware Security Mitigations" }
-if ($mitigationResult -and $mitigationResult.CurrentValue -ne "Not Set") {
-    try {
-        if ($mitigationResult.CurrentValue -is [string] -and $mitigationResult.CurrentValue -match "^[0-9A-Fa-f]+$") {
-            $currentMitigationValue = [Convert]::ToUInt64($mitigationResult.CurrentValue, 16)
-        }
-        elseif ($mitigationResult.CurrentValue -is [uint64]) {
-            $currentMitigationValue = $mitigationResult.CurrentValue
-        }
-    }
-    catch {
-        $currentMitigationValue = $null
-    }
-}
-
-# Define known mitigation flags
-$mitigationFlags = @(
-    @{ Flag = 0x0000000000000001; Name = "CFG (Control Flow Guard)"; Description = "Prevents ROP/JOP attacks" },
-    @{ Flag = 0x0000000000000002; Name = "CFG Export Suppression"; Description = "Disables CFG for export functions" },
-    @{ Flag = 0x0000000000000004; Name = "CFG Strict Mode"; Description = "Stricter CFG enforcement" },
-    @{ Flag = 0x0000000000000008; Name = "DEP (Data Execution Prevention)"; Description = "Prevents code execution in data pages" },
-    @{ Flag = 0x0000000000000010; Name = "DEP ATL Thunk Emulation"; Description = "Legacy ATL thunk compatibility" },
-    @{ Flag = 0x0000000000000020; Name = "SEHOP (SEH Overwrite Protection)"; Description = "Protects exception handlers" },
-    @{ Flag = 0x0000000000000040; Name = "Heap Terminate on Corruption"; Description = "Immediately terminates on heap corruption" },
-    @{ Flag = 0x0000000000000080; Name = "Bottom-up ASLR"; Description = "Randomizes memory layout" },
-    @{ Flag = 0x0000000000000100; Name = "High Entropy ASLR"; Description = "64-bit address space randomization" },
-    @{ Flag = 0x0000000000000200; Name = "Force Relocate Images"; Description = "Forces ASLR even for non-ASLR images" },
-    @{ Flag = 0x0000000000000400; Name = "Heap Terminate on Corruption (Enhanced)"; Description = "Enhanced heap protection" },
-    @{ Flag = 0x0000000000001000; Name = "Stack Pivot Protection"; Description = "Prevents stack pivoting attacks" },
-    @{ Flag = 0x0000000000002000; Name = "Import Address Filtering"; Description = "Filters dangerous API imports" },
-    @{ Flag = 0x0000000000004000; Name = "Module Signature Enforcement"; Description = "Requires signed modules" },
-    @{ Flag = 0x0000000000008000; Name = "Font Disable"; Description = "Disables loading untrusted fonts" },
-    @{ Flag = 0x0000000000010000; Name = "Image Load Signature Mitigation"; Description = "Validates image signatures" },
-    @{ Flag = 0x0000000000020000; Name = "Non-System Font Disable"; Description = "Blocks non-system fonts" },
-    @{ Flag = 0x0000000000040000; Name = "Audit Non-System Font Loading"; Description = "Audits font loading" },
-    @{ Flag = 0x0000000000080000; Name = "Child Process Policy"; Description = "Restricts child process creation" },
-    @{ Flag = 0x0000000000100000; Name = "Payload Restriction Policy"; Description = "Prevents payload execution" },
-    @{ Flag = 0x0000000001000000; Name = "CET (Intel CET Shadow Stack)"; Description = "Hardware-assisted CFI" },
-    @{ Flag = 0x0000000002000000; Name = "CET Strict Mode"; Description = "Strict CET enforcement" },
-    @{ Flag = 0x0000000004000000; Name = "CET Dynamic Code"; Description = "CET for dynamic code" },
-    @{ Flag = 0x0000000008000000; Name = "Intel MPX (Memory Protection Extensions)"; Description = "Hardware bounds checking (deprecated)" },
-    @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
-)
-
-# Define Unicode arrow for table annotation (PS 5.1 compatible)
-$IconArrowTable = Get-Icon -Name Arrow
-
-Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
-Write-ColorOutput "----------          ------      ---------------" -Color Header
-
-foreach ($flag in $mitigationFlags | Sort-Object Flag) {
-    $flagValue = "0x{0:X16}" -f $flag.Flag
-    $isEnabled = if ($currentMitigationValue) { 
-        ($currentMitigationValue -band $flag.Flag) -eq $flag.Flag 
-    }
-    else { 
-        $false 
-    }
-    
-    $statusIcon = if ($isEnabled) { "+" } else { "-" }
-    $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
-    
-    Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
-    Write-Host ("{0,-10}" -f $statusIcon) -NoNewline -ForegroundColor $Colors[$statusColor]
-    Write-Host "$($flag.Name)" -ForegroundColor White
-    
-    if ($flag.Flag -eq 0x2000000000000000) {
-        Write-ColorOutput "                               $IconArrowTable This is the primary flag for side-channel mitigations!" -Color Info
-    }
-}
-
-if ($currentMitigationValue) {
-    Write-ColorOutput "`nCurrent MitigationOptions Value:" -Color Header
-    Write-Host "Hex:     " -NoNewline -ForegroundColor Gray  
-    Write-Host ("0x{0:X}" -f $currentMitigationValue) -ForegroundColor White
-    
-    $enabledCount = ($mitigationFlags | Where-Object { ($currentMitigationValue -band $_.Flag) -eq $_.Flag }).Count
-    $totalFlags = $mitigationFlags.Count
-    Write-Host "Enabled: " -NoNewline -ForegroundColor Gray
-    Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
-    Write-Host " of $totalFlags known flags" -ForegroundColor Gray
-}
-else {
-    Write-ColorOutput "`nCurrent MitigationOptions Value: Not Set" -Color Warning
-    Write-ColorOutput "This means Windows is using default hardware mitigation settings." -Color Info
-}
-
-Write-ColorOutput "`nRecommended Minimum Value:" -Color Header
-Write-ColorOutput "0x2000000000000000 (Core Hardware Security Features)" -Color Good
-Write-ColorOutput "`nNote: The exact flags enabled depend on your CPU capabilities and Windows version." -Color Info
-Write-ColorOutput "Some flags are only available on newer processors or Windows versions." -Color Info
-
-# ============================================================================
 # CORE SECURITY ASSESSMENT RESULTS
-# ============================================================================
-# This section displays the main security configuration status, scores,
-# and recommendations. Detailed educational content appears later.
 # ============================================================================
 
 # Display results table
@@ -5159,6 +4766,451 @@ if ($ExportPath) {
         Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
     }
 }
+
+# ============================================================================
+# ADDITIONAL INFORMATION & EDUCATIONAL CONTENT
+# ============================================================================
+# The following sections provide detailed technical information about
+# security features, hardware dependencies, and configuration values.
+# These are educational resources for understanding the core assessment above.
+# ============================================================================
+
+if ($Detailed) {
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header  
+    Write-ColorOutput "ADDITIONAL INFORMATION & EDUCATIONAL CONTENT" -Color Header
+    Write-ColorOutput ("=" * 80) -Color Header
+
+# Section 1: VBS/HVCI Detailed Status Analysis
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+Write-ColorOutput "DETAILED SECURITY ANALYSIS (VBS/HVCI)" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+
+try {
+    $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+    if (!$vbsStatus) {
+        $vbsStatus = Get-CimInstance -ClassName Win32_DeviceGuard -ErrorAction SilentlyContinue
+    }
+}
+catch {
+    $vbsStatus = $null
+}
+
+if ($vbsStatus) {
+    Write-ColorOutput "`nVirtualization Based Security Detailed Status:" -Color Header
+    Write-ColorOutput "=================================================" -Color Header
+    
+    # VBS Hardware Requirements vs Runtime Status
+    $vbsHwReady = $vbsStatus.VirtualizationBasedSecurityHardwareRequirementState -eq 1
+    $vbsRunning = $vbsStatus.VirtualizationBasedSecurityStatus -eq 2
+    $hvciHwReady = $vbsStatus.HypervisorEnforcedCodeIntegrityHardwareRequirementState -eq 1
+    $hvciRunning = $vbsStatus.CodeIntegrityPolicyEnforcementStatus -eq 2
+    
+    Write-ColorOutput "`nVBS (Virtualization Based Security):" -Color Info
+    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+    $vbsHwReadyText = if ($vbsHwReady) { "+ Yes" } else { "- No" }
+    $vbsHwReadyColor = if ($vbsHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $vbsHwReadyText -ForegroundColor $vbsHwReadyColor
+    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+    $vbsRunningText = if ($vbsRunning) { "+ Yes" } else { "- No" }
+    $vbsRunningColor = if ($vbsRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $vbsRunningText -ForegroundColor $vbsRunningColor
+    
+    Write-ColorOutput "`nHVCI (Hypervisor-protected Code Integrity):" -Color Info
+    Write-Host "  Hardware Ready:  " -NoNewline -ForegroundColor Gray
+    $hvciHwReadyText = if ($hvciHwReady) { "+ Yes" } else { "- No" }
+    $hvciHwReadyColor = if ($hvciHwReady) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $hvciHwReadyText -ForegroundColor $hvciHwReadyColor
+    Write-Host "  Currently Active: " -NoNewline -ForegroundColor Gray
+    $hvciRunningText = if ($hvciRunning) { "+ Yes" } else { "- No" }
+    $hvciRunningColor = if ($hvciRunning) { $Colors['Good'] } else { $Colors['Warning'] }
+    Write-Host $hvciRunningText -ForegroundColor $hvciRunningColor
+    
+    # Explanation of the difference
+    if (!$vbsHwReady -and $vbsRunning) {
+        Write-ColorOutput "`nNOTE: VBS is running despite hardware readiness showing 'No'." -Color Info
+        Write-ColorOutput "   This indicates VBS is enabled via software/policy, not full hardware support." -Color Info
+    }
+    if (!$hvciHwReady -and $hvciRunning) {
+        Write-ColorOutput "`nNOTE: HVCI is active despite hardware readiness showing 'No'." -Color Info
+        Write-ColorOutput "   This indicates HVCI is using compatible mode or software enforcement." -Color Info
+    }
+    
+    Write-ColorOutput "`nSecurity Services Details:" -Color Info
+    Write-ColorOutput "Running Services: $($vbsStatus.SecurityServicesRunning -join ', ')" -Color Info
+    Write-ColorOutput "Configured Services: $($vbsStatus.SecurityServicesConfigured -join ', ')" -Color Info
+    
+    # Service explanation
+    $serviceExplanation = @{
+        "1" = "Credential Guard"
+        "2" = "HVCI (Hypervisor-protected Code Integrity)"
+        "3" = "System Guard Secure Launch"
+        "4" = "SMM Firmware Measurement"
+    }
+    
+    if ($vbsStatus.SecurityServicesRunning) {
+        Write-ColorOutput "`nActive Security Services:" -Color Info
+        foreach ($service in $vbsStatus.SecurityServicesRunning) {
+            $serviceName = $serviceExplanation[$service.ToString()]
+            if ($serviceName) {
+                Write-ColorOutput "  - $serviceName" -Color Good
+            }
+            else {
+                Write-ColorOutput "  - Service ID: $service" -Color Info
+            }
+        }
+    }
+    
+    # Detailed explanation of VBS/HVCI status differences
+    Write-ColorOutput "`n" + "-"*60 -Color Header
+    Write-ColorOutput "VBS/HVCI Status Explanation:" -Color Header
+    Write-ColorOutput "-"*60 -Color Header
+    Write-ColorOutput "- 'Hardware Ready' = System meets full hardware requirements" -Color Info
+    Write-ColorOutput "- 'Currently Active' = Feature is actually running right now" -Color Info
+    Write-ColorOutput "`nWhy might Hardware Ready = No but Active = Yes?" -Color Warning
+    Write-ColorOutput "1. VBS/HVCI can run in 'compatible mode' without full HW support" -Color Info
+    Write-ColorOutput "2. Some hardware requirements are optional for basic functionality" -Color Info
+    Write-ColorOutput "3. Software-based enforcement may be enabled via Group Policy" -Color Info
+    Write-ColorOutput "4. The hardware readiness check may be overly strict" -Color Info
+    
+    $IconCheck = Get-Icon -Name Check
+    Write-ColorOutput "`n$IconCheck What matters: If 'Currently Active' = Yes, protection is working!" -Color Good
+}
+else {
+    Write-ColorOutput "`nVirtualization Based Security Status:" -Color Header
+    Write-ColorOutput "VBS Status: Not Available (Win32_DeviceGuard not accessible)" -Color Warning
+    Write-ColorOutput "Note: VBS might still be enabled - check with 'msinfo32' or Device Guard readiness tool" -Color Info
+}
+
+# Section 2: Security Feature Dependency Matrix
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+
+Write-ColorOutput "`nThis matrix shows hardware requirements and software fallback options for each" -Color Info
+Write-ColorOutput "Windows security feature. Understanding these dependencies helps you determine" -Color Info
+Write-ColorOutput "which features can be enabled and what trade-offs exist." -Color Info
+
+# Define dependency matrix data
+$dependencyMatrix = @(
+    @{
+        Feature          = "Secure Boot"
+        HardwareRequired = "UEFI firmware with Secure Boot capability"
+        SoftwareFallback = "No"
+        Impact           = "Without Secure Boot, bootloader attacks are possible"
+        Notes            = "Required for most modern security features"
+    },
+    @{
+        Feature          = "TPM 2.0"
+        HardwareRequired = "Trusted Platform Module 2.0 chip"
+        SoftwareFallback = "Partial (BitLocker with password/USB key)"
+        Impact           = "Reduced cryptographic key security, no hardware root of trust"
+        Notes            = "Firmware TPM (fTPM) acceptable for most features"
+    },
+    @{
+        Feature          = "VBS (Virtualization Based Security)"
+        HardwareRequired = "CPU virtualization (VT-x/AMD-V) + SLAT/EPT"
+        SoftwareFallback = "Yes (software mode, weaker isolation)"
+        Impact           = "Software mode provides less isolation between secure kernel and normal kernel"
+        Notes            = "Hardware mode strongly recommended for production systems"
+    },
+    @{
+        Feature          = "HVCI (Hypervisor-protected Code Integrity)"
+        HardwareRequired = "CPU virtualization + IOMMU (VT-d/AMD-Vi)"
+        SoftwareFallback = "Yes (compatible mode, some features disabled)"
+        Impact           = "Compatible mode may have performance overhead, fewer driver protections"
+        Notes            = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
+    },
+    @{
+        Feature          = "Credential Guard"
+        HardwareRequired = "VBS + TPM 2.0 (recommended)"
+        SoftwareFallback = "Yes (works without TPM, less secure credential storage)"
+        Impact           = "Credentials stored in memory without hardware isolation"
+        Notes            = "Requires VBS; TPM makes credential extraction nearly impossible"
+    },
+    @{
+        Feature          = "BitLocker Drive Encryption"
+        HardwareRequired = "TPM 2.0 (recommended)"
+        SoftwareFallback = "Yes (password or USB key startup)"
+        Impact           = "Password/USB key vulnerable to physical attacks; no sealed keys"
+        Notes            = "TPM-based BitLocker provides transparent boot experience"
+    },
+    @{
+        Feature          = "DRTM (Dynamic Root of Trust)"
+        HardwareRequired = "Intel TXT or AMD Secure Startup"
+        SoftwareFallback = "No"
+        Impact           = "Cannot establish measured launch; vulnerable to bootkit persistence"
+        Notes            = "System Guard Secure Launch requires this for integrity verification"
+    },
+    @{
+        Feature          = "Kernel DMA Protection"
+        HardwareRequired = "IOMMU (VT-d/AMD-Vi) with pre-boot protection"
+        SoftwareFallback = "No"
+        Impact           = "DMA attacks via Thunderbolt/USB4 remain possible"
+        Notes            = "Protects against physical attacks via PCIe/Thunderbolt devices"
+    },
+    @{
+        Feature          = "Hardware Stack Protection"
+        HardwareRequired = "Intel CET or AMD Shadow Stack"
+        SoftwareFallback = "No"
+        Impact           = "Return-oriented programming (ROP) attacks easier to execute"
+        Notes            = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
+    },
+    @{
+        Feature          = "Microsoft Pluton"
+        HardwareRequired = "Integrated Pluton security processor"
+        SoftwareFallback = "N/A (not required for OS operation)"
+        Impact           = "Falls back to discrete TPM; no integrated firmware attack protection"
+        Notes            = "Optional - only available on select recent CPUs"
+    }
+)
+
+# Display dependency matrix in formatted table
+Write-ColorOutput "`n" -Color Info
+Write-Host ("{0,-46} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-46} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
+
+foreach ($feature in $dependencyMatrix) {
+    $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
+        "Yes*" { "[" + $Emojis.Success + " Yes]" }
+        "Partial*" { "[~ Part]" }
+        "No" { "[" + $Emojis.Error + " No ]" }
+        "N/A*" { "[  N/A ]" }
+        default { "[  ?  ]" }
+    }
+    
+    $fallbackColor = switch -Wildcard ($feature.SoftwareFallback) {
+        "Yes*" { $Colors['Good'] }
+        "Partial*" { $Colors['Warning'] }
+        "No" { $Colors['Bad'] }
+        "N/A*" { $Colors['Info'] }
+        default { $Colors['Info'] }
+    }
+    
+    Write-Host ("{0,-46}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
+    Write-Host (" {0,-12}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
+    Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
+}
+
+Write-ColorOutput "`n" + "-"*80 -Color Header
+Write-ColorOutput "Legend:" -Color Header
+Write-ColorOutput ("  " + $Emojis.Success + " Yes  = Software fallback available (reduced security/performance)") -Color Good
+Write-ColorOutput ("  ~ Part = Partial fallback (limited functionality)") -Color Warning
+Write-ColorOutput ("  " + $Emojis.Error + " No   = No fallback - strict hardware requirement") -Color Bad
+Write-ColorOutput "  N/A  = Optional feature, not required for OS operation" -Color Info
+
+Write-ColorOutput "`nKey Insights:" -Color Header
+Write-ColorOutput ("  " + $Emojis.Info + " VBS/HVCI can run in compatible mode without full hardware support") -Color Info
+Write-ColorOutput ("  " + $Emojis.Warning + " Compatible mode may impact performance or reduce protection effectiveness") -Color Warning
+Write-ColorOutput ("  " + $Emojis.Lock + " Features without fallback (DRTM, DMA Protection) require hardware upgrade") -Color Bad
+Write-ColorOutput ("  " + $Emojis.Success + " Most critical security features (VBS, HVCI, Credential Guard) have fallbacks") -Color Good
+
+# Get current system capabilities to provide tailored recommendations
+$hasTPM = $false
+$hasSecureBoot = $false
+$hasVirtualization = $false
+$hasIOMMU = $false
+
+# Check for TPM
+try {
+    $tpm = Get-Tpm -ErrorAction SilentlyContinue
+    $hasTPM = $tpm.TpmPresent -and $tpm.TpmReady
+}
+catch { }
+
+# Check for Secure Boot
+try {
+    $hasSecureBoot = Confirm-SecureBootUEFI -ErrorAction SilentlyContinue
+}
+catch { }
+
+# Check for Virtualization - improved detection
+$hasVirtualization = $false
+
+try {
+    $hyperVFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
+    if ($hyperVFeature -and $hyperVFeature.State -eq 'Enabled') {
+        $hasVirtualization = $true
+    }
+}
+catch { }
+
+if (!$hasVirtualization) {
+    try {
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+        if ($computerSystem.HypervisorPresent) {
+            $hasVirtualization = $true
+        }
+    }
+    catch { }
+}
+
+if (!$hasVirtualization -and $vbsStatus) {
+    if ($vbsStatus.AvailableSecurityProperties -contains 1) {
+        $hasVirtualization = $true
+    }
+}
+
+if (!$hasVirtualization) {
+    try {
+        $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled -or $cpu.VMMonitorModeExtensions) {
+            $hasVirtualization = $true
+        }
+    }
+    catch { }
+}
+
+# Check for IOMMU
+$hasIOMMU = $false
+
+if ($vbsStatus) {
+    $availableProps = $vbsStatus.AvailableSecurityProperties
+    if ($availableProps -contains 2) {
+        $hasIOMMU = $true
+    }
+}
+
+if (!$hasIOMMU -and $virtInfo.HyperVStatus -eq "Enabled") {
+    try {
+        $hvStatus = Get-VMHost -ErrorAction SilentlyContinue
+        if ($hvStatus) {
+            $hasIOMMU = $true
+        }
+    }
+    catch { }
+}
+
+if (!$hasIOMMU) {
+    if ($cpuInfo.Manufacturer -match "Intel") {
+        $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
+        $hasIOMMU = ($vtdReg -eq 1)
+    }
+    elseif ($cpuInfo.Manufacturer -match "AMD") {
+        $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
+        $hasIOMMU = ($amdViReg -eq 1)
+    }
+}
+
+# Section 3: Hardware Security Mitigation Value Matrix
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
+
+Write-ColorOutput "`nThe Hardware Security Mitigations (MitigationOptions) registry value is a bit-field" -Color Info
+Write-ColorOutput "that controls various CPU-level security features. Here's what the flags mean:" -Color Info
+
+Write-ColorOutput "`nCommon Hardware Mitigation Flags:" -Color Header
+Write-ColorOutput "=================================" -Color Header
+
+# Get current MitigationOptions value for comparison
+$currentMitigationValue = $null
+$mitigationResult = $Results | Where-Object { $_.Name -eq "Hardware Security Mitigations" }
+if ($mitigationResult -and $mitigationResult.CurrentValue -ne "Not Set") {
+    try {
+        if ($mitigationResult.CurrentValue -is [string] -and $mitigationResult.CurrentValue -match "^[0-9A-Fa-f]+$") {
+            $currentMitigationValue = [Convert]::ToUInt64($mitigationResult.CurrentValue, 16)
+        }
+        elseif ($mitigationResult.CurrentValue -is [uint64]) {
+            $currentMitigationValue = $mitigationResult.CurrentValue
+        }
+    }
+    catch {
+        $currentMitigationValue = $null
+    }
+}
+
+# Define known mitigation flags
+$mitigationFlags = @(
+    @{ Flag = 0x0000000000000001; Name = "CFG (Control Flow Guard)"; Description = "Prevents ROP/JOP attacks" },
+    @{ Flag = 0x0000000000000002; Name = "CFG Export Suppression"; Description = "Disables CFG for export functions" },
+    @{ Flag = 0x0000000000000004; Name = "CFG Strict Mode"; Description = "Stricter CFG enforcement" },
+    @{ Flag = 0x0000000000000008; Name = "DEP (Data Execution Prevention)"; Description = "Prevents code execution in data pages" },
+    @{ Flag = 0x0000000000000010; Name = "DEP ATL Thunk Emulation"; Description = "Legacy ATL thunk compatibility" },
+    @{ Flag = 0x0000000000000020; Name = "SEHOP (SEH Overwrite Protection)"; Description = "Protects exception handlers" },
+    @{ Flag = 0x0000000000000040; Name = "Heap Terminate on Corruption"; Description = "Immediately terminates on heap corruption" },
+    @{ Flag = 0x0000000000000080; Name = "Bottom-up ASLR"; Description = "Randomizes memory layout" },
+    @{ Flag = 0x0000000000000100; Name = "High Entropy ASLR"; Description = "64-bit address space randomization" },
+    @{ Flag = 0x0000000000000200; Name = "Force Relocate Images"; Description = "Forces ASLR even for non-ASLR images" },
+    @{ Flag = 0x0000000000000400; Name = "Heap Terminate on Corruption (Enhanced)"; Description = "Enhanced heap protection" },
+    @{ Flag = 0x0000000000001000; Name = "Stack Pivot Protection"; Description = "Prevents stack pivoting attacks" },
+    @{ Flag = 0x0000000000002000; Name = "Import Address Filtering"; Description = "Filters dangerous API imports" },
+    @{ Flag = 0x0000000000004000; Name = "Module Signature Enforcement"; Description = "Requires signed modules" },
+    @{ Flag = 0x0000000000008000; Name = "Font Disable"; Description = "Disables loading untrusted fonts" },
+    @{ Flag = 0x0000000000010000; Name = "Image Load Signature Mitigation"; Description = "Validates image signatures" },
+    @{ Flag = 0x0000000000020000; Name = "Non-System Font Disable"; Description = "Blocks non-system fonts" },
+    @{ Flag = 0x0000000000040000; Name = "Audit Non-System Font Loading"; Description = "Audits font loading" },
+    @{ Flag = 0x0000000000080000; Name = "Child Process Policy"; Description = "Restricts child process creation" },
+    @{ Flag = 0x0000000000100000; Name = "Payload Restriction Policy"; Description = "Prevents payload execution" },
+    @{ Flag = 0x0000000001000000; Name = "CET (Intel CET Shadow Stack)"; Description = "Hardware-assisted CFI" },
+    @{ Flag = 0x0000000002000000; Name = "CET Strict Mode"; Description = "Strict CET enforcement" },
+    @{ Flag = 0x0000000004000000; Name = "CET Dynamic Code"; Description = "CET for dynamic code" },
+    @{ Flag = 0x0000000008000000; Name = "Intel MPX (Memory Protection Extensions)"; Description = "Hardware bounds checking (deprecated)" },
+    @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
+)
+
+# Define Unicode arrow for table annotation
+$IconArrowTable = Get-Icon -Name Arrow
+
+Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
+Write-ColorOutput "----------          ------      ---------------" -Color Header
+
+foreach ($flag in $mitigationFlags | Sort-Object Flag) {
+    $flagValue = "0x{0:X16}" -f $flag.Flag
+    $isEnabled = if ($currentMitigationValue) { 
+        ($currentMitigationValue -band $flag.Flag) -eq $flag.Flag 
+    }
+    else { 
+        $false 
+    }
+    
+    $statusIcon = if ($isEnabled) { "+" } else { "-" }
+    $statusColor = if ($isEnabled) { "Good" } else { "Warning" }
+    
+    Write-Host "$flagValue  " -NoNewline -ForegroundColor Gray
+    Write-Host ("{0,-10}" -f $statusIcon) -NoNewline -ForegroundColor $Colors[$statusColor]
+    Write-Host "$($flag.Name)" -ForegroundColor White
+    
+    if ($flag.Flag -eq 0x2000000000000000) {
+        Write-ColorOutput "                               $IconArrowTable This is the primary flag for side-channel mitigations!" -Color Info
+    }
+}
+
+if ($currentMitigationValue) {
+    Write-ColorOutput "`nCurrent MitigationOptions Value:" -Color Header
+    Write-Host "Hex:     " -NoNewline -ForegroundColor Gray  
+    Write-Host ("0x{0:X}" -f $currentMitigationValue) -ForegroundColor White
+    
+    $enabledCount = ($mitigationFlags | Where-Object { ($currentMitigationValue -band $_.Flag) -eq $_.Flag }).Count
+    $totalFlags = $mitigationFlags.Count
+    Write-Host "Enabled: " -NoNewline -ForegroundColor Gray
+    Write-Host "$enabledCount" -NoNewline -ForegroundColor $Colors['Good']
+    Write-Host " of $totalFlags known flags" -ForegroundColor Gray
+}
+else {
+    Write-ColorOutput "`nCurrent MitigationOptions Value: Not Set" -Color Warning
+    Write-ColorOutput "This means Windows is using default hardware mitigation settings." -Color Info
+}
+
+Write-ColorOutput "`nRecommended Minimum Value:" -Color Header
+Write-ColorOutput "0x2000000000000000 (Core Hardware Security Features)" -Color Good
+Write-ColorOutput "`nNote: The exact flags enabled depend on your CPU capabilities and Windows version." -Color Info
+Write-ColorOutput "Some flags are only available on newer processors or Windows versions." -Color Info
+
+} # End of if ($Detailed)
+else {
+    Write-ColorOutput "`n" -Color Info
+    Write-ColorOutput "For detailed technical analysis, hardware dependency matrices, and flag breakdowns," -Color Info
+    Write-ColorOutput "run with the -Detailed parameter:" -Color Info
+    Write-ColorOutput "  .\\SideChannel_Check.ps1 -Detailed" -Color Header
+}
+
+# ============================================================================
+# END OF ADDITIONAL INFORMATION
+# ============================================================================
 
 Write-ColorOutput "`nSide-channel vulnerability check completed." -Color Header
 
