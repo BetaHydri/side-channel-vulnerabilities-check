@@ -3891,8 +3891,38 @@ $hardwarePrerequisites = $Results | Where-Object { $_.Name -in $hardwarePrerequi
 $securityFeatures = $Results | Where-Object { $_.Name -in $securityFeatureNames }
 
 # Count software mitigations for scoring (the main security score)
-$enabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
-$notConfiguredMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Not Configured" }).Count  
+# Use runtime-aware counting: count as enabled if Status=="Enabled" OR runtime shows active
+$enabledMitigations = 0
+foreach ($item in $softwareMitigations) {
+    $isEnabled = $item.Status -eq "Enabled"
+    
+    # Also check if active in kernel runtime (even if registry says "Not Set")
+    $isRuntimeActive = $false
+    if ($script:RuntimeState.APIAvailable) {
+        $isRuntimeActive = switch ($item.Name) {
+            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+            default { $false }
+        }
+    }
+    
+    if ($isEnabled -or $isRuntimeActive) {
+        $enabledMitigations++
+    }
+}
+
+$notConfiguredMitigations = ($softwareMitigations | Where-Object { 
+    $_.Status -eq "Not Configured" -and -not (
+        ($_.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.BTIEnabled) -or
+        ($_.Name -eq "Speculative Store Bypass Disable" -and $script:RuntimeState.SSBDSystemWide) -or
+        ($_.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and ($script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected)) -or
+        ($_.Name -eq "MDS Mitigation" -and ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected)) -or
+        ($_.Name -eq "Enhanced IBRS" -and $script:RuntimeState.EnhancedIBRS)
+    )
+}).Count  
 $disabledMitigations = ($softwareMitigations | Where-Object { $_.Status -eq "Disabled" }).Count
 $totalMitigations = $softwareMitigations.Count
 
