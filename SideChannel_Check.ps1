@@ -3172,16 +3172,20 @@ Write-Host "`nOverall Mitigation Score: " -NoNewline -ForegroundColor $Colors['I
 $levelColor = if ($configuredPercent -ge 80) { 'Good' } elseif ($configuredPercent -ge 60) { 'Warning' } else { 'Bad' }
 Write-Host "$configuredPercent%" -ForegroundColor $Colors[$levelColor]
 
-# Security level indicator
-$securityBar = ""
+# Security level indicator with Unicode blocks (PowerShell 5.1 compatible)
+$BlockFull = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16))   # █ Full block
+$BlockLight = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16))  # ░ Light shade
+
 $filledBlocks = [math]::Floor($configuredPercent / 10)
 $emptyBlocks = 10 - $filledBlocks
 
-for ($i = 0; $i -lt $filledBlocks; $i++) { $securityBar += "#" }
-for ($i = 0; $i -lt $emptyBlocks; $i++) { $securityBar += "-" }
-
 Write-Host "Mitigation Progress: [" -NoNewline -ForegroundColor Gray
-Write-Host "$securityBar" -NoNewline -ForegroundColor $Colors[$levelColor]
+if ($filledBlocks -gt 0) {
+    Write-Host ($BlockFull * $filledBlocks) -NoNewline -ForegroundColor $Colors[$levelColor]
+}
+if ($emptyBlocks -gt 0) {
+    Write-Host ($BlockLight * $emptyBlocks) -NoNewline -ForegroundColor DarkGray
+}
 Write-Host "] $configuredPercent%" -ForegroundColor Gray
 
 # Show what the score means
