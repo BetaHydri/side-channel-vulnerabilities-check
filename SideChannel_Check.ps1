@@ -2031,18 +2031,19 @@ function Invoke-MitigationRevert {
 Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
 Write-ColorOutput "Based on Microsoft KB4073119 + Extended Modern CVE Coverage`n" -Color Info
 
-# Display operation mode
+# Display operation mode (PS 5.1 compatible symbols)
 if ($Apply -or $Revert) {
     if ($Apply) {
-        Write-ColorOutput "⚙️  MODE: CONFIGURATION APPLICATION" -Color Warning
+        Write-ColorOutput "[!] MODE: CONFIGURATION APPLICATION" -Color Warning
         Write-ColorOutput "System changes WILL BE MADE when mitigations are applied.`n" -Color Error
     }
     if ($Revert) {
-        Write-ColorOutput "⚙️  MODE: MITIGATION REVERT" -Color Warning
+        Write-ColorOutput "[!] MODE: MITIGATION REVERT" -Color Warning
         Write-ColorOutput "Security protections WILL BE REMOVED when confirmed.`n" -Color Error
     }
-} else {
-    Write-ColorOutput "📊 MODE: ASSESSMENT ONLY" -Color Good
+}
+else {
+    Write-ColorOutput "[i] MODE: ASSESSMENT ONLY" -Color Good
     Write-ColorOutput "No system changes will be made. Running in read-only analysis mode.`n" -Color Info
 }
 
