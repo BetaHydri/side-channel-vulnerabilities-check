@@ -1671,12 +1671,13 @@ function Invoke-InteractiveRestore {
     }
     else {
         $numbers = $selection -split ',' | ForEach-Object { $_.Trim() }
-        foreach ($num in $numbers) {
+        $tempItems = foreach ($num in $numbers) {
             $index = $null
             if ([int]::TryParse($num, [ref]$index) -and $index -ge 1 -and $index -le $restorableItems.Count) {
-                $selectedItems += $restorableItems[$index - 1]
+                $restorableItems[$index - 1]
             }
         }
+        $selectedItems = @($tempItems)
     }
     
     if ($selectedItems.Count -eq 0) {
@@ -1860,11 +1861,11 @@ function Invoke-InteractiveApply {
             }
         }
         
-        $selectedItems = $indices | ForEach-Object {
+        $selectedItems = @($indices | ForEach-Object {
             if ($_ -ge 1 -and $_ -le $itemsToShow.Count) {
                 $itemsToShow[$_ - 1]
             }
-        }
+        })
     }
     
     if ($selectedItems.Count -eq 0) {
