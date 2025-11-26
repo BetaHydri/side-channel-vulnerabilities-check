@@ -2674,74 +2674,74 @@ Write-ColorOutput "which features can be enabled and what trade-offs exist." -Co
 # Define dependency matrix data
 $dependencyMatrix = @(
     @{
-        Feature = "Secure Boot"
+        Feature          = "Secure Boot"
         HardwareRequired = "UEFI firmware with Secure Boot capability"
         SoftwareFallback = "No"
-        Impact = "Without Secure Boot, bootloader attacks are possible"
-        Notes = "Required for most modern security features"
+        Impact           = "Without Secure Boot, bootloader attacks are possible"
+        Notes            = "Required for most modern security features"
     },
     @{
-        Feature = "TPM 2.0"
+        Feature          = "TPM 2.0"
         HardwareRequired = "Trusted Platform Module 2.0 chip"
         SoftwareFallback = "Partial (BitLocker with password/USB key)"
-        Impact = "Reduced cryptographic key security, no hardware root of trust"
-        Notes = "Firmware TPM (fTPM) acceptable for most features"
+        Impact           = "Reduced cryptographic key security, no hardware root of trust"
+        Notes            = "Firmware TPM (fTPM) acceptable for most features"
     },
     @{
-        Feature = "VBS (Virtualization Based Security)"
+        Feature          = "VBS (Virtualization Based Security)"
         HardwareRequired = "CPU virtualization (VT-x/AMD-V) + SLAT/EPT"
         SoftwareFallback = "Yes (software mode, weaker isolation)"
-        Impact = "Software mode provides less isolation between secure kernel and normal kernel"
-        Notes = "Hardware mode strongly recommended for production systems"
+        Impact           = "Software mode provides less isolation between secure kernel and normal kernel"
+        Notes            = "Hardware mode strongly recommended for production systems"
     },
     @{
-        Feature = "HVCI (Hypervisor-protected Code Integrity)"
+        Feature          = "HVCI (Hypervisor-protected Code Integrity)"
         HardwareRequired = "CPU virtualization + IOMMU (VT-d/AMD-Vi)"
         SoftwareFallback = "Yes (compatible mode, some features disabled)"
-        Impact = "Compatible mode may have performance overhead, fewer driver protections"
-        Notes = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
+        Impact           = "Compatible mode may have performance overhead, fewer driver protections"
+        Notes            = "IOMMU prevents DMA attacks; fallback mode lacks this protection"
     },
     @{
-        Feature = "Credential Guard"
+        Feature          = "Credential Guard"
         HardwareRequired = "VBS + TPM 2.0 (recommended)"
         SoftwareFallback = "Yes (works without TPM, less secure credential storage)"
-        Impact = "Credentials stored in memory without hardware isolation"
-        Notes = "Requires VBS; TPM makes credential extraction nearly impossible"
+        Impact           = "Credentials stored in memory without hardware isolation"
+        Notes            = "Requires VBS; TPM makes credential extraction nearly impossible"
     },
     @{
-        Feature = "BitLocker Drive Encryption"
+        Feature          = "BitLocker Drive Encryption"
         HardwareRequired = "TPM 2.0 (recommended)"
         SoftwareFallback = "Yes (password or USB key startup)"
-        Impact = "Password/USB key vulnerable to physical attacks; no sealed keys"
-        Notes = "TPM-based BitLocker provides transparent boot experience"
+        Impact           = "Password/USB key vulnerable to physical attacks; no sealed keys"
+        Notes            = "TPM-based BitLocker provides transparent boot experience"
     },
     @{
-        Feature = "DRTM (Dynamic Root of Trust)"
+        Feature          = "DRTM (Dynamic Root of Trust)"
         HardwareRequired = "Intel TXT or AMD Secure Startup"
         SoftwareFallback = "No"
-        Impact = "Cannot establish measured launch; vulnerable to bootkit persistence"
-        Notes = "System Guard Secure Launch requires this for integrity verification"
+        Impact           = "Cannot establish measured launch; vulnerable to bootkit persistence"
+        Notes            = "System Guard Secure Launch requires this for integrity verification"
     },
     @{
-        Feature = "Kernel DMA Protection"
+        Feature          = "Kernel DMA Protection"
         HardwareRequired = "IOMMU (VT-d/AMD-Vi) with pre-boot protection"
         SoftwareFallback = "No"
-        Impact = "DMA attacks via Thunderbolt/USB4 remain possible"
-        Notes = "Protects against physical attacks via PCIe/Thunderbolt devices"
+        Impact           = "DMA attacks via Thunderbolt/USB4 remain possible"
+        Notes            = "Protects against physical attacks via PCIe/Thunderbolt devices"
     },
     @{
-        Feature = "Hardware Stack Protection"
+        Feature          = "Hardware Stack Protection"
         HardwareRequired = "Intel CET or AMD Shadow Stack"
         SoftwareFallback = "No"
-        Impact = "Return-oriented programming (ROP) attacks easier to execute"
-        Notes = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
+        Impact           = "Return-oriented programming (ROP) attacks easier to execute"
+        Notes            = "Requires 11th gen Intel or Zen 3+ AMD CPUs"
     },
     @{
-        Feature = "Microsoft Pluton"
+        Feature          = "Microsoft Pluton"
         HardwareRequired = "Integrated Pluton security processor"
         SoftwareFallback = "N/A (not required for OS operation)"
-        Impact = "Falls back to discrete TPM; no integrated firmware attack protection"
-        Notes = "Optional - only available on select recent CPUs"
+        Impact           = "Falls back to discrete TPM; no integrated firmware attack protection"
+        Notes            = "Optional - only available on select recent CPUs"
     }
 )
 
