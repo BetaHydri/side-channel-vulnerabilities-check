@@ -708,10 +708,29 @@ function Show-AssessmentSummary {
         Write-Host $unknown -ForegroundColor Gray
     }
     
+    # Visual progress bar
+    Write-Host "`nSecurity Score: " -NoNewline
+    $barLength = 40
+    $filledLength = [math]::Round(($protectionPercent / 100) * $barLength)
+    $emptyLength = $barLength - $filledLength
+    
+    # Determine color based on percentage
+    $barColor = if ($protectionPercent -ge 90) { 'Green' }
+                elseif ($protectionPercent -ge 75) { 'Cyan' }
+                elseif ($protectionPercent -ge 50) { 'Yellow' }
+                else { 'Red' }
+    
+    # Build progress bar using block characters (PS 5.1 compatible)
+    Write-Host "[" -NoNewline
+    Write-Host ("=" * $filledLength) -ForegroundColor $barColor -NoNewline
+    Write-Host (" " * $emptyLength) -NoNewline
+    Write-Host "] " -NoNewline
+    Write-Host "$protectionPercent%" -ForegroundColor $barColor
+    
     # Security level
-    Write-Host "`nSecurity Level: " -NoNewline
+    Write-Host "Security Level: " -NoNewline
     if ($protectionPercent -ge 90) {
-        Write-Host "Excellent ✓" -ForegroundColor Green
+        Write-Host "Excellent" -ForegroundColor Green
     } elseif ($protectionPercent -ge 75) {
         Write-Host "Good" -ForegroundColor Cyan
     } elseif ($protectionPercent -ge 50) {
