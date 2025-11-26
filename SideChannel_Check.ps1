@@ -2203,13 +2203,37 @@ $Results += Test-SideChannelMitigation -Name "Hardware Security Mitigations" `
     -Impact "Hardware-dependent, modern CPUs have better performance"
 
 # 6. Exception Chain Validation
-$Results += Test-SideChannelMitigation -Name "Exception Chain Validation" `
-    -Description "Validates exception handler chains to prevent SEH exploitation" `
-    -RegistryPath "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" `
-    -RegistryName "DisableExceptionChainValidation" `
-    -ExpectedValue 0 `
-    -Recommendation "Ensure exception chain validation is enabled (value = 0)" `
-    -Impact "Prevents SEH (Structured Exception Handler) exploitation techniques"
+# Note: DisableExceptionChainValidation = 0 or Not Set means validation is ENABLED (secure)
+$exceptionChainValue = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel" -Name "DisableExceptionChainValidation"
+if ($null -eq $exceptionChainValue -or $exceptionChainValue -eq 0) {
+    # Validation is enabled (secure state)
+    $Results += [PSCustomObject]@{
+        Name           = "Exception Chain Validation"
+        Description    = "Validates exception handler chains to prevent SEH exploitation"
+        Status         = "Enabled"
+        CurrentValue   = if ($null -eq $exceptionChainValue) { "0 (Default - Not Set)" } else { $exceptionChainValue }
+        ExpectedValue  = 0
+        RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        RegistryName   = "DisableExceptionChainValidation"
+        Recommendation = "Exception chain validation is enabled - no action required"
+        Impact         = "Prevents SEH (Structured Exception Handler) exploitation techniques"
+        CanBeEnabled   = $true
+    }
+} else {
+    # Validation is disabled (insecure state)
+    $Results += [PSCustomObject]@{
+        Name           = "Exception Chain Validation"
+        Description    = "Validates exception handler chains to prevent SEH exploitation"
+        Status         = "Disabled"
+        CurrentValue   = $exceptionChainValue
+        ExpectedValue  = 0
+        RegistryPath   = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        RegistryName   = "DisableExceptionChainValidation"
+        Recommendation = "Set DisableExceptionChainValidation to 0 to enable validation"
+        Impact         = "Prevents SEH (Structured Exception Handler) exploitation techniques"
+        CanBeEnabled   = $true
+    }
+}
 
 # 7. SMAP (Supervisor Mode Access Prevention)  
 $Results += Test-SideChannelMitigation -Name "Supervisor Mode Access Prevention" `
@@ -3178,12 +3202,14 @@ $totalMitigations = $softwareMitigations.Count
 
 # Count security features separately  
 $enabledFeatures = ($securityFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
+if ($null -eq $enabledFeatures) { $enabledFeatures = 0 }
 $totalFeatures = $securityFeatures.Count
 
 # Count hardware prerequisites (informational)
 $readyHardware = ($hardwarePrerequisites | Where-Object { 
         $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" 
     }).Count
+if ($null -eq $readyHardware) { $readyHardware = 0 }
 $totalHardware = $hardwarePrerequisites.Count
 
 # Show breakdown
