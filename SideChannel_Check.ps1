@@ -490,17 +490,23 @@ function Show-ResultsTable {
     )
     
     $hardwarePrerequisites = @(
-        "UEFI Firmware",
+        "UEFI Firmware (not Legacy BIOS)",
         "Secure Boot",
-        "TPM 2.0",
-        "Virtualization Technology",
-        "IOMMU Support",
+        "TPM 2.0 (Trusted Platform Module)",
+        "CPU Virtualization Support (VT-x/AMD-V)",
+        "IOMMU/VT-d Support",
         "CPU Microcode"
     )
     
     # Helper function to categorize and format results
     function Get-CategorizedResults {
-        param([array]$Results, [array]$CategoryNames, [string]$CategoryTitle, [string]$CategoryEmoji)
+        param(
+            [array]$Results,
+            [array]$CategoryNames,
+            [string]$CategoryTitle,
+            [string]$CategoryEmoji,
+            [switch]$IsHardwareCategory
+        )
         
         $categoryResults = $Results | Where-Object { $_.Name -in $CategoryNames }
         if ($categoryResults.Count -gt 0) {
@@ -672,7 +678,14 @@ function Show-ResultsTable {
             }
             
             # Category summary
-            $enabled = ($categoryResults | Where-Object { $_.Status -eq "Enabled" }).Count
+            if ($IsHardwareCategory) {
+                # Hardware prerequisites use different status values
+                $enabled = ($categoryResults | Where-Object { $_.Status -match "Enabled|Active|TPM 2\.0 Enabled|UEFI Firmware Active|Enabled and Active" }).Count
+            }
+            else {
+                # Software mitigations and security features use "Enabled"
+                $enabled = ($categoryResults | Where-Object { $_.Status -eq "Enabled" }).Count
+            }
             $total = $categoryResults.Count
             $percentage = if ($total -gt 0) { [math]::Round(($enabled / $total) * 100, 1) } else { 0 }
             
@@ -691,7 +704,7 @@ function Show-ResultsTable {
     # Display results by category
     Get-CategorizedResults -Results $Results -CategoryNames $softwareMitigations -CategoryTitle "SOFTWARE MITIGATIONS" -CategoryEmoji $Emojis.Shield
     Get-CategorizedResults -Results $Results -CategoryNames $securityFeatures -CategoryTitle "SECURITY FEATURES" -CategoryEmoji $Emojis.Lock
-    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji $Emojis.Wrench
+    Get-CategorizedResults -Results $Results -CategoryNames $hardwarePrerequisites -CategoryTitle "HARDWARE PREREQUISITES" -CategoryEmoji $Emojis.Wrench -IsHardwareCategory
     
     # Display any uncategorized results
     $allCategorized = $softwareMitigations + $securityFeatures + $hardwarePrerequisites
@@ -711,7 +724,7 @@ function Show-ResultsTable {
     
     $swEnabled = ($swMitigations | Where-Object { $_.Status -eq "Enabled" }).Count
     $sfEnabled = ($secFeatures | Where-Object { $_.Status -eq "Enabled" }).Count
-    $hwReady = ($hwPrereqs | Where-Object { $_.Status -match "Enabled|Active|2\.0 Enabled|UEFI Firmware Active" }).Count
+    $hwReady = ($hwPrereqs | Where-Object { $_.Status -match "Enabled|Active|TPM 2\.0 Enabled|UEFI Firmware Active|Enabled and Active" }).Count
     
     $totalEnabled = $swEnabled + $sfEnabled + $hwReady
     $totalCount = $swMitigations.Count + $secFeatures.Count + $hwPrereqs.Count
