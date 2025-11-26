@@ -2143,24 +2143,24 @@ function Export-AssessmentResults {
             
             # Create enriched object with full data (no truncation)
             $enrichedResult = [PSCustomObject]@{
-                Id                = $result.Id
-                Name              = $result.Name
-                Category          = $result.Category
-                Status            = $result.OverallStatus
-                RegistryStatus    = $result.RegistryStatus
-                RuntimeStatus     = $result.RuntimeStatus
-                ActionNeeded      = $result.ActionNeeded
-                CVE               = $result.CVE
-                Platform          = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
-                Impact            = $result.Impact
-                PrerequisiteFor   = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { $mitigationDef.PrerequisiteFor } else { '-' }
-                CurrentValue      = $result.CurrentValue
-                ExpectedValue     = $result.ExpectedValue
-                Description       = $result.Description
-                Recommendation    = $result.Recommendation
-                RegistryPath      = $result.RegistryPath
-                RegistryName      = $result.RegistryName
-                URL               = if ($result.PSObject.Properties.Name -contains 'URL') { $result.URL } else { '' }
+                Id              = $result.Id
+                Name            = $result.Name
+                Category        = $result.Category
+                Status          = $result.OverallStatus
+                RegistryStatus  = $result.RegistryStatus
+                RuntimeStatus   = $result.RuntimeStatus
+                ActionNeeded    = $result.ActionNeeded
+                CVE             = $result.CVE
+                Platform        = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
+                Impact          = $result.Impact
+                PrerequisiteFor = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { $mitigationDef.PrerequisiteFor } else { '-' }
+                CurrentValue    = $result.CurrentValue
+                ExpectedValue   = $result.ExpectedValue
+                Description     = $result.Description
+                Recommendation  = $result.Recommendation
+                RegistryPath    = $result.RegistryPath
+                RegistryName    = $result.RegistryName
+                URL             = if ($result.PSObject.Properties.Name -contains 'URL') { $result.URL } else { '' }
             }
             
             $enrichedResults += $enrichedResult
