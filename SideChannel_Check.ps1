@@ -539,7 +539,7 @@ function Show-ResultsTable {
             # Display the table for this category with custom formatting to preserve colors
             if ($script:RuntimeState.APIAvailable) {
                 # Show runtime state column with note
-                $tableData | Format-Table -Property 'Mitigation Name','Registry Status','Kernel Runtime','Impact' -AutoSize -Wrap
+                $tableData | Format-Table -Property 'Mitigation Name', 'Registry Status', 'Kernel Runtime', 'Impact' -AutoSize -Wrap
                 
                 # Check for discrepancies in this category
                 $discrepancies = $tableData | Where-Object { $_.'Kernel Runtime' -like "*Pending*" -or $_.'Kernel Runtime' -like "*$iconWarning*" }
@@ -553,7 +553,7 @@ function Show-ResultsTable {
             }
             else {
                 # Fallback to original table without runtime state
-                $tableData | Format-Table -Property 'Mitigation Name','Registry Status','Current Value','Expected Value','Impact' -AutoSize -Wrap
+                $tableData | Format-Table -Property 'Mitigation Name', 'Registry Status', 'Current Value', 'Expected Value', 'Impact' -AutoSize -Wrap
             }
             
             # Category summary
