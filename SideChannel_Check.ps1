@@ -3150,10 +3150,9 @@ $securityFeatureNames = @(
     "Exception Chain Validation",
     "Supervisor Mode Access Prevention",
     "Windows Defender Exploit Guard ASLR",
-    "Virtualization Based Security",
-    "Hypervisor Code Integrity",
-    "Credential Guard",
-    "Windows Defender Application Guard"
+    "Virtualization Based Security (VBS)",
+    "Hypervisor-protected Code Integrity (HVCI)",
+    "Credential Guard"
 )
 
 $hardwarePrerequisiteNames = @(
