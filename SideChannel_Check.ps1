@@ -5213,17 +5213,6 @@ else {
     Write-ColorOutput "  .\SideChannel_Check.ps1 -Detailed" -Color Good
 }
 
-# Export results if requested
-if ($ExportPath) {
-    try {
-        $Results | Export-Csv -Path $ExportPath -NoTypeInformation -Encoding UTF8
-        Write-ColorOutput "`nResults exported to: $ExportPath" -Color Good
-    }
-    catch {
-        Write-ColorOutput "`nFailed to export results: $($_.Exception.Message)" -Color Bad
-    }
-}
-
 # ============================================================================
 # END OF ADDITIONAL INFORMATION
 # ============================================================================
