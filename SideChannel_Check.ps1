@@ -591,9 +591,15 @@ function Show-ResultsTable {
                     }
                     else {
                         # Check for hardware immunity
-                        if ($result.Name -eq "MDS Mitigation" -and $script:RuntimeState.MDSHardwareProtected) {
-                            $runtimeState = "$iconEnabled Immune"
-                            $runtimeColor = "Cyan"
+                        if ($result.Name -eq "MDS Mitigation") {
+                            if ($script:RuntimeState.MDSHardwareProtected) {
+                                $runtimeState = "$iconEnabled Immune"
+                                $runtimeColor = "Cyan"
+                            }
+                            elseif ($script:RuntimeState.MBClearEnabled) {
+                                $runtimeState = "$iconEnabled Active"
+                                $runtimeColor = "Green"
+                            }
                         }
                         elseif ($result.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and $script:RuntimeState.RDCLHardwareProtected) {
                             $runtimeState = "$iconEnabled Immune"
