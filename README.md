@@ -169,6 +169,11 @@ esxcli system settings advanced set -o /VMkernel/Boot/ignoreMsrLoad -i false
 
 ## 📊 Sample Output
 
+**Note:** The script output is organized in three sections:
+1. **Initial Checks** - System detection and registry value queries
+2. **Educational Content** - Detailed analysis, dependency matrices, and hardware flags (can be scrolled through)
+3. **Core Security Assessment** - Mitigation status table, scores, and actionable recommendations (most important)
+
 ### Basic Security Assessment
 ```
 === Side-Channel Vulnerability Configuration Check ===
@@ -207,6 +212,31 @@ CVE-2019-11135 Mitigation                     : ✓ ENABLED (Value: 1)
 SBDR/SBDS Mitigation                          : ✓ ENABLED (Value: 1)
 SRBDS Update Mitigation                       : ✓ ENABLED (Value: 1)
 DRPW Mitigation                               : ✓ ENABLED (Value: 1)
+
+Checking Windows Security Features...
+
+Checking Virtualization-Specific Security Features...
+
+Hypervisor Host-Specific Security Checks:
+Checking host-level virtualization security features...
+
+================================================================================
+DETAILED SECURITY ANALYSIS
+================================================================================
+
+[... Additional informational sections appear here ...]
+
+================================================================================
+SECURITY FEATURE DEPENDENCY MATRIX
+================================================================================
+
+[... Dependency matrix and educational content ...]
+
+================================================================================
+HARDWARE SECURITY MITIGATION VALUE MATRIX
+================================================================================
+
+[... Hardware mitigation flags and explanations ...]
 
 === Side-Channel Vulnerability Mitigation Status ===
 
@@ -286,6 +316,16 @@ Category Score: 4/5 enabled (80%)
 Overall Mitigation Score: 86.4%
 Security Level: [████████░░] 19/22 enabled
 
+[--] STATUS LEGEND
+✓ Enabled - Mitigation is active and properly configured
+✗ Disabled - Mitigation is explicitly disabled
+✗ Not Set - Registry value not configured (using defaults)
+
+[>>] CATEGORY DESCRIPTIONS
+🛡  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities
+🔒 SECURITY FEATURES: Advanced Windows security technologies
+🔧 HARDWARE PREREQUISITES: Required hardware security capabilities
+
 ℹ KERNEL RUNTIME STATE - WHICH TO TRUST?
   ⭐ ALWAYS TRUST: Kernel Runtime (shows actual protection status)
   Registry Status: What you configured (may not be active yet)
@@ -299,6 +339,35 @@ Security Level: [████████░░] 19/22 enabled
   ✓ Immune - CPU has hardware immunity (no software mitigation needed)
   ✓ Not Needed - Hardware protection (Enhanced IBRS) supersedes software mitigation
   ✓ Retpoline - Software mitigation active (older CPUs without Enhanced IBRS)
+
+=== SECURITY CONFIGURATION SUMMARY ===
+
+Security Assessment Categories:
+- Software Mitigations: 11/12 enabled
+- Security Features: 6/7 enabled
+- Hardware Prerequisites: 5/5 ready
+
+Security Status Overview:
+=========================
+
+🛡  SOFTWARE MITIGATIONS (Primary Score):
+[+] ENABLED:       11 / 12 mitigations
+[-] NOT SET:       1 / 12 mitigations
+[-] DISABLED:      0 / 12 mitigations
+
+🔒 SECURITY FEATURES:
+[+] ENABLED:       6 / 7 features
+
+🔧 HARDWARE PREREQUISITES:
+[+] READY:         5 / 5 components
+
+Overall Mitigation Score: 91.7%
+Mitigation Progress: [█████████░] 91.7%
+
+Score Explanation:
+* Mitigation Score: Based on registry-configurable side-channel protections
+* Security Features: Windows security services (VBS, HVCI, etc.)
+* Hardware Prerequisites: Platform readiness for advanced security
 
 === Recommendations ===
 The following mitigations should be configured:
