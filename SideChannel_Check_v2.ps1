@@ -1419,7 +1419,6 @@ function Show-MitigationTable {
             # PowerShell 7+ with ANSI color codes for entire line
             $ansiReset = "`e[0m"
             $ansiGreen = "`e[32m"
-            $ansiWhite = "`e[37m"
             $ansiRed = "`e[31m"
             $ansiCyan = "`e[36m"
             $ansiYellow = "`e[33m"
@@ -1428,8 +1427,8 @@ function Show-MitigationTable {
             foreach ($result in $Results) {
                 # Determine ANSI color for entire line based on status
                 $lineAnsi = switch ($result.OverallStatus) {
-                    'Protected' { $ansiWhite }
-                    'Vulnerable' { $ansiYellow }
+                    'Protected' { $ansiGreen }
+                    'Vulnerable' { $ansiRed }
                     'Active' { $ansiCyan }
                     default { $ansiGray }
                 }
@@ -1449,8 +1448,8 @@ function Show-MitigationTable {
                 
                 # Determine color for the line based on status
                 $lineColor = switch ($result.OverallStatus) {
-                    'Protected' { 'White' }
-                    'Vulnerable' { 'Yellow' }
+                    'Protected' { 'Green' }
+                    'Vulnerable' { 'Red' }
                     'Active' { 'Cyan' }
                     default { 'Gray' }
                 }
