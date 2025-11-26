@@ -202,32 +202,32 @@ function Get-Icon {
     
     switch ($Name) {
         # Status Icons
-        'Enabled'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
-        'Disabled'   { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
-        'Warning'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16)) }  # ⚠
-        'Info'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16)) }  # ℹ
-        'Success'    { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
-        'Error'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Enabled' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Disabled' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Warning' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16)) }  # ⚠
+        'Info' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16)) }  # ℹ
+        'Success' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Error' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
         
         # Common Symbols
-        'Check'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
-        'Cross'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
-        'Question'   { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) }  # ❓
-        'Star'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16)) }  # ⭐
-        'Arrow'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16)) }  # └
+        'Check' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Cross' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Question' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) }  # ❓
+        'Star' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2B50", 16)) }  # ⭐
+        'Arrow' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16)) }  # └
         
         # Category Icons
-        'Shield'     { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16)) } # 🛡️
-        'Lock'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16)) } # 🔐
-        'Wrench'     { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16)) } # 🔧
-        'Gear'       { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16)) }  # ⚙
-        'Chart'      { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16)) } # 📊
+        'Shield' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F6E1", 16)) } # 🛡️
+        'Lock' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F512", 16)) } # 🔐
+        'Wrench' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F527", 16)) } # 🔧
+        'Gear' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2699", 16)) }  # ⚙
+        'Chart' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F4CA", 16)) } # 📊
         
         # Progress Bar Characters
-        'BlockFull'  { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16)) }  # █
+        'BlockFull' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16)) }  # █
         'BlockLight' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16)) }  # ░
         
-        default      { '' }
+        default { '' }
     }
 }
 
