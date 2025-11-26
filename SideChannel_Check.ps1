@@ -4128,10 +4128,65 @@ function Filter-CPUSpecificMitigations {
     return $filteredMitigations
 }
 
+function Test-MitigationNeedsConfiguration {
+    <#
+    .SYNOPSIS
+    Determines if a mitigation needs configuration based on its status and runtime state.
+    
+    .DESCRIPTION
+    Checks if a mitigation is already properly configured by examining:
+    - Registry status (Enabled, Active, etc.)
+    - Kernel runtime state (for mitigations with runtime detection)
+    - Whether the mitigation can be enabled (CanBeEnabled property)
+    Returns $true if the mitigation needs configuration, $false if already properly configured.
+    #>
+    param(
+        [Parameter(Mandatory=$true)]
+        [PSCustomObject]$Mitigation
+    )
+    
+    $status = $Mitigation.Status
+    $canBeEnabled = $Mitigation.CanBeEnabled
+    $itemName = $Mitigation.Name
+    
+    # Already enabled or working properly - no configuration needed
+    if ($status -eq "Enabled" -or
+        $status -match "^UEFI Firmware Active" -or
+        $status -match "^TPM 2.0 Enabled" -or
+        $status -match "^Enabled and Active" -or
+        $status -match "Running" -or
+        $status -match "Enforced" -or
+        ($status -eq "Information" -and $canBeEnabled -eq $false)) {
+        return $false
+    }
+    
+    # Check kernel runtime state if available
+    if ($script:RuntimeState.APIAvailable) {
+        $isRuntimeActive = switch ($itemName) {
+            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+            default { $false }
+        }
+        
+        # If runtime shows it's active, no configuration needed
+        if ($isRuntimeActive) {
+            return $false
+        }
+    }
+    
+    # Not enabled and not active in runtime - needs configuration
+    return $true
+}
+
 # Apply configurations if requested
 if ($Apply) {
     Write-ColorOutput "`n=== Configuration Application ===" -Color Header
-    $notConfigured = $Results | Where-Object { $_.Status -ne "Enabled" -and $_.CanBeEnabled }
+    $notConfigured = $Results | Where-Object { 
+        (Test-MitigationNeedsConfiguration -Mitigation $_) -and $_.CanBeEnabled
+    }
     
     # Filter CPU-specific mitigations
     if ($notConfigured.Count -gt 0) {
@@ -4329,35 +4384,9 @@ else {
     # Recommendations when not applying
     Write-ColorOutput "`n=== Recommendations ===" -Color Header
     
-    # Filter out items that are already properly configured
-    # This includes "Enabled", hardware features that are working, AND items active in kernel runtime
+    # Filter out items that are already properly configured using centralized logic
     $notConfigured = $Results | Where-Object { 
-        $status = $_.Status
-        $canBeEnabled = $_.CanBeEnabled
-        $itemName = $_.Name
-        
-        # Check if this mitigation is active in kernel runtime (even if registry says "Not Set")
-        $isRuntimeActive = $false
-        if ($script:RuntimeState.APIAvailable) {
-            $isRuntimeActive = switch ($itemName) {
-                "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
-                "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
-                "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
-                "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
-                "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
-                default { $false }
-            }
-        }
-        
-        # Exclude if already enabled/working properly OR if it's active in kernel OR if it's an informational item
-        -not ($status -eq "Enabled" -or 
-            $isRuntimeActive -or
-            $status -match "^UEFI Firmware Active" -or
-            $status -match "^TPM 2.0 Enabled" -or
-            $status -match "^Enabled and Active" -or
-            $status -match "Running" -or
-            $status -match "Enforced" -or
-            ($status -eq "Information" -and $canBeEnabled -eq $false))
+        Test-MitigationNeedsConfiguration -Mitigation $_
     }
     
     # Filter CPU-specific mitigations in recommendations too
