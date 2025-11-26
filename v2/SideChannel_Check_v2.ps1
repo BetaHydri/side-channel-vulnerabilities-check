@@ -1578,6 +1578,115 @@ function Restore-Configuration {
     Write-Log "Configuration restored: $success successful, $failed failed" -Level Success
 }
 
+function Invoke-InteractiveRestore {
+    param([object]$Backup)
+    
+    Write-Host "`n=== Interactive Restore ===" -ForegroundColor Cyan
+    if ($WhatIfPreference) {
+        Write-Host "[WhatIf Mode] Changes will be previewed but not applied`n" -ForegroundColor Yellow
+    }
+    Write-Host "Select mitigations to restore (or 'all' for all settings)`n"
+    
+    # Display all mitigations from backup
+    for ($i = 0; $i -lt $Backup.Mitigations.Count; $i++) {
+        $item = $Backup.Mitigations[$i]
+        $valueDisplay = if ($null -eq $item.Value) { "[DELETE]" } else { $item.Value }
+        
+        Write-Host "[$($i+1)] " -NoNewline -ForegroundColor Cyan
+        Write-Host "$($item.Name)" -ForegroundColor White -NoNewline
+        Write-Host " = $valueDisplay" -ForegroundColor Gray
+    }
+    
+    Write-Host "`nEnter numbers (comma-separated), 'all', or 'Q' to quit: " -NoNewline -ForegroundColor Yellow
+    $selection = Read-Host
+    
+    if ($selection -eq 'Q' -or $selection -eq 'q') {
+        Write-Host "Restore cancelled." -ForegroundColor Yellow
+        return
+    }
+    
+    $selectedItems = @()
+    
+    if ($selection -eq 'all' -or $selection -eq 'All') {
+        $selectedItems = $Backup.Mitigations
+    } else {
+        $numbers = $selection -split ',' | ForEach-Object { $_.Trim() }
+        foreach ($num in $numbers) {
+            $index = $null
+            if ([int]::TryParse($num, [ref]$index) -and $index -ge 1 -and $index -le $Backup.Mitigations.Count) {
+                $selectedItems += $Backup.Mitigations[$index - 1]
+            }
+        }
+    }
+    
+    if ($selectedItems.Count -eq 0) {
+        Write-Host "No valid selections made. Restore cancelled." -ForegroundColor Red
+        return
+    }
+    
+    # Show what will be restored
+    Write-Host "`nSelected mitigations to restore:" -ForegroundColor Cyan
+    foreach ($item in $selectedItems) {
+        $valueDisplay = if ($null -eq $item.Value) { "[DELETE]" } else { $item.Value }
+        Write-Host "  $(Get-StatusIcon -Name Bullet) $($item.Name) = $valueDisplay" -ForegroundColor White
+    }
+    
+    Write-Host "`nRestore these $($selectedItems.Count) mitigation(s)? (Y/N): " -NoNewline -ForegroundColor Yellow
+    $confirm = Read-Host
+    
+    if ($confirm -ne 'Y' -and $confirm -ne 'y') {
+        Write-Host "Restore cancelled." -ForegroundColor Yellow
+        return
+    }
+    
+    # Perform the restore
+    if ($WhatIfPreference) {
+        Write-Host "`n=== WhatIf: Would restore these settings ===" -ForegroundColor Cyan
+        foreach ($item in $selectedItems) {
+            if ($null -eq $item.Value) {
+                Write-Host "  [-] Would remove: $($item.RegistryPath)\$($item.RegistryName)" -ForegroundColor Red
+            } else {
+                Write-Host "  [+] Would set: $($item.RegistryPath)\$($item.RegistryName) = $($item.Value)" -ForegroundColor Green
+            }
+        }
+        Write-Host "`nTotal changes that would be made: $($selectedItems.Count)" -ForegroundColor Cyan
+        Write-Host "System restart would be required: Yes" -ForegroundColor Yellow
+        return
+    }
+    
+    Write-Log "Restoring $($selectedItems.Count) selected mitigation(s) from $($Backup.Timestamp)" -Level Info
+    
+    $success = 0
+    $failed = 0
+    
+    foreach ($item in $selectedItems) {
+        try {
+            if ($null -eq $item.Value) {
+                Remove-ItemProperty -Path $item.RegistryPath -Name $item.RegistryName -ErrorAction SilentlyContinue
+                Write-Log "Removed: $($item.Name)" -Level Info
+            } else {
+                Set-ItemProperty -Path $item.RegistryPath -Name $item.RegistryName -Value $item.Value -Force
+                Write-Log "Restored: $($item.Name)" -Level Info
+            }
+            $success++
+        } catch {
+            Write-Log "Could not restore $($item.Name): $($_.Exception.Message)" -Level Warning
+            $failed++
+        }
+    }
+    
+    Write-Host "`n=== Restore Summary ===" -ForegroundColor Cyan
+    Write-Host "Successfully restored: $success" -ForegroundColor Green
+    if ($failed -gt 0) {
+        Write-Host "Failed: $failed" -ForegroundColor Red
+    }
+    
+    Write-Host "`n$(Get-StatusIcon -Name Success) Selected mitigations restored from backup." -ForegroundColor Green
+    Write-Host "$(Get-StatusIcon -Name Warning) A system restart is required." -ForegroundColor Yellow
+    
+    Write-Log "Interactive restore complete: $success successful, $failed failed" -Level Success
+}
+
 # ============================================================================
 # INTERACTIVE APPLY MODE
 # ============================================================================
@@ -1589,40 +1698,86 @@ function Invoke-InteractiveApply {
     if ($WhatIfPreference) {
         Write-Host "[WhatIf Mode] Changes will be previewed but not applied`n" -ForegroundColor Yellow
     }
-    Write-Host "Select mitigations to apply (or 'all' for recommended, 'critical' for critical only)`n"
     
-    $actionable = @($Results | Where-Object { $_.ActionNeeded -match 'Yes|Consider' })
+    # Ask if user wants to see only actionable items or all mitigations
+    Write-Host "Selection mode:" -ForegroundColor Yellow
+    Write-Host "  [R] Show only recommended/actionable mitigations" -ForegroundColor White
+    Write-Host "  [A] Show all available mitigations (for selective hardening)" -ForegroundColor White
+    Write-Host "`nYour choice (R/A) [Default: R]: " -NoNewline -ForegroundColor Yellow
+    $viewMode = Read-Host
     
-    if ($actionable.Count -eq 0) {
-        Write-Host "No mitigations require configuration!" -ForegroundColor Green
-        return
+    if ([string]::IsNullOrWhiteSpace($viewMode)) {
+        $viewMode = 'R'
+    }
+    
+    $itemsToShow = @()
+    
+    if ($viewMode -eq 'A' -or $viewMode -eq 'a') {
+        # Show ALL mitigations, allowing user to enable anything
+        $itemsToShow = @($Results)
+        Write-Host "`nShowing all $($itemsToShow.Count) available mitigations:`n" -ForegroundColor Cyan
+    } else {
+        # Show only actionable items (original behavior)
+        $itemsToShow = @($Results | Where-Object { $_.ActionNeeded -match 'Yes|Consider' })
+        
+        if ($itemsToShow.Count -eq 0) {
+            Write-Host "`nNo mitigations require configuration!" -ForegroundColor Green
+            Write-Host "Tip: Use selection mode [A] to see all available mitigations." -ForegroundColor Gray
+            return
+        }
+        
+        Write-Host "`nShowing $($itemsToShow.Count) recommended/actionable mitigations:`n" -ForegroundColor Cyan
     }
     
     # Display options
-    for ($i = 0; $i -lt $actionable.Count; $i++) {
-        $item = $actionable[$i]
-        $statusColor = switch -Wildcard ($item.ActionNeeded) {
-            '*Critical*' { 'Red' }
-            '*Recommended*' { 'Yellow' }
-            default { 'Cyan' }
+    for ($i = 0; $i -lt $itemsToShow.Count; $i++) {
+        $item = $itemsToShow[$i]
+        
+        # Determine color based on current status and action needed
+        $statusColor = if ($item.OverallStatus -eq 'Protected') {
+            'Green'
+        } else {
+            switch -Wildcard ($item.ActionNeeded) {
+                '*Critical*' { 'Red' }
+                '*Recommended*' { 'Yellow' }
+                default { 'Cyan' }
+            }
         }
         
+        $statusIndicator = if ($item.OverallStatus -eq 'Protected') { "$(Get-StatusIcon -Name Success) " } else { "" }
+        
         Write-Host "[$($i+1)] " -NoNewline
-        Write-Host $item.Name -ForegroundColor $statusColor
-        Write-Host "    $($item.Recommendation)" -ForegroundColor Gray
-        Write-Host "    Impact: $($item.Impact) | CVE: $($item.CVE)" -ForegroundColor DarkGray
+        Write-Host "$statusIndicator$($item.Name)" -ForegroundColor $statusColor
+        Write-Host "    Status: $($item.OverallStatus) | Impact: $($item.Impact)" -ForegroundColor Gray
+        if ($item.Recommendation) {
+            Write-Host "    $($item.Recommendation)" -ForegroundColor DarkGray
+        }
     }
     
-    Write-Host "`nEnter selections (e.g., '1,2,5' or '1-3' or 'all' or 'critical'): " -NoNewline -ForegroundColor Cyan
+    Write-Host "`nSelection options:" -ForegroundColor Cyan
+    Write-Host "  • Enter numbers (e.g., '1,2,5' or '1-3')" -ForegroundColor White
+    Write-Host "  • Type 'all' to select all shown mitigations" -ForegroundColor White
+    Write-Host "  • Type 'critical' to select only critical items" -ForegroundColor White
+    Write-Host "  • Type 'Q' to quit" -ForegroundColor White
+    Write-Host "`nYour selection: " -NoNewline -ForegroundColor Yellow
     $selection = Read-Host
+    
+    if ($selection -eq 'Q' -or $selection -eq 'q') {
+        Write-Host "Operation cancelled." -ForegroundColor Yellow
+        return
+    }
     
     # Parse selection
     $selectedItems = @()
     
     if ($selection -eq 'all') {
-        $selectedItems = $actionable
+        $selectedItems = $itemsToShow
     } elseif ($selection -eq 'critical') {
-        $selectedItems = @($actionable | Where-Object { $_.ActionNeeded -match 'Critical' })
+        $selectedItems = @($itemsToShow | Where-Object { $_.ActionNeeded -match 'Critical' })
+        if ($selectedItems.Count -eq 0) {
+            Write-Host "No critical items found in current view." -ForegroundColor Yellow
+            return
+        }
     } else {
         # Parse numbers
         $indices = @()
@@ -1637,8 +1792,8 @@ function Invoke-InteractiveApply {
         }
         
         $selectedItems = $indices | ForEach-Object {
-            if ($_ -ge 1 -and $_ -le $actionable.Count) {
-                $actionable[$_ - 1]
+            if ($_ -ge 1 -and $_ -le $itemsToShow.Count) {
+                $itemsToShow[$_ - 1]
             }
         }
     }
@@ -1838,7 +1993,7 @@ function Start-SideChannelCheck {
             }
             
             'Restore' {
-                $backups = Get-AllBackups
+                $backups = @(Get-AllBackups)
                 if ($backups.Count -eq 0) {
                     Write-Host "`n$(Get-StatusIcon -Name Error) No backups found." -ForegroundColor Red
                     Write-Host "Create a backup first using: .\SideChannel_Check_v2.ps1 -Mode Backup" -ForegroundColor Gray
@@ -1897,15 +2052,37 @@ function Start-SideChannelCheck {
                     Write-Host "Timestamp: $($selectedBackup.Timestamp)" -ForegroundColor Gray
                     Write-Host "Computer:  $($selectedBackup.Computer)" -ForegroundColor Gray
                     Write-Host "User:      $($selectedBackup.User)" -ForegroundColor Gray
-                    Write-Host "`nDo you want to restore this backup? (Y/N): " -NoNewline -ForegroundColor Yellow
-                    $confirm = Read-Host
                     
-                    if ($confirm -eq 'Y') {
-                        Restore-Configuration -Backup $selectedBackup.Data
-                        Write-Host "`n$(Get-StatusIcon -Name Success) Configuration restored from backup." -ForegroundColor Green
-                        Write-Host "$(Get-StatusIcon -Name Warning) A system restart is required." -ForegroundColor Yellow
-                    } else {
+                    # Ask if user wants to restore all or select individual mitigations
+                    Write-Host "`nRestore options:" -ForegroundColor Yellow
+                    Write-Host "  [A] All mitigations ($($selectedBackup.MitigationCount) total)" -ForegroundColor White
+                    Write-Host "  [S] Select individual mitigations" -ForegroundColor White
+                    Write-Host "  [Q] Cancel" -ForegroundColor White
+                    Write-Host "`nYour choice (A/S/Q): " -NoNewline -ForegroundColor Yellow
+                    $restoreChoice = Read-Host
+                    
+                    if ($restoreChoice -eq 'Q' -or $restoreChoice -eq 'q') {
                         Write-Host "Restore cancelled." -ForegroundColor Yellow
+                        return
+                    }
+                    
+                    if ($restoreChoice -eq 'S' -or $restoreChoice -eq 's') {
+                        # Interactive selection mode
+                        Invoke-InteractiveRestore -Backup $selectedBackup.Data
+                    } elseif ($restoreChoice -eq 'A' -or $restoreChoice -eq 'a') {
+                        # Restore all
+                        Write-Host "`nDo you want to restore ALL mitigations? (Y/N): " -NoNewline -ForegroundColor Yellow
+                        $confirm = Read-Host
+                        
+                        if ($confirm -eq 'Y' -or $confirm -eq 'y') {
+                            Restore-Configuration -Backup $selectedBackup.Data
+                            Write-Host "`n$(Get-StatusIcon -Name Success) Configuration restored from backup." -ForegroundColor Green
+                            Write-Host "$(Get-StatusIcon -Name Warning) A system restart is required." -ForegroundColor Yellow
+                        } else {
+                            Write-Host "Restore cancelled." -ForegroundColor Yellow
+                        }
+                    } else {
+                        Write-Host "Invalid choice. Restore cancelled." -ForegroundColor Red
                     }
                 } else {
                     Write-Host "Invalid selection. Restore cancelled." -ForegroundColor Red

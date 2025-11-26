@@ -107,7 +107,7 @@ Example detailed output:
 ```
 
 ### 2. **ApplyInteractive**
-Interactively select and apply security mitigations.
+Interactively select and apply security mitigations with two selection modes.
 
 ```powershell
 # Interactive application
@@ -117,18 +117,30 @@ Interactively select and apply security mitigations.
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 ```
 
+**Selection Modes:**
+- **[R] Recommended** - Shows only actionable/recommended mitigations (default)
+- **[A] All Mitigations** - Shows all 24+ available mitigations for selective hardening
+
+**Recommended Workflow:**
+1. Run detailed assessment: `.\SideChannel_Check_v2.ps1 -ShowDetails`
+2. Review CVEs, descriptions, impacts, and recommendations
+3. Use ApplyInteractive with mode [A] to selectively enable mitigations
+4. Make informed decisions based on your security requirements
+
 **Features:**
 - ✅ Automatic backup creation before changes
 - ✅ Interactive selection (individual, ranges, or all)
+- ✅ Two view modes: Recommended only or All mitigations
 - ✅ WhatIf preview support
-- ✅ Impact warnings
+- ✅ Impact warnings and current status display
 - ✅ System restart notification
 
 **Selection Syntax:**
 - `1,3,5` - Apply specific mitigations
 - `1-4` - Apply range of mitigations
-- `all` - Apply all recommended
+- `all` - Apply all shown mitigations
 - `critical` - Apply only critical mitigations
+- `Q` - Quit without changes
 
 ### 3. **RevertInteractive**
 Restore most recent backup configuration.
@@ -167,18 +179,32 @@ Create a backup of current mitigation settings.
 **Backup Location:** `.\Backups\Backup_YYYYMMDD_HHMMSS.json`
 
 ### 5. **Restore**
-Browse and restore from any available backup.
+Browse and restore from any available backup with selective restoration.
 
 ```powershell
 # Interactive restore
 .\SideChannel_Check_v2.ps1 -Mode Restore
 ```
 
+**Restore Options:**
+- **[A] All mitigations** - Restore complete backup (all settings)
+- **[S] Select individual** - Choose specific mitigations to restore
+- **[Q] Cancel** - Exit without changes
+
 **Features:**
 - ✅ Lists all available backups with age
-- ✅ Shows backup metadata (computer, user, timestamp)
-- ✅ Interactive selection
-- ✅ Detailed restore preview
+- ✅ Shows backup metadata (computer, user, timestamp, count)
+- ✅ Interactive backup selection
+- ✅ Selective restoration - restore only what you need
+- ✅ Full or partial restore support
+- ✅ WhatIf preview available
+- ✅ Detailed restore summary
+
+**Use Cases:**
+- Restore entire configuration after testing
+- Selectively restore specific mitigations
+- Recover from misconfiguration
+- Rollback individual settings while keeping others
 
 ---
 
