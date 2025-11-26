@@ -2064,7 +2064,15 @@ function Start-SideChannelCheck {
             'Assess' {
                 $results = Invoke-MitigationAssessment
                 Show-AssessmentSummary -Results $results
-                Show-MitigationTable -Results $results -Detailed $ShowDetails
+                
+                # Show table summary first (always)
+                Show-MitigationTable -Results $results -Detailed $false
+                
+                # If ShowDetails is enabled, also show detailed view
+                if ($ShowDetails) {
+                    Show-MitigationTable -Results $results -Detailed $true
+                }
+                
                 Show-Recommendations -Results $results
                 
                 # Export if path provided
