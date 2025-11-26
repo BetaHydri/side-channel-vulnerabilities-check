@@ -3157,12 +3157,11 @@ $securityFeatureNames = @(
 )
 
 $hardwarePrerequisiteNames = @(
-    "UEFI Firmware",
+    "UEFI Firmware (not Legacy BIOS)",
     "Secure Boot",
-    "TPM 2.0",
-    "Virtualization Technology",
-    "IOMMU Support",
-    "CPU Microcode"
+    "TPM 2.0 (Trusted Platform Module)",
+    "CPU Virtualization Support (VT-x/AMD-V)",
+    "IOMMU/VT-d Support"
 )
 
 # Categorize results using the predefined name lists
