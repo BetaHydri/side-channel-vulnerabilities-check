@@ -516,6 +516,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = 'SSBD'
             Recommendation   = 'Enable to protect against speculative execution vulnerabilities'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-3639'
         },
         @{
             Id               = 'SSBD_Mask'
@@ -530,6 +531,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Must be enabled for SSBD to function'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-3639'
         },
         @{
             Id               = 'BTI'
@@ -544,6 +546,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = 'BTI'
             Recommendation   = 'Essential protection against Spectre v2'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2017-5715'
         },
         @{
             Id               = 'KVAS'
@@ -558,6 +561,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = 'KVAS'
             Recommendation   = 'Critical for Meltdown protection; modern CPUs have hardware immunity'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2017-5754'
         },
         @{
             Id               = 'EnhancedIBRS'
@@ -572,6 +576,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable on CPUs with Enhanced IBRS support'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/indirect-branch-restricted-speculation.html'
         },
         @{
             Id               = 'TSXDisable'
@@ -586,6 +591,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Disable unless specifically required by applications'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2019-11135'
         },
         
         # High-impact mitigations
@@ -602,6 +608,7 @@ function Get-MitigationDefinitions {
             Platform         = 'HyperVHost'
             RuntimeDetection = 'L1TF'
             Recommendation   = 'High performance impact; for multi-tenant virtualization only'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-3620'
         },
         @{
             Id               = 'MDS'
@@ -616,6 +623,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = 'MDS'
             Recommendation   = 'Moderate performance impact; modern CPUs have hardware immunity'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-12130'
         },
         @{
             Id               = 'TAA'
@@ -630,6 +638,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable if TSX cannot be disabled'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/intel-tsx-asynchronous-abort.html'
         },
         @{
             Id               = 'HWMitigations'
@@ -660,6 +669,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable to protect against SBDR/SBDS attacks'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21123'
         },
         @{
             Id               = 'SRBDS'
@@ -674,6 +684,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable to protect against SRBDS attacks'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21127'
         },
         @{
             Id               = 'DRPW'
@@ -688,6 +699,7 @@ function Get-MitigationDefinitions {
             Platform         = 'All'
             RuntimeDetection = $null
             Recommendation   = 'Enable to protect against DRPW attacks'
+            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21166'
         },
         
         # Security Features
@@ -1327,6 +1339,12 @@ function Show-MitigationTable {
                 Write-Host $result.CVE -ForegroundColor Yellow
             }
             
+            # Show URL if available
+            if ($result.URL) {
+                Write-Host "  Reference:    " -NoNewline -ForegroundColor Gray
+                Write-Host $result.URL -ForegroundColor Blue
+            }
+            
             # Show Description if available
             if ($result.Description) {
                 Write-Host "  Description:  " -NoNewline -ForegroundColor Gray
@@ -1867,10 +1885,10 @@ function Invoke-InteractiveApply {
         }
         
         $selectedItems = @($indices | ForEach-Object {
-            if ($_ -ge 1 -and $_ -le $itemsToShow.Count) {
-                $itemsToShow[$_ - 1]
-            }
-        })
+                if ($_ -ge 1 -and $_ -le $itemsToShow.Count) {
+                    $itemsToShow[$_ - 1]
+                }
+            })
     }
     
     if ($selectedItems.Count -eq 0) {
