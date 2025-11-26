@@ -4330,13 +4330,28 @@ else {
     Write-ColorOutput "`n=== Recommendations ===" -Color Header
     
     # Filter out items that are already properly configured
-    # This includes "Enabled", but also hardware features that are working properly
+    # This includes "Enabled", hardware features that are working, AND items active in kernel runtime
     $notConfigured = $Results | Where-Object { 
         $status = $_.Status
         $canBeEnabled = $_.CanBeEnabled
+        $itemName = $_.Name
         
-        # Exclude if already enabled/working properly OR if it's an informational item that can't be configured
+        # Check if this mitigation is active in kernel runtime (even if registry says "Not Set")
+        $isRuntimeActive = $false
+        if ($script:RuntimeState.APIAvailable) {
+            $isRuntimeActive = switch ($itemName) {
+                "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+                "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+                "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+                "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+                "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+                default { $false }
+            }
+        }
+        
+        # Exclude if already enabled/working properly OR if it's active in kernel OR if it's an informational item
         -not ($status -eq "Enabled" -or 
+            $isRuntimeActive -or
             $status -match "^UEFI Firmware Active" -or
             $status -match "^TPM 2.0 Enabled" -or
             $status -match "^Enabled and Active" -or
