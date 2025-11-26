@@ -444,33 +444,34 @@ foreach ($VM in $VMs) {
 
 ## 📊 Security Feature Dependency Matrix
 
-The script now includes a comprehensive dependency matrix showing hardware requirements and software fallback options for Windows security features:
+The script includes an **intelligent dependency matrix** that analyzes your hardware capabilities and shows which security features are available with or without specific hardware requirements.
 
-| Feature | Strict Hardware Required | Software Fallback | Impact Without Hardware |
-|---------|-------------------------|-------------------|------------------------|
-| **Secure Boot** | UEFI + Secure Boot capability | ❌ No | Bootloader attacks possible |
-| **TPM 2.0** | TPM 2.0 chip | ⚠️ Partial (BitLocker with password/USB) | Reduced cryptographic key security |
-| **VBS** | CPU virtualization + SLAT | ✅ Yes (software mode) | Weaker kernel isolation |
-| **HVCI** | CPU virtualization + IOMMU | ✅ Yes (compatible mode) | Less driver protection, performance hit |
-| **Credential Guard** | VBS + TPM (recommended) | ✅ Yes (without TPM) | Less secure credential storage |
-| **BitLocker** | TPM 2.0 | ✅ Yes (password/USB key) | Vulnerable to physical attacks |
-| **DRTM** | Intel TXT / AMD Secure Startup | ❌ No | Vulnerable to bootkit persistence |
-| **Kernel DMA Protection** | IOMMU with pre-boot support | ❌ No | DMA attacks via Thunderbolt/USB4 possible |
-| **Hardware Stack Protection** | Intel CET / AMD Shadow Stack | ❌ No | ROP attacks easier to execute |
-| **Microsoft Pluton** | Integrated Pluton processor | N/A (optional) | Falls back to discrete TPM |
+### Feature Overview
 
-### Key Insights from Dependency Matrix:
-- ✅ **Most critical features** (VBS, HVCI, Credential Guard) have software fallbacks
-- ⚠️ **Fallback modes** may reduce effectiveness or impact performance
-- ❌ **Some features** (DRTM, DMA Protection, Stack Protection) require hardware upgrade
-- 📊 **The script analyzes your system** and provides tailored recommendations
+| Security Feature | Strict Hardware Required | Software Fallback Available | Impact Without Hardware |
+|-----------------|-------------------------|----------------------------|------------------------|
+| **Secure Boot** | UEFI firmware + Secure Boot capability | ❌ No | Bootloader attacks possible, rootkit persistence |
+| **TPM 2.0** | Trusted Platform Module 2.0 chip | ⚠️ Partial (BitLocker with password/USB) | Reduced cryptographic key security, vulnerable to physical attacks |
+| **VBS** (Virtualization Based Security) | CPU virtualization (VT-x/AMD-V) + SLAT/EPT | ✅ Yes (software mode) | Weaker kernel isolation, reduced protection |
+| **HVCI** (Hypervisor-protected Code Integrity) | CPU virtualization + IOMMU (VT-d/AMD-Vi) | ✅ Yes (compatible mode) | Less driver protection, higher performance impact |
+| **Credential Guard** | VBS + TPM 2.0 (recommended) | ✅ Yes (VBS without TPM) | Less secure credential storage, mimikatz risk |
+| **BitLocker** Drive Encryption | TPM 2.0 (recommended) | ✅ Yes (password/USB key) | Vulnerable to physical attacks, evil maid attacks |
+| **DRTM** (Dynamic Root of Trust) | Intel TXT / AMD Secure Startup | ❌ No | Vulnerable to bootkit persistence, firmware attacks |
+| **Kernel DMA Protection** | IOMMU with pre-boot support | ❌ No | DMA attacks via Thunderbolt/USB4/FireWire possible |
+| **Hardware Stack Protection** | Intel CET / AMD Shadow Stack | ❌ No | ROP/JOP attacks easier to execute |
+| **Microsoft Pluton** | Integrated Pluton security processor | N/A (optional enhancement) | Falls back to discrete TPM (still secure) |
 
-### Example Output:
+### Matrix Display in Script Output
+
+The script displays a **real-time analysis** of your system's security capabilities:
+
 ```
-=== SECURITY FEATURE DEPENDENCY MATRIX ===
+╔═══════════════════════════════════════════════════════════════════════════╗
+║          SECURITY FEATURE DEPENDENCY MATRIX                               ║
+╠═══════════════════════════════════════════════════════════════════════════╣
 
 FEATURE                                  FALLBACK   HARDWARE REQUIREMENT
--------                                  --------   --------------------
+────────────────────────────────────────────────────────────────────────────
 Secure Boot                              [✗ No ]    UEFI firmware with Secure Boot capability
 TPM 2.0                                  [~ Part]   Trusted Platform Module 2.0 chip
 VBS (Virtualization Based Security)      [✓ Yes]    CPU virtualization (VT-x/AMD-V) + SLAT/EPT
@@ -482,22 +483,124 @@ Kernel DMA Protection                    [✗ No ]    IOMMU (VT-d/AMD-Vi) with p
 Hardware Stack Protection                [✗ No ]    Intel CET or AMD Shadow Stack
 Microsoft Pluton                         [  N/A ]   Integrated Pluton security processor
 
-Your System Capabilities:
-  Secure Boot:      + Enabled
-  TPM 2.0:          + Present & Ready
-  Virtualization:   + Enabled
-  IOMMU (VT-d/Vi):  - Not Detected
+╔═══════════════════════════════════════════════════════════════════════════╗
+║          YOUR SYSTEM CAPABILITIES                                         ║
+╠═══════════════════════════════════════════════════════════════════════════╣
 
-Recommendations for Your System:
-  ⚠️  IOMMU not detected - HVCI will use compatible mode
-    Enable VT-d (Intel) or AMD-Vi in BIOS for full DMA protection
+Hardware Features Detected:
+  Secure Boot:      ✓ Enabled
+  TPM 2.0:          ✓ Present & Ready (Version 2.0)
+  Virtualization:   ✓ Enabled (Intel VT-x / AMD-V active)
+  IOMMU (VT-d/Vi):  ✗ Not Detected
+
+Security Features Status:
+  VBS:              ✓ Running
+  HVCI:             ⚠️  Compatible Mode (IOMMU not available)
+  Credential Guard: ✓ Enabled
+  Kernel DMA Prot:  ✗ Not Available (IOMMU required)
+
+╔═══════════════════════════════════════════════════════════════════════════╗
+║          RECOMMENDATIONS FOR YOUR SYSTEM                                  ║
+╠═══════════════════════════════════════════════════════════════════════════╣
+
+  ⚠️  IOMMU (VT-d/AMD-Vi) not detected or disabled
+      Impact: HVCI running in compatible mode (reduced protection + higher overhead)
+      Action: Enable VT-d (Intel) or AMD-Vi in BIOS/UEFI settings
+      Benefit: Full DMA protection + optimized HVCI performance
+
+  ℹ️  All critical security features are active
+      Your system has strong baseline protection despite missing IOMMU
 ```
 
-This feature helps you:
-- **Understand hardware dependencies** for security features
-- **Identify upgrade opportunities** (enable IOMMU, add TPM, etc.)
-- **Make informed trade-offs** between security and compatibility
-- **Plan system configurations** based on available hardware
+### Fallback Symbol Legend
+
+The script uses intelligent symbols to show fallback availability:
+
+- **[✓ Yes]** - Full software fallback available (feature works without hardware)
+- **[~ Part]** - Partial fallback available (reduced security/functionality)
+- **[✗ No ]** - No fallback (hardware absolutely required)
+- **[ N/A ]** - Not applicable (optional enhancement feature)
+
+### Key Insights
+
+**✅ Good News:**
+- Most critical Windows security features have software fallbacks
+- VBS, HVCI, Credential Guard, and BitLocker work on older hardware
+- Missing IOMMU doesn't prevent security - it reduces optimization
+
+**⚠️ Performance Trade-offs:**
+- Software fallbacks may have higher CPU overhead
+- HVCI without IOMMU uses "compatible mode" (more performance impact)
+- BitLocker without TPM requires password/USB key (user friction)
+
+**❌ Hardware-Only Features:**
+- DRTM (Intel TXT/AMD Secure Startup) - absolute hardware requirement
+- Kernel DMA Protection - needs IOMMU with pre-boot support
+- Hardware Stack Protection - Intel CET or AMD Shadow Stack CPUs
+
+**📊 Intelligent Analysis:**
+- The script detects your actual hardware configuration
+- Provides specific recommendations based on what's missing
+- Explains real-world security impact, not just technical specs
+- Helps prioritize BIOS settings or hardware upgrades
+
+### Use Cases
+
+**System Purchase Planning:**
+```powershell
+# Check if new hardware meets security requirements
+.\SideChannel_Check.ps1
+# Review dependency matrix - identify missing hardware features
+```
+
+**BIOS Configuration:**
+```powershell
+# After enabling VT-d/AMD-Vi in BIOS
+.\SideChannel_Check.ps1
+# Verify IOMMU detection and HVCI mode upgrade
+```
+
+**Security Audit:**
+```powershell
+# Understand security posture and hardware dependencies
+.\SideChannel_Check.ps1 -Detailed
+# Export matrix data for compliance documentation
+```
+
+**Upgrade Justification:**
+```powershell
+# Show management the security benefit of enabling IOMMU
+.\SideChannel_Check.ps1
+# Matrix shows: "HVCI Compatible Mode → Full Protection" upgrade path
+```
+
+### Technical Implementation
+
+The dependency matrix in the script:
+
+1. **Detects Hardware Features** (4-tier detection system):
+   - UEFI/Legacy BIOS detection
+   - TPM 2.0 presence and version
+   - CPU virtualization (VT-x/AMD-V) via multiple methods
+   - IOMMU (VT-d/AMD-Vi) via VBS, Hyper-V, and registry checks
+
+2. **Analyzes Security Features** (cross-reference):
+   - Checks VBS/HVCI/Credential Guard actual status
+   - Determines operating mode (full vs compatible vs software)
+   - Identifies hardware dependencies for each feature
+
+3. **Provides Contextual Recommendations**:
+   - Specific to your detected hardware configuration
+   - Prioritized by security impact
+   - Includes BIOS setting names and expected benefits
+
+4. **Handles Edge Cases**:
+   - Virtualized environments (Hyper-V, VMware, nested)
+   - AMD vs Intel CPU differences
+   - Windows 10 vs 11 vs Server variations
+   - Pre-boot vs runtime security feature availability
+
+This matrix transforms complex Microsoft security documentation into **actionable, system-specific guidance**
 
 ## 📚 Quick Reference
 
