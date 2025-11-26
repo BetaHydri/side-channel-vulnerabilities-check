@@ -1431,7 +1431,7 @@ function Show-MitigationTable {
         'Detailed' {
             # Detailed table with more columns (Category, Status, CVE, Platform, Impact, PrerequisiteFor)
             Write-Host ("{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f "Mitigation", "Category", "Status", "CVE", "Platform", "Impact", "Required For") -ForegroundColor Gray
-            Write-Host ("{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f ("-" * 29), ("-" * 11), ("-" * 11), ("-" * 24), ("-" * 11), ("-" * 7), ("-" * 20)) -ForegroundColor DarkGray
+            Write-Host ("{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f ("-" * 29), ("-" * 11), ("-" * 11), ("-" * 24), ("-" * 11), ("-" * 7), ("-" * 35)) -ForegroundColor DarkGray
             
             if ($useAnsi) {
                 # PowerShell 7+ with ANSI color codes
@@ -1470,8 +1470,8 @@ function Show-MitigationTable {
                     $mitigationDef = (Get-MitigationDefinitions) | Where-Object { $_.Id -eq $result.Id }
                     $platformDisplay = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
                     $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
-                        if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
-                            $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
+                        if ($mitigationDef.PrerequisiteFor.Length -gt 35) {
+                            $mitigationDef.PrerequisiteFor.Substring(0, 32) + "..."
                         }
                         else {
                             $mitigationDef.PrerequisiteFor
@@ -1479,7 +1479,7 @@ function Show-MitigationTable {
                     }
                     else { '-' }
                     
-                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}\" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay
+                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay
                     Write-Host "$lineAnsi$line$ansiReset"
                 }
             }
@@ -1513,8 +1513,8 @@ function Show-MitigationTable {
                     $mitigationDef = (Get-MitigationDefinitions) | Where-Object { $_.Id -eq $result.Id }
                     $platformDisplay = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
                     $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
-                        if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
-                            $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
+                        if ($mitigationDef.PrerequisiteFor.Length -gt 35) {
+                            $mitigationDef.PrerequisiteFor.Substring(0, 32) + "..."
                         }
                         else {
                             $mitigationDef.PrerequisiteFor
