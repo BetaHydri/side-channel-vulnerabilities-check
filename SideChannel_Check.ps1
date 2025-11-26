@@ -454,6 +454,7 @@ function Show-ResultsTable {
                 # Define status emoji symbols
                 $iconEnabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
                 $iconDisabled = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) # ✗
+                $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))  # ⚠
                 
                 $status = switch ($result.Status) {
                     "Enabled" { "$iconEnabled Enabled" }
@@ -472,17 +473,88 @@ function Show-ResultsTable {
                     $currentValueDisplay = "Not Set"
                 }
                 
+                # Get runtime state from kernel API if available
+                $runtimeState = "-"
+                $runtimeColor = "Gray"
+                if ($script:RuntimeState.APIAvailable) {
+                    # Map mitigation names to runtime state flags
+                    $runtimeActive = switch ($result.Name) {
+                        "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+                        "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+                        "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled }
+                        "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+                        "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+                        default { $null }
+                    }
+                    
+                    if ($null -ne $runtimeActive) {
+                        if ($runtimeActive) {
+                            $runtimeState = "$iconEnabled Active"
+                            $runtimeColor = "Green"
+                            
+                            # Check for discrepancy with registry
+                            if ($result.Status -ne "Enabled") {
+                                $runtimeState = "$iconWarning Active"
+                                $runtimeColor = "Yellow"
+                            }
+                        }
+                        else {
+                            $runtimeState = "$iconDisabled Inactive"
+                            $runtimeColor = "Red"
+                            
+                            # Check if registry says enabled but runtime is inactive
+                            if ($result.Status -eq "Enabled") {
+                                $runtimeState = "$iconWarning Pending"
+                                $runtimeColor = "Yellow"
+                            }
+                        }
+                    }
+                    else {
+                        # Check for hardware immunity
+                        if ($result.Name -eq "MDS Mitigation" -and $script:RuntimeState.MDSHardwareProtected) {
+                            $runtimeState = "$iconEnabled Immune"
+                            $runtimeColor = "Cyan"
+                        }
+                        elseif ($result.Name -eq "Kernel VA Shadow (Meltdown Protection)" -and $script:RuntimeState.RDCLHardwareProtected) {
+                            $runtimeState = "$iconEnabled Immune"
+                            $runtimeColor = "Cyan"
+                        }
+                        elseif ($result.Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.RetpolineEnabled) {
+                            $runtimeState = "$iconEnabled Retpoline"
+                            $runtimeColor = "Green"
+                        }
+                    }
+                }
+                
                 $tableData += [PSCustomObject]@{
                     'Mitigation Name' = $result.Name
-                    'Status'          = $status
+                    'Registry Status' = $status
+                    'Kernel Runtime'  = $runtimeState
                     'Current Value'   = $currentValueDisplay
                     'Expected Value'  = $result.ExpectedValue
                     'Impact'          = $result.Impact
                 }
             }
             
-            # Display the table for this category
-            $tableData | Format-Table -AutoSize -Wrap
+            # Display the table for this category with custom formatting to preserve colors
+            if ($script:RuntimeState.APIAvailable) {
+                # Show runtime state column with note
+                $tableData | Format-Table -Property 'Mitigation Name','Registry Status','Kernel Runtime','Impact' -AutoSize -Wrap
+                
+                # Check for discrepancies in this category
+                $discrepancies = $tableData | Where-Object { $_.'Kernel Runtime' -like "*Pending*" -or $_.'Kernel Runtime' -like "*$iconWarning*" }
+                if ($discrepancies.Count -gt 0) {
+                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+                    $iconReboot = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("21BB", 16))
+                    Write-Host "  $iconWarning " -NoNewline -ForegroundColor Yellow
+                    Write-Host "Registry/Runtime discrepancy detected - " -NoNewline -ForegroundColor Yellow
+                    Write-Host "$iconReboot Reboot required" -ForegroundColor Cyan
+                }
+            }
+            else {
+                # Fallback to original table without runtime state
+                $tableData | Format-Table -Property 'Mitigation Name','Registry Status','Current Value','Expected Value','Impact' -AutoSize -Wrap
+            }
             
             # Category summary
             $enabled = ($categoryResults | Where-Object { $_.Status -eq "Enabled" }).Count
@@ -570,6 +642,25 @@ function Show-ResultsTable {
     Write-ColorOutput ($Emojis.Shield + "  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities") -Color Info
     Write-ColorOutput ($Emojis.Lock + " SECURITY FEATURES: Advanced Windows security technologies") -Color Info
     Write-ColorOutput ($Emojis.Wrench + " HARDWARE PREREQUISITES: Required hardware security capabilities") -Color Info
+    
+    # Runtime state explanation if API is available
+    if ($script:RuntimeState.APIAvailable) {
+        $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+        Write-ColorOutput "`n$iconInfo KERNEL RUNTIME STATE" -Color Info
+        Write-ColorOutput "  Registry Status: Configuration stored in registry (may require reboot)" -Color Gray
+        Write-ColorOutput "  Kernel Runtime: Actual protection status in running kernel (authoritative)" -Color Gray
+        
+        $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+        Write-Host "  $iconCheck Active" -ForegroundColor Green -NoNewline
+        Write-Host " - Protection actively running in kernel" -ForegroundColor Gray
+        Write-Host "  $iconWarning Pending" -ForegroundColor Yellow -NoNewline
+        Write-Host " - Configured but not active (reboot needed)" -ForegroundColor Gray
+        Write-Host "  $iconCheck Immune" -ForegroundColor Cyan -NoNewline
+        Write-Host " - CPU has hardware immunity" -ForegroundColor Gray
+        Write-Host "  $iconCheck Retpoline" -ForegroundColor Green -NoNewline
+        Write-Host " - Software mitigation active" -ForegroundColor Gray
+    }
 }
 
 # ============================================================================
@@ -4513,146 +4604,64 @@ if ($ShowVMwareHostSecurity) {
 }
 
 # ============================================================================
-# Runtime State Summary (if NtQuerySystemInformation API is available)
+# Additional Runtime Details (Detailed Mode)
 # ============================================================================
-if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
+if ($script:RuntimeState.APIAvailable -and $Detailed -and -not $Apply -and -not $Revert) {
     Write-ColorOutput "`n========================================" -Color Header
-    Write-ColorOutput "Runtime Mitigation State Summary" -Color Header
+    Write-ColorOutput "Detailed Kernel Runtime Flags" -Color Header
     Write-ColorOutput "========================================" -Color Header
+    Write-ColorOutput "Advanced runtime mitigation details from NtQuerySystemInformation API:" -Color Info
     
-    Write-ColorOutput "`nKernel-Level Protection Status (NtQuerySystemInformation):" -Color Info
+    # Show additional runtime flags not displayed in main table
+    Write-ColorOutput "`nAdvanced Protections:" -Color Header
     
-    # Spectre v2 (BTI)
-    $iconBTI = if ($script:RuntimeState.BTIEnabled) { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    }
-    else { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
-    }
-    $btiColor = if ($script:RuntimeState.BTIEnabled) { 'Good' } else { 'Bad' }
-    Write-Host "  $iconBTI " -NoNewline -ForegroundColor $Colors[$btiColor]
-    Write-Host "Spectre v2 (BTI): " -NoNewline
-    Write-Host "$(if ($script:RuntimeState.BTIEnabled) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$btiColor]
-    
-    # Retpoline (software mitigation for Spectre v2)
     if ($script:RuntimeState.RetpolineEnabled) {
         $iconRetpoline = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
-        Write-Host "    $iconRetpoline Retpoline: ACTIVE (software mitigation)" -ForegroundColor $Colors['Good']
+        Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
     }
     
-    # Enhanced IBRS
     if ($script:RuntimeState.EnhancedIBRS) {
         $iconEIBRS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
-        Write-Host "    $iconEIBRS Enhanced IBRS: ACTIVE (hardware support)" -ForegroundColor $Colors['Good']
+        Write-Host "  $iconEIBRS Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)" -ForegroundColor $Colors['Good']
     }
     
-    # Spectre v4 (SSBD)
-    $iconSSBD = if ($script:RuntimeState.SSBDSystemWide) { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    }
-    else { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
-    }
-    $ssbdColor = if ($script:RuntimeState.SSBDSystemWide) { 'Good' } else { 'Warning' }
-    Write-Host "  $iconSSBD " -NoNewline -ForegroundColor $Colors[$ssbdColor]
-    Write-Host "Spectre v4 (SSBD): " -NoNewline
-    Write-Host "$(if ($script:RuntimeState.SSBDSystemWide) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$ssbdColor]
-    
-    # MDS
-    $iconMDS = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    }
-    else { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
-    }
-    $mdsColor = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 'Good' } else { 'Warning' }
-    Write-Host "  $iconMDS " -NoNewline -ForegroundColor $Colors[$mdsColor]
-    Write-Host "MDS (Microarchitectural Data Sampling): " -NoNewline
-    if ($script:RuntimeState.MDSHardwareProtected) {
-        Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
-    }
-    elseif ($script:RuntimeState.MBClearEnabled) {
-        Write-Host "MITIGATED (MBClear active)" -ForegroundColor $Colors['Good']
-    }
-    else {
-        Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
+    if ($script:RuntimeState.IBRSPreferred) {
+        $iconIBRS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "  $iconIBRS IBRS Preferred: CPU recommends IBRS over retpoline" -ForegroundColor $Colors['Good']
     }
     
-    # TAA
-    $iconTAA = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-    }
-    else { 
-        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
-    }
-    $taaColor = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 'Good' } else { 'Warning' }
-    Write-Host "  $iconTAA " -NoNewline -ForegroundColor $Colors[$taaColor]
-    Write-Host "TAA (TSX Async Abort): " -NoNewline
-    if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
-        Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
-    }
-    elseif ($script:RuntimeState.FBClearEnabled) {
-        Write-Host "MITIGATED (FBClear active)" -ForegroundColor $Colors['Good']
-    }
-    else {
-        Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
+    if ($script:RuntimeKVAState.APIAvailable -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
+        $iconPCID = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "  $iconPCID PCID Optimization: ACTIVE (reduces KPTI performance impact)" -ForegroundColor $Colors['Good']
     }
     
-    # Meltdown (KVA Shadow)
-    if ($script:RuntimeKVAState.APIAvailable) {
-        $iconKVA = if ($script:RuntimeKVAState.KVAShadowEnabled) { 
-            [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
-        }
-        else { 
-            [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
-        }
-        $kvaColor = if ($script:RuntimeKVAState.KVAShadowEnabled) { 'Good' } else { 'Bad' }
-        Write-Host "  $iconKVA " -NoNewline -ForegroundColor $Colors[$kvaColor]
-        Write-Host "Meltdown (KVA Shadow): " -NoNewline
-        Write-Host "$(if ($script:RuntimeKVAState.KVAShadowEnabled) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$kvaColor]
-        
-        if ($script:RuntimeKVAState.KVAShadowEnabled -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
-            $iconPCID = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
-            Write-Host "    $iconPCID PCID optimization: ACTIVE (reduced performance impact)" -ForegroundColor $Colors['Good']
-        }
-        
-        if ($script:RuntimeKVAState.L1TFFlushSupported) {
-            $iconL1TF = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
-            Write-Host "    $iconL1TF L1D Flush: SUPPORTED (L1TF mitigation)" -ForegroundColor $Colors['Good']
-        }
+    if ($script:RuntimeKVAState.L1TFFlushSupported) {
+        $iconL1TF = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "  $iconL1TF L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)" -ForegroundColor $Colors['Good']
     }
     
     # CPU Vendor-specific immunities
+    Write-ColorOutput "`nHardware Immunity Status:" -Color Header
     if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
-        Write-ColorOutput "`n  [AMD CPU: Immune to Meltdown, L1TF, MDS, TAA]" -Color Good
+        $iconAMD = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "  $iconAMD AMD CPU Detected" -ForegroundColor $Colors['Good']
+        Write-Host "    - Immune to: Meltdown, L1TF, MDS, TAA" -ForegroundColor $Colors['Good']
     }
     elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
-        # Check for newer Intel with hardware immunity
+        Write-Host "  Intel CPU Detected" -ForegroundColor $Colors['Info']
         if ($script:RuntimeState.RDCLHardwareProtected) {
-            Write-ColorOutput "`n  [Intel CPU: Hardware-protected against Meltdown (RDCL)]" -Color Good
+            $iconRDCL = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            Write-Host "    $iconRDCL RDCL Protected: Hardware immunity to Meltdown" -ForegroundColor $Colors['Good']
+        }
+        if ($script:RuntimeState.MDSHardwareProtected) {
+            $iconMDS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            Write-Host "    $iconMDS MDS Protected: Hardware immunity to MDS" -ForegroundColor $Colors['Good']
+        }
+        if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
+            $iconTAA = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
         }
     }
-    
-    # Warning about discrepancies
-    $btiRegistry = ($Results | Where-Object { $_.Name -eq "Branch Target Injection Mitigation" }).Status -eq "Enabled"
-    $ssbdRegistry = ($Results | Where-Object { $_.Name -eq "Speculative Store Bypass Disable" }).Status -eq "Enabled"
-    
-    $discrepancies = @()
-    if ($btiRegistry -ne $script:RuntimeState.BTIEnabled) {
-        $discrepancies += "BTI"
-    }
-    if ($ssbdRegistry -ne $script:RuntimeState.SSBDSystemWide) {
-        $discrepancies += "SSBD"
-    }
-    
-    if ($discrepancies.Count -gt 0) {
-        $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
-        Write-ColorOutput "`n$iconWarning WARNING: Registry configuration differs from runtime state for: $($discrepancies -join ', ')" -Color Warning
-        Write-ColorOutput "  This indicates a reboot may be required for changes to take effect." -Color Warning
-    }
-    
-    Write-ColorOutput "`nNote: Runtime state reflects actual kernel-level protections currently active." -Color Info
-    Write-ColorOutput "      Registry state shows configured policy (may require reboot to apply)." -Color Info
 }
 
 # Export results if requested
