@@ -536,7 +536,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'BTI'
             Name             = 'Branch Target Injection Mitigation'
-            CVE              = 'CVE-2017-5715'
+            CVE              = 'CVE-2017-5715 (Spectre v2)'
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'DisablePageCombining'
@@ -551,7 +551,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'KVAS'
             Name             = 'Kernel VA Shadow (Meltdown Protection)'
-            CVE              = 'CVE-2017-5754'
+            CVE              = 'CVE-2017-5754 (Meltdown)'
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
             RegistryName     = 'EnableKernelVaShadow'
@@ -566,7 +566,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'EnhancedIBRS'
             Name             = 'Enhanced IBRS'
-            CVE              = 'CVE-2017-5715'
+            CVE              = 'CVE-2017-5715 (Spectre v2)'
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'IbrsEnabled'
@@ -581,7 +581,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'TSXDisable'
             Name             = 'Intel TSX Disable'
-            CVE              = 'CVE-2019-11135'
+            CVE              = 'CVE-2019-11135 (TAA)'
             Category         = 'Recommended'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'DisableTsx'
@@ -598,7 +598,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'L1TF'
             Name             = 'L1 Terminal Fault Mitigation'
-            CVE              = 'CVE-2018-3620'
+            CVE              = 'CVE-2018-3620 (Foreshadow)'
             Category         = 'Optional'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'L1TFMitigationLevel'
@@ -613,7 +613,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'MDS'
             Name             = 'MDS Mitigation (ZombieLoad)'
-            CVE              = 'CVE-2018-12130'
+            CVE              = 'CVE-2018-12130 (ZombieLoad)'
             Category         = 'Recommended'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'MDSMitigationLevel'
@@ -628,7 +628,7 @@ function Get-MitigationDefinitions {
         @{
             Id               = 'TAA'
             Name             = 'TSX Asynchronous Abort Mitigation'
-            CVE              = 'CVE-2019-11135'
+            CVE              = 'CVE-2019-11135 (TAA)'
             Category         = 'Recommended'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'TSXAsyncAbortLevel'
@@ -747,6 +747,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable for enhanced kernel isolation (requires hardware support)'
             HardwareRequired = 'VBS'
+            PrerequisiteFor  = 'HVCI, Credential Guard'
             URL              = 'https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs'
         },
         @{
@@ -812,6 +813,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'UEFI mode required for Secure Boot, VBS, and HVCI'
             IsPrerequisite   = $true
+            PrerequisiteFor  = 'Secure Boot, VBS, HVCI, Credential Guard'
             URL              = 'https://uefi.org/specifications'
         },
         @{
@@ -828,6 +830,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable in UEFI firmware settings for boot security'
             IsPrerequisite   = $true
+            PrerequisiteFor  = 'VBS, HVCI, Credential Guard'
             URL              = 'https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-secure-boot'
         },
         @{
@@ -844,6 +847,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'TPM 2.0 required for BitLocker, Credential Guard, and VBS'
             IsPrerequisite   = $true
+            PrerequisiteFor  = 'BitLocker, VBS, Credential Guard, Windows Hello'
             URL              = 'https://trustedcomputinggroup.org/resource/tpm-library-specification/'
         },
         @{
@@ -860,6 +864,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Enable in BIOS/UEFI for Hyper-V and VBS support'
             IsPrerequisite   = $true
+            PrerequisiteFor  = 'Hyper-V, VBS, HVCI, Credential Guard'
             URL              = 'https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html'
         },
         @{
@@ -876,6 +881,7 @@ function Get-MitigationDefinitions {
             RuntimeDetection = $null
             Recommendation   = 'Required for HVCI and advanced VBS features'
             IsPrerequisite   = $true
+            PrerequisiteFor  = 'HVCI, VBS (full isolation), Kernel DMA Protection'
             URL              = 'https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology-for-directed-io.html'
         }
     )
@@ -1326,135 +1332,249 @@ function Show-AssessmentSummary {
 function Show-MitigationTable {
     param(
         [array]$Results,
-        [bool]$Detailed
+        [ValidateSet('Simple','Detailed','Bullets')]
+        [string]$Format = 'Simple'
     )
     
     Write-Host "`n--- Mitigation Status ---" -ForegroundColor Yellow
     
-    if ($Detailed) {
-        # Enhanced detailed view with educational information
-        foreach ($result in $Results) {
-            $statusColor = switch ($result.OverallStatus) {
-                'Protected' { 'Green' }
-                'Vulnerable' { 'Red' }
-                'Active' { 'Cyan' }
-                default { 'Gray' }
-            }
-            
-            Write-Host "`n$(Get-StatusIcon -Name Bullet) " -NoNewline -ForegroundColor Cyan
-            Write-Host $result.Name -ForegroundColor White -NoNewline
-            Write-Host " [" -NoNewline -ForegroundColor DarkGray
-            Write-Host $result.OverallStatus -ForegroundColor $statusColor -NoNewline
-            Write-Host "]" -ForegroundColor DarkGray
-            
-            # Show CVE if available
-            if ($result.CVE -and $result.CVE -ne 'N/A') {
-                Write-Host "  CVE:          " -NoNewline -ForegroundColor Gray
-                Write-Host $result.CVE -ForegroundColor Yellow
-            }
-            
-            # Show URL if available
-            if ($result.PSObject.Properties.Name -contains 'URL' -and $result.URL) {
-                Write-Host "  Reference:    " -NoNewline -ForegroundColor Gray
-                Write-Host $result.URL -ForegroundColor Blue
-            }
-            
-            # Show Description if available
-            if ($result.Description) {
-                Write-Host "  Description:  " -NoNewline -ForegroundColor Gray
-                Write-Host $result.Description -ForegroundColor Cyan
-            }
-            
-            # Show Runtime vs Registry Status
-            if ($result.RuntimeStatus -and $result.RuntimeStatus -ne 'N/A') {
-                Write-Host "  Runtime:      " -NoNewline -ForegroundColor Gray
-                Write-Host $result.RuntimeStatus -ForegroundColor Cyan
-            }
-            
-            if ($result.RegistryStatus -and $result.RegistryStatus -ne 'N/A') {
-                Write-Host "  Registry:     " -NoNewline -ForegroundColor Gray
-                Write-Host $result.RegistryStatus -ForegroundColor Gray
-            }
-            
-            # Show Performance Impact
-            Write-Host "  Impact:       " -NoNewline -ForegroundColor Gray
-            $impactColor = switch ($result.Impact) {
-                'High' { 'Red' }
-                'Medium' { 'Yellow' }
-                'Low' { 'Green' }
-                default { 'Gray' }
-            }
-            Write-Host $result.Impact -ForegroundColor $impactColor
-            
-            # Show Recommendation if action needed
-            if ($result.ActionNeeded -match 'Yes|Consider' -and $result.Recommendation) {
-                Write-Host "  Action:       " -NoNewline -ForegroundColor Gray
-                Write-Host $result.Recommendation -ForegroundColor Yellow
-            }
-        }
-        
-        # Add educational note about runtime vs registry
-        if ($script:RuntimeState.APIAvailable) {
-            Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
-            Write-Host "Runtime Status Guide:" -ForegroundColor White
-            Write-Host "  $(Get-StatusIcon -Name Success) Active" -ForegroundColor Green -NoNewline
-            Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
-            Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
-            Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
-            Write-Host "  $(Get-StatusIcon -Name Info) Not Needed" -ForegroundColor Cyan -NoNewline
-            Write-Host " - Hardware protection supersedes software mitigation" -ForegroundColor Gray
-            Write-Host "  $(Get-StatusIcon -Name Info) HW Immune" -ForegroundColor Cyan -NoNewline
-            Write-Host " - CPU has hardware immunity (no mitigation needed)" -ForegroundColor Gray
-        }
-    }
-    else {
-        # Simplified table view with colors
-        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
-        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
-        
-        # Check PowerShell version for ANSI support
-        $useAnsi = $PSVersionTable.PSVersion.Major -ge 6
-        
-        if ($useAnsi) {
-            # PowerShell 7+ with ANSI color codes for entire line
-            $ansiReset = "`e[0m"
-            $ansiGreen = "`e[32m"
-            $ansiRed = "`e[31m"
-            $ansiCyan = "`e[36m"
-            $ansiYellow = "`e[33m"
-            $ansiGray = "`e[90m"
-            
+    # Check PowerShell version for ANSI support
+    $useAnsi = $PSVersionTable.PSVersion.Major -ge 6
+    
+    switch ($Format) {
+        'Bullets' {
+            # Enhanced detailed view with educational information (bullet-point format)
             foreach ($result in $Results) {
-                # Determine ANSI color for entire line based on status
-                $lineAnsi = switch ($result.OverallStatus) {
-                    'Protected' { $ansiGreen }
-                    'Vulnerable' { $ansiRed }
-                    'Active' { $ansiCyan }
-                    default { $ansiGray }
-                }
-                
-                # Format the entire line
-                $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
-                
-                # Output with color for entire line
-                Write-Host "$lineAnsi$line$ansiReset"
-            }
-        }
-        else {
-            # PowerShell 5.1 fallback - use VT100 if available or plain text
-            foreach ($result in $Results) {
-                # Format the entire line as a single string
-                $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
-                
-                # Determine color for the line based on status
-                $lineColor = switch ($result.OverallStatus) {
+                $statusColor = switch ($result.OverallStatus) {
                     'Protected' { 'Green' }
                     'Vulnerable' { 'Red' }
                     'Active' { 'Cyan' }
                     default { 'Gray' }
                 }
                 
-                Write-Host $line -ForegroundColor $lineColor
+                Write-Host "`n$(Get-StatusIcon -Name Bullet) " -NoNewline -ForegroundColor Cyan
+                Write-Host $result.Name -ForegroundColor White -NoNewline
+                Write-Host " [" -NoNewline -ForegroundColor DarkGray
+                Write-Host $result.OverallStatus -ForegroundColor $statusColor -NoNewline
+                Write-Host "]" -ForegroundColor DarkGray
+                
+                # Show CVE if available
+                if ($result.CVE -and $result.CVE -ne 'N/A') {
+                    Write-Host "  CVE:          " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.CVE -ForegroundColor Yellow
+                }
+                
+                # Show URL if available
+                if ($result.PSObject.Properties.Name -contains 'URL' -and $result.URL) {
+                    Write-Host "  Reference:    " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.URL -ForegroundColor Blue
+                }
+                
+                # Show PrerequisiteFor if available (for prerequisites)
+                if ($result.Category -eq 'Prerequisite') {
+                    $mitigationDef = (Get-MitigationDefinitions) | Where-Object { $_.Id -eq $result.Id }
+                    if ($mitigationDef -and $mitigationDef.PrerequisiteFor) {
+                        Write-Host "  Required For: " -NoNewline -ForegroundColor Gray
+                        Write-Host $mitigationDef.PrerequisiteFor -ForegroundColor Magenta
+                    }
+                }
+                
+                # Show Description if available
+                if ($result.Description) {
+                    Write-Host "  Description:  " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.Description -ForegroundColor Cyan
+                }
+                
+                # Show Runtime vs Registry Status
+                if ($result.RuntimeStatus -and $result.RuntimeStatus -ne 'N/A') {
+                    Write-Host "  Runtime:      " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.RuntimeStatus -ForegroundColor Cyan
+                }
+                
+                if ($result.RegistryStatus -and $result.RegistryStatus -ne 'N/A') {
+                    Write-Host "  Registry:     " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.RegistryStatus -ForegroundColor Gray
+                }
+                
+                # Show Performance Impact
+                Write-Host "  Impact:       " -NoNewline -ForegroundColor Gray
+                $impactColor = switch ($result.Impact) {
+                    'High' { 'Red' }
+                    'Medium' { 'Yellow' }
+                    'Low' { 'Green' }
+                    default { 'Gray' }
+                }
+                Write-Host $result.Impact -ForegroundColor $impactColor
+                
+                # Show Recommendation if action needed
+                if ($result.ActionNeeded -match 'Yes|Consider' -and $result.Recommendation) {
+                    Write-Host "  Action:       " -NoNewline -ForegroundColor Gray
+                    Write-Host $result.Recommendation -ForegroundColor Yellow
+                }
+            }
+            
+            # Add educational note about runtime vs registry
+            if ($script:RuntimeState.APIAvailable) {
+                Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
+                Write-Host "Runtime Status Guide:" -ForegroundColor White
+                Write-Host "  $(Get-StatusIcon -Name Success) Active" -ForegroundColor Green -NoNewline
+                Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
+                Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) Not Needed" -ForegroundColor Cyan -NoNewline
+                Write-Host " - Hardware protection supersedes software mitigation" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) HW Immune" -ForegroundColor Cyan -NoNewline
+                Write-Host " - CPU has hardware immunity (no mitigation needed)" -ForegroundColor Gray
+            }
+        }
+        
+        'Detailed' {
+            # Detailed table with more columns (Category, Status, CVE, Platform, Impact, PrerequisiteFor)
+            Write-Host ("{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f "Mitigation", "Category", "Status", "CVE", "Platform", "Impact", "Required For") -ForegroundColor Gray
+            Write-Host ("{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}" -f ("-" * 29), ("-" * 11), ("-" * 11), ("-" * 24), ("-" * 11), ("-" * 7), ("-" * 20)) -ForegroundColor DarkGray
+            
+            if ($useAnsi) {
+                # PowerShell 7+ with ANSI color codes
+                $ansiReset = "`e[0m"
+                $ansiGreen = "`e[32m"
+                $ansiRed = "`e[31m"
+                $ansiCyan = "`e[36m"
+                $ansiYellow = "`e[33m"
+                $ansiGray = "`e[90m"
+                
+                foreach ($result in $Results) {
+                    $lineAnsi = switch ($result.OverallStatus) {
+                        'Protected' { $ansiGreen }
+                        'Vulnerable' { $ansiRed }
+                        'Active' { $ansiCyan }
+                        default { $ansiGray }
+                    }
+                    
+                    # Truncate mitigation name if too long
+                    $nameDisplay = if ($result.Name.Length -gt 30) { 
+                        $result.Name.Substring(0, 27) + "..." 
+                    } else { 
+                        $result.Name 
+                    }
+                    
+                    # Truncate CVE if too long
+                    $cveDisplay = if ($result.CVE -and $result.CVE.Length -gt 25) { 
+                        $result.CVE.Substring(0, 22) + "..." 
+                    } else { 
+                        $result.CVE 
+                    }
+                    
+                    # Get platform and prerequisiteFor from mitigation definition
+                    $mitigationDef = (Get-MitigationDefinitions) | Where-Object { $_.Id -eq $result.Id }
+                    $platformDisplay = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
+                    $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
+                        if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
+                            $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
+                        } else {
+                            $mitigationDef.PrerequisiteFor
+                        }
+                    } else { '-' }
+                    
+                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6}\" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay
+                    Write-Host "$lineAnsi$line$ansiReset"
+                }
+            }
+            else {
+                # PowerShell 5.1 fallback
+                foreach ($result in $Results) {
+                    $lineColor = switch ($result.OverallStatus) {
+                        'Protected' { 'Green' }
+                        'Vulnerable' { 'Red' }
+                        'Active' { 'Cyan' }
+                        default { 'Gray' }
+                    }
+                    
+                    # Truncate mitigation name if too long
+                    $nameDisplay = if ($result.Name.Length -gt 30) { 
+                        $result.Name.Substring(0, 27) + "..." 
+                    } else { 
+                        $result.Name 
+                    }
+                    
+                    # Truncate CVE if too long
+                    $cveDisplay = if ($result.CVE -and $result.CVE.Length -gt 25) { 
+                        $result.CVE.Substring(0, 22) + "..." 
+                    } else { 
+                        $result.CVE 
+                    }
+                    
+                    # Get platform and prerequisiteFor from mitigation definition
+                    $mitigationDef = (Get-MitigationDefinitions) | Where-Object { $_.Id -eq $result.Id }
+                    $platformDisplay = if ($mitigationDef -and $mitigationDef.Platform) { $mitigationDef.Platform } else { 'All' }
+                    $prereqForDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('PrerequisiteFor') -and $mitigationDef.PrerequisiteFor) { 
+                        if ($mitigationDef.PrerequisiteFor.Length -gt 20) {
+                            $mitigationDef.PrerequisiteFor.Substring(0, 17) + "..."
+                        } else {
+                            $mitigationDef.PrerequisiteFor
+                        }
+                    } else { '-' }
+                    
+                    # Get HardwareRequired with safe access
+                    $hwRequiredDisplay = if ($mitigationDef -and $mitigationDef.ContainsKey('HardwareRequired') -and $mitigationDef.HardwareRequired) {
+                        if ($mitigationDef.HardwareRequired.Length -gt 11) {
+                            $mitigationDef.HardwareRequired.Substring(0, 8) + "..."
+                        } else {
+                            $mitigationDef.HardwareRequired
+                        }
+                    } else { '-' }
+                    
+                    $line = "{0,-30} {1,-12} {2,-12} {3,-25} {4,-12} {5,-8} {6,-20} {7}" -f $nameDisplay, $result.Category, $result.OverallStatus, $cveDisplay, $platformDisplay, $result.Impact, $prereqForDisplay, $hwRequiredDisplay
+                    Write-Host $line -ForegroundColor $lineColor
+                }
+            }
+        }
+        
+        'Simple' {
+            # Simple table view (4 columns)
+            Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
+            Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
+            
+            if ($useAnsi) {
+                # PowerShell 7+ with ANSI color codes for entire line
+                $ansiReset = "`e[0m"
+                $ansiGreen = "`e[32m"
+                $ansiRed = "`e[31m"
+                $ansiCyan = "`e[36m"
+                $ansiYellow = "`e[33m"
+                $ansiGray = "`e[90m"
+                
+                foreach ($result in $Results) {
+                    # Determine ANSI color for entire line based on status
+                    $lineAnsi = switch ($result.OverallStatus) {
+                        'Protected' { $ansiGreen }
+                        'Vulnerable' { $ansiRed }
+                        'Active' { $ansiCyan }
+                        default { $ansiGray }
+                    }
+                    
+                    # Format the entire line
+                    $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
+                    
+                    # Output with color for entire line
+                    Write-Host "$lineAnsi$line$ansiReset"
+                }
+            }
+            else {
+                # PowerShell 5.1 fallback - use VT100 if available or plain text
+                foreach ($result in $Results) {
+                    # Format the entire line as a single string
+                    $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
+                    
+                    # Determine color for the line based on status
+                    $lineColor = switch ($result.OverallStatus) {
+                        'Protected' { 'Green' }
+                        'Vulnerable' { 'Red' }
+                        'Active' { 'Cyan' }
+                        default { 'Gray' }
+                    }
+                    
+                    Write-Host $line -ForegroundColor $lineColor
+                }
             }
         }
     }
@@ -2051,12 +2171,16 @@ function Start-SideChannelCheck {
                 $results = Invoke-MitigationAssessment
                 Show-AssessmentSummary -Results $results
                 
-                # Show table summary first (always)
-                Show-MitigationTable -Results $results -Detailed $false
-                
-                # If ShowDetails is enabled, also show detailed view
+                # Show appropriate table format
                 if ($ShowDetails) {
-                    Show-MitigationTable -Results $results -Detailed $true
+                    # Show detailed table with Category, CVE, Registry/Runtime columns
+                    Show-MitigationTable -Results $results -Format 'Detailed'
+                    # Then show bullet-point detailed view with URLs
+                    Show-MitigationTable -Results $results -Format 'Bullets'
+                }
+                else {
+                    # Show simple table only
+                    Show-MitigationTable -Results $results -Format 'Simple'
                 }
                 
                 Show-Recommendations -Results $results

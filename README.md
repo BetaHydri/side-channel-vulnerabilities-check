@@ -132,10 +132,19 @@ Example detailed output:
 ```
 • Speculative Store Bypass Disable [Protected]
   CVE:          CVE-2018-3639
+  URL:          https://nvd.nist.gov/vuln/detail/CVE-2018-3639
   Description:  Prevents Speculative Store Bypass (Variant 4) attacks
   Runtime:      Active
   Registry:     Enabled
   Impact:       Low
+
+• UEFI Firmware [Active]
+  CVE:          Boot Security Prerequisite
+  URL:          https://uefi.org/specifications
+  Required For: Secure Boot, VBS, HVCI, Credential Guard
+  Description:  UEFI firmware mode (required for Secure Boot and modern security)
+  Runtime:      Active
+  Impact:       None
 ```
 
 ### 2. **ApplyInteractive**
@@ -311,6 +320,10 @@ Security Level: Excellent
 Prerequisites Enabled: 5 / 5
 
 --- Mitigation Status ---
+
+Note: Use -ShowDetails flag to see the enhanced 7-column detailed table with CVE, Platform, Impact, and Required For columns.
+
+Simple Table (default view):
 Mitigation                                    Status               Action Needed             Impact
 --------------------------------------------  -------------------  ------------------------  ---------
 Speculative Store Bypass Disable             Protected           No                       Low
@@ -337,6 +350,20 @@ Secure Boot                                  Protected           No             
 TPM 2.0                                      Protected           No                       None
 CPU Virtualization (VT-x/AMD-V)              Protected           No                       None
 IOMMU/VT-d Support                           Protected           No                       None
+
+Detailed Table (with -ShowDetails flag):
+Mitigation                     Category     Status       CVE                       Platform     Impact   Required For
+-----------------------------  -----------  -----------  ------------------------  -----------  -------  --------------------
+Speculative Store Bypass Di... Critical     Protected    CVE-2018-3639             All          Low      -
+SSBD Feature Mask              Critical     Protected    CVE-2018-3639             All          Low      -
+Branch Target Injection Mit... Critical     Protected    CVE-2017-5715 (Spectre... All          Low      -
+Kernel VA Shadow (Meltdown ... Critical     Protected    CVE-2017-5754 (Meltdow... All          Medium   -
+Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential ...
+UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS,...
+Secure Boot                    Prerequisite Protected    Boot Malware Protection   All          None     VBS, HVCI, Creden...
+TPM 2.0                        Prerequisite Protected    Hardware Cryptographic... All          None     BitLocker, VBS, C...
+CPU Virtualization (VT-x/AM... Prerequisite Protected    Virtualization Prerequ... All          None     Hyper-V, VBS, HVC...
+IOMMU/VT-d Support             Prerequisite Protected    DMA Protection            All          None     HVCI, VBS (full i...
 
 ✓ All critical mitigations are properly configured!
 ```
@@ -901,6 +928,31 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
   * **ApplyInteractive**: Choice between [R]ecommended (actionable only) or [A]ll mitigations view
   * **Restore**: Support for [A]ll (complete) or [S]elective (individual) restoration
   * Supports informed decision-making workflow after detailed assessment
+- 📚 **Comprehensive URL references for all mitigations**
+  * 22 authoritative URLs added (NVD, Microsoft Learn, Intel, AMD, TCG, UEFI)
+  * External documentation links in ShowDetails bullet-point view
+  * References to official CVE databases, vendor security advisories, and standards
+- 📊 **Enhanced detailed table with 7 columns**
+  * Added **CVE** column with descriptive names (e.g., "CVE-2017-5715 (Spectre v2)")
+  * Added **Platform** column showing applicability (All/Physical/HyperVHost/etc.)
+  * Added **Impact** column for performance assessment (Low/Medium/High)
+  * Added **Required For** column showing dependency relationships
+  * Smart truncation at 20 characters with "..." for long entries
+  * Both ANSI (PowerShell 7+) and fallback (PowerShell 5.1) implementations
+- 🔗 **Dependency mapping with PrerequisiteFor property**
+  * Hardware prerequisites show what they enable:
+    - UEFI → Secure Boot, VBS, HVCI, Credential Guard
+    - Secure Boot → VBS, HVCI, Credential Guard
+    - TPM 2.0 → BitLocker, VBS, Credential Guard, Windows Hello
+    - CPU Virtualization → Hyper-V, VBS, HVCI, Credential Guard
+    - IOMMU/VT-d → HVCI, VBS (full isolation), Kernel DMA Protection
+  * Security features show their dependents:
+    - VBS → HVCI, Credential Guard
+  * Displayed in both detailed table (truncated) and bullet-point view (full)
+- 🎨 **Improved CVE presentation**
+  * CVE numbers now include descriptive context in definitions
+  * Examples: "CVE-2017-5715 (Spectre v2)", "CVE-2018-12130 (ZombieLoad)"
+  * Clearer vulnerability identification in reports and exports
 - 🔧 Fixed restore mode warnings and improved reliability
   * Intelligent filtering of hardware-only items (TPM 2.0, CPU Virtualization, IOMMU/VT-d)
   * Clean restore summary: "Successfully restored: 21, Skipped (hardware-only): 3"

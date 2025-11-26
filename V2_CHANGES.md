@@ -220,6 +220,89 @@ Config/                                      # Reserved for future use
 5. **Flexibility**: Multiple modes, detailed/simplified views
 6. **Maintainability**: Clear structure, comprehensive documentation
 
+## v2.1.0 Enhancements (2025-11-26)
+
+### Documentation & References
+- **22 Authoritative URL References**
+  - Added URL property to all 22 mitigation definitions (11 CVEs, 6 security features, 5 prerequisites)
+  - Sources: NVD (NIST), Microsoft Learn, Intel, AMD, TCG, UEFI Forum
+  - Displayed in ShowDetails bullet-point view for educational purposes
+  - Examples:
+    * CVE-2017-5715: https://nvd.nist.gov/vuln/detail/CVE-2017-5715
+    * VBS: https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs
+    * TPM 2.0: https://trustedcomputinggroup.org/resource/tpm-library-specification/
+
+### Enhanced Detailed Table (7 Columns)
+- **New Columns Added**:
+  1. **Category** - Prerequisite/Critical/Recommended/Optional (12 chars)
+  2. **CVE** - CVE numbers with descriptive names (25 chars, e.g., "CVE-2017-5715 (Spectre v2)")
+  3. **Platform** - All/Physical/HyperVHost/etc. (12 chars)
+  4. **Impact** - Low/Medium/High performance impact (8 chars)
+  5. **Required For** - Dependency mapping (20 chars with auto-truncation)
+
+- **Table Format**:
+  ```
+  Mitigation                     Category     Status       CVE                       Platform     Impact   Required For
+  -----------------------------  -----------  -----------  ------------------------  -----------  -------  --------------------
+  Speculative Store Bypass Di... Critical     Protected    CVE-2018-3639             All          Low      -
+  Virtualization Based Security  Optional     Protected    Kernel Isolation          All          Low      HVCI, Credential ...
+  UEFI Firmware                  Prerequisite Active       Boot Security Prerequi... All          None     Secure Boot, VBS,...
+  ```
+
+- **Cross-Version Compatibility**:
+  - PowerShell 7+: ANSI escape codes for whole-line coloring
+  - PowerShell 5.1: Write-Host with -ForegroundColor fallback
+  - Automatic version detection via `$PSVersionTable.PSVersion.Major`
+
+### Dependency Mapping with PrerequisiteFor
+- **Hardware Prerequisites** (firmware/BIOS settings):
+  * **UEFI** → Secure Boot, VBS, HVCI, Credential Guard
+  * **Secure Boot** → VBS, HVCI, Credential Guard
+  * **TPM 2.0** → BitLocker, VBS, Credential Guard, Windows Hello
+  * **CPU Virtualization (VT-x/AMD-V)** → Hyper-V, VBS, HVCI, Credential Guard
+  * **IOMMU/VT-d Support** → HVCI, VBS (full isolation), Kernel DMA Protection
+
+- **Security Features** (software/registry settings):
+  * **VBS (Virtualization Based Security)** → HVCI, Credential Guard
+
+- **Display Modes**:
+  - **Detailed Table**: Truncated at 20 chars with "..." suffix (compact view)
+  - **Bullet-Point View**: Full untruncated list in magenta color (detailed view)
+  - **Example**:
+    ```
+    • UEFI Firmware [Active]
+      Required For: Secure Boot, VBS, HVCI, Credential Guard  (magenta color)
+    ```
+
+### Improved CVE Presentation
+- **CVE Field Enhancements**:
+  - Added descriptive context to CVE numbers in `Get-MitigationDefinitions`
+  - Examples:
+    * "CVE-2017-5715 (Spectre v2)" - Branch Target Injection
+    * "CVE-2017-5754 (Meltdown)" - Kernel VA Shadow
+    * "CVE-2018-3639" - Speculative Store Bypass Disable
+    * "CVE-2018-3620 (Foreshadow)" - L1 Terminal Fault
+    * "CVE-2018-12130 (ZombieLoad)" - MDS Mitigation
+    * "CVE-2019-11135 (TAA)" - TSX Asynchronous Abort
+  - Clearer vulnerability identification for users unfamiliar with CVE numbers
+
+### Implementation Details
+- **Safe Property Access**: All URL and PrerequisiteFor access uses `ContainsKey()` checks
+- **Show-MitigationTable Refactoring**: Switch-based architecture with three formats:
+  * `'Simple'` - 4-column basic table (default mode)
+  * `'Detailed'` - 7-column enhanced table (ShowDetails mode)
+  * `'Bullets'` - Educational bullet-point view with URLs and full dependencies (ShowDetails mode)
+- **Column Width Optimization**: 30, 12, 12, 25, 12, 8, 20 characters for detailed table
+- **Color Scheme**: Green (Protected), Red (Vulnerable), Cyan (Active), Gray (Other), Magenta (PrerequisiteFor)
+
+### Testing & Validation
+- Tested on PowerShell 7.4.6 and PowerShell 5.1
+- Verified ANSI color codes work correctly in PS 7+
+- Confirmed fallback coloring works in PS 5.1
+- Validated table alignment across both versions
+- All 24 mitigations + 5 prerequisites display correctly
+- Safe property access prevents errors for items without PrerequisiteFor
+
 ## Future Enhancements (Potential)
 - [ ] GUI interface option
 - [ ] Remote system assessment
@@ -229,6 +312,9 @@ Config/                                      # Reserved for future use
 - [ ] Automated update checking
 - [ ] Custom mitigation profiles
 - [ ] Performance impact measurement
+- [ ] Export PrerequisiteFor to CSV for documentation
+- [ ] Reverse dependency lookup (what depends on a given feature)
+- [ ] Dependency graph visualization
 
 ## Recommendations
 
@@ -251,7 +337,7 @@ Version 2.0 represents a significant evolution in functionality, usability, and 
 The modular architecture, simplified interface, and enhanced safety features (backup/revert) make v2.0 the recommended version for production use, especially in environments where configuration changes need to be applied safely and tracked comprehensively.
 
 ---
-**Version**: 2.0.0  
+**Version**: 2.1.0  
 **Date**: November 26, 2025  
 **Author**: Jan Tiede  
-**Branch**: feature/v2-redesign
+**Branch**: main (merged from feature/v2-redesign)
