@@ -3064,6 +3064,9 @@ $mitigationFlags = @(
     @{ Flag = 0x2000000000000000; Name = "Core Hardware Security Features"; Description = "Essential CPU security mitigations (RECOMMENDED)" }
 )
 
+# Define Unicode arrow for table annotation (PS 5.1 compatible)
+$IconArrowTable = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2514", 16))  # └
+
 Write-ColorOutput "`nFlag Value          Status      Mitigation Name" -Color Header
 Write-ColorOutput "----------          ------      ---------------" -Color Header
 
@@ -3084,7 +3087,7 @@ foreach ($flag in $mitigationFlags | Sort-Object Flag) {
     Write-Host "$($flag.Name)" -ForegroundColor White
     
     if ($flag.Flag -eq 0x2000000000000000) {
-        Write-ColorOutput "                               --> This is the primary flag for side-channel mitigations!" -Color Info
+        Write-ColorOutput "                               $IconArrowTable This is the primary flag for side-channel mitigations!" -Color Info
     }
 }
 
