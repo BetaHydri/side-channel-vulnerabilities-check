@@ -1409,13 +1409,11 @@ function Show-MitigationTable {
     }
     else {
         # Simplified table view
-        $header = "{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact"
-        $separator = "{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)
-        
-        Write-Host $header -ForegroundColor Gray
-        Write-Host $separator -ForegroundColor DarkGray
+        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
+        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
         
         foreach ($result in $Results) {
+            # Determine colors
             $statusColor = switch ($result.OverallStatus) {
                 'Protected' { 'Green' }
                 'Vulnerable' { 'Red' }
@@ -1423,23 +1421,11 @@ function Show-MitigationTable {
                 default { 'Gray' }
             }
             
-            $actionColor = switch -Wildcard ($result.ActionNeeded) {
-                '*Critical*' { 'Red' }
-                '*Recommended*' { 'Yellow' }
-                'Consider' { 'Cyan' }
-                default { 'Green' }
-            }
+            # Format the entire line as a single string
+            $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
             
-            # Build the row with proper spacing
-            $name = "{0,-45}" -f $result.Name
-            $status = "{0,-20}" -f $result.OverallStatus
-            $action = "{0,-26}" -f $result.ActionNeeded
-            $impact = $result.Impact
-            
-            Write-Host $name -NoNewline
-            Write-Host $status -NoNewline -ForegroundColor $statusColor
-            Write-Host $action -NoNewline -ForegroundColor $actionColor
-            Write-Host $impact -ForegroundColor Gray
+            # Write the entire line at once (colorization won't work but alignment will)
+            Write-Host $line
         }
     }
 }
