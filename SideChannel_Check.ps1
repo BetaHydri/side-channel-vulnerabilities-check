@@ -460,7 +460,8 @@ function Show-ResultsTable {
         [array]$Results
     )
     
-    Write-ColorOutput "`n=== Side-Channel Vulnerability Mitigation Status ===" -Color Header
+    Write-ColorOutput "`nSide-Channel Vulnerability Mitigation Status:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     
     # Define categories for mitigation grouping
     $softwareMitigations = @(
@@ -1882,7 +1883,8 @@ function Show-VMwareHostSecurity {
     VMware virtual machines against side-channel attacks like Spectre, Meltdown, L1TF, and MDS.
     #>
     
-    Write-ColorOutput "`n=== VMware Host Security Configuration Guide ===" -Color Header
+    Write-ColorOutput "`nVMware Host Security Configuration Guide:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     Write-ColorOutput "ESXi/vSphere Security Hardening for Side-Channel Vulnerability Protection`n" -Color Warning
     
     Write-ColorOutput "[*] CRITICAL ESXi HOST SETTINGS:" -Color Header
@@ -2545,7 +2547,8 @@ function Invoke-MitigationRevert {
     $beforeResults = Get-CurrentSecurityResults
     $beforeScore = Calculate-SecurityScore -Results $beforeResults
     
-    Write-ColorOutput "`n=== Mitigation Revert Operation ===" -Color Header
+    Write-ColorOutput "`nMitigation Revert Operation:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     
     if ($WhatIf) {
         Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied`n" -Color Warning
@@ -2754,7 +2757,8 @@ function Invoke-MitigationRevert {
 }
 
 # Main execution
-Write-ColorOutput "`n=== Side-Channel Vulnerability Configuration Check ===" -Color Header
+Write-ColorOutput "`nSide-Channel Vulnerability Configuration Check:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
 Write-ColorOutput "Based on Microsoft KB4073119 + Extended Modern CVE Coverage`n" -Color Info
 
 # Display operation mode (PS 5.1 compatible emoji icons)
@@ -3857,7 +3861,8 @@ Write-ColorOutput "Some flags are only available on newer processors or Windows 
 Show-ResultsTable -Results $Results
 
 # Summary
-Write-ColorOutput "`n=== SECURITY CONFIGURATION SUMMARY ===" -Color Header
+Write-ColorOutput "`nSecurity Configuration Summary:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
 
 $enabledCount = ($Results | Where-Object { $_.Status -eq "Enabled" }).Count
 $notConfiguredCount = ($Results | Where-Object { $_.Status -eq "Not Configured" }).Count
@@ -4034,7 +4039,8 @@ function Select-Mitigations {
         [switch]$WhatIf
     )
     
-    Write-ColorOutput "`n=== Interactive Mitigation Selection ===" -Color Header
+    Write-ColorOutput "`nInteractive Mitigation Selection:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     
     if ($WhatIf) {
         Write-ColorOutput "WhatIf Mode: Changes will be previewed but not applied" -Color Warning
@@ -4254,7 +4260,8 @@ function Test-MitigationNeedsConfiguration {
 
 # Apply configurations if requested
 if ($Apply) {
-    Write-ColorOutput "`n=== Configuration Application ===" -Color Header
+    Write-ColorOutput "`nConfiguration Application:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     $notConfigured = $Results | Where-Object { 
         (Test-MitigationNeedsConfiguration -Mitigation $_) -and $_.CanBeEnabled
     }
@@ -4318,7 +4325,8 @@ if ($Apply) {
         }
         
         if ($WhatIf) {
-            Write-ColorOutput "`n=== WhatIf: Changes that would be made ===" -Color Header
+            Write-ColorOutput "`nWhatIf: Changes that would be made:" -Color Header
+            Write-ColorOutput ("=" * 50) -Color Header
             Write-ColorOutput "The following changes would be applied:" -Color Info
             
             foreach ($item in $mitigationsToApply) {
@@ -4453,7 +4461,8 @@ if ($Apply) {
 }
 else {
     # Recommendations when not applying
-    Write-ColorOutput "`n=== Recommendations ===" -Color Header
+    Write-ColorOutput "`nRecommendations:" -Color Header
+    Write-ColorOutput ("=" * 25) -Color Header
     
     # Filter out items that are already properly configured using centralized logic
     $notConfigured = $Results | Where-Object { 
@@ -4466,7 +4475,6 @@ else {
     }
     
     if ($notConfigured.Count -gt 0) {
-        Write-ColorOutput "`n=== Recommendations ===" -Color Header
         Write-ColorOutput "The following mitigations should be configured:" -Color Warning
         Write-ColorOutput "" -Color Info
         
@@ -4561,16 +4569,15 @@ else {
         $IconCheck = Get-Icon -Name Check
         $IconWarning = Get-Icon -Name Warning
         $IconError = Get-Icon -Name Cross
-        $IconBullet = Get-Icon -Name Bullet
         $IconArrow = Get-Icon -Name Arrow
         $IconInfo = Get-Icon -Name Info
-        $IconLightBulb = Get-Icon -Name Lightbulb
+        $IconStar = Get-Icon -Name Star
         
         if ($highPriorityLowImpact.Count -gt 0) {
             Write-ColorOutput "$IconCheck RECOMMENDED - High Security Benefit, Low Performance Impact:" -Color Good
             Write-ColorOutput "   (Enable these first - minimal performance cost, good protection)" -Color Gray
             foreach ($item in $highPriorityLowImpact) {
-                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
                 Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
             }
             Write-ColorOutput "" -Color Info
@@ -4580,7 +4587,7 @@ else {
             Write-ColorOutput "$IconWarning CONSIDER - Moderate Security Benefit, Moderate Performance Impact:" -Color Warning
             Write-ColorOutput "   (Evaluate based on your threat model and performance requirements)" -Color Gray
             foreach ($item in $mediumPriorityMediumImpact) {
-                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
                 Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
                 
                 # Add specific guidance
@@ -4598,7 +4605,7 @@ else {
             Write-ColorOutput "$IconError EVALUATE CAREFULLY - Variable Benefit, High Performance Impact:" -Color Bad
             Write-ColorOutput "   (Only enable if required by compliance or high-security environments)" -Color Gray
             foreach ($item in $lowPriorityHighImpact) {
-                Write-ColorOutput "   $IconBullet $($item.Name)" -Color Warning
+                Write-ColorOutput "   $IconArrow $($item.Name)" -Color Warning
                 Write-ColorOutput "     $IconArrow $($item.Recommendation)" -Color Gray
                 
                 # Add specific warnings and context
@@ -4622,11 +4629,11 @@ else {
         }
         
         # Add decision guidance
-        Write-ColorOutput "$IconLightBulb DECISION GUIDANCE:" -Color Header
-        Write-ColorOutput "   $IconBullet Desktop/Workstation: Enable $IconCheck recommended items" -Color Info
-        Write-ColorOutput "   $IconBullet Server (non-virtualized): Enable $IconCheck + consider $IconWarning items" -Color Info
-        Write-ColorOutput "   $IconBullet Hyper-V/VMware Host: Enable $IconCheck + $IconWarning, evaluate $IconError based on tenant trust" -Color Info
-        Write-ColorOutput "   $IconBullet High-Security/Compliance: Enable all items, test performance impact" -Color Info
+        Write-ColorOutput "$IconStar DECISION GUIDANCE:" -Color Header
+        Write-ColorOutput "   $IconArrow Desktop/Workstation: Enable $IconCheck recommended items" -Color Info
+        Write-ColorOutput "   $IconArrow Server (non-virtualized): Enable $IconCheck + consider $IconWarning items" -Color Info
+        Write-ColorOutput "   $IconArrow Hyper-V/VMware Host: Enable $IconCheck + $IconWarning, evaluate $IconError based on tenant trust" -Color Info
+        Write-ColorOutput "   $IconArrow High-Security/Compliance: Enable all items, test performance impact" -Color Info
         Write-ColorOutput "" -Color Info
         
         Write-ColorOutput "To apply these configurations automatically, run:" -Color Info
@@ -4688,7 +4695,8 @@ else {
 
 # Handle Revert functionality
 if ($Revert) {
-    Write-ColorOutput "`n=== Mitigation Revert Mode ===" -Color Header
+    Write-ColorOutput "`nMitigation Revert Mode:" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     Write-ColorOutput "Scanning for revertable side-channel mitigations..." -Color Info
     
     $revertableMitigations = Get-RevertableMitigations
@@ -4810,7 +4818,8 @@ if ($Revert) {
 }
 
 # Virtualization-Specific Recommendations
-Write-ColorOutput "`n=== Virtualization Security Recommendations ===" -Color Header
+Write-ColorOutput "`nVirtualization Security Recommendations:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
 Write-ColorOutput "`nStatus Symbols:" -Color Header
 Write-ColorOutput "[+] Enabled/Recommended - Feature is active or recommended configuration" -Color Good
 Write-ColorOutput "[-] Disabled/Not Recommended - Feature is disabled or not recommended" -Color Bad
@@ -4920,7 +4929,8 @@ else {
     Write-ColorOutput "- Configure proper VM resource isolation" -Color Warning
 }
 
-Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ===" -Color Header
+Write-ColorOutput "`nHardware Prerequisites for Side-Channel Protection:" -Color Header
+Write-ColorOutput ("=" * 50) -Color Header
 
 # Get current hardware status
 $hwStatus = Get-HardwareRequirements
