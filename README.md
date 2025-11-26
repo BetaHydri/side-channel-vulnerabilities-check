@@ -177,11 +177,21 @@ Interactively select and apply security mitigations with two selection modes.
 - ✅ System restart notification
 
 **Selection Syntax:**
-- `1,3,5` - Apply specific mitigations
+- `1,3,5` - Apply specific mitigations (comma-separated)
 - `1-4` - Apply range of mitigations
+- `2-4,6-8,10` - Apply multiple ranges and individual items
 - `all` - Apply all shown mitigations
 - `critical` - Apply only critical mitigations
 - `Q` - Quit without changes
+
+**Examples:**
+```
+Your selection: 1,3,5        # Selects items 1, 3, and 5
+Your selection: 2-4          # Selects items 2, 3, and 4
+Your selection: 1-3,5,7-9    # Selects items 1, 2, 3, 5, 7, 8, and 9
+Your selection: all          # Selects all items
+Your selection: critical     # Selects only critical items
+```
 
 ### 3. **RevertInteractive**
 **Quick undo:** Instantly revert to your most recent backup.
@@ -256,6 +266,21 @@ Interactively select and apply security mitigations with two selection modes.
 - **[S] Select individual** - Choose specific mitigations to restore (granular recovery)
 - **[Q] Cancel** - Exit without changes
 
+**Selection Syntax (when selecting individual mitigations):**
+- `1,3,5` - Restore specific mitigations (comma-separated)
+- `1-4` - Restore range of mitigations
+- `2-4,6-8,10` - Restore multiple ranges and individual items
+- `all` - Restore all mitigations from selected backup
+- `Q` - Cancel restore operation
+
+**Examples:**
+```
+Enter numbers: 1,3,5        # Restores items 1, 3, and 5
+Enter numbers: 2-4          # Restores items 2, 3, and 4
+Enter numbers: 1-3,5,7-9    # Restores items 1, 2, 3, 5, 7, 8, and 9
+Enter numbers: all          # Restores all items
+```
+
 **Difference from RevertInteractive:**
 - **RevertInteractive** = Quick undo to latest backup (one command, no choices)
 - **Restore** = Browse all backups, choose which one, choose what to restore (flexible)
@@ -264,7 +289,7 @@ Interactively select and apply security mitigations with two selection modes.
 - ✅ Lists all available backups with age and metadata
 - ✅ Shows backup details (computer, user, timestamp, mitigation count)
 - ✅ Interactive backup selection (choose from any backup, not just latest)
-- ✅ Selective restoration - restore only what you need
+- ✅ Selective restoration with flexible range notation
 - ✅ Full or partial restore support
 - ✅ WhatIf preview available
 - ✅ Intelligent filtering - skips hardware-only items (TPM, CPU features)

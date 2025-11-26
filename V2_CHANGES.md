@@ -37,8 +37,9 @@ Version 2.0 represents a complete architectural redesign of the Side-Channel Vul
 ### 4. **Interactive Apply Mode**
 - **v1.x**: Manual registry editing required
 - **v2.0**: 
-  - Interactive selection interface
+  - Interactive selection interface with flexible range notation
   - Quick options: 'all', 'critical', or specific numbers/ranges
+  - Selection examples: `1,3,5` (individual), `2-4` (range), `1-3,5,7-9` (combined)
   - Automatic backup before changes
   - Apply confirmation with summary
   - Restart reminder
@@ -49,6 +50,7 @@ Version 2.0 represents a complete architectural redesign of the Side-Channel Vul
   - Automatic JSON backup before applying changes
   - Timestamped backups in `Backups/` directory
   - One-command restore: `-Mode Revert`
+  - Selective restore with range notation: `1,3,5` or `2-4,6-8`
   - Backup metadata (timestamp, computer, user)
 
 ### 6. **Comprehensive Logging**
