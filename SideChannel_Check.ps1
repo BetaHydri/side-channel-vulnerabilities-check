@@ -4141,7 +4141,7 @@ function Test-MitigationNeedsConfiguration {
     Returns $true if the mitigation needs configuration, $false if already properly configured.
     #>
     param(
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [PSCustomObject]$Mitigation
     )
     

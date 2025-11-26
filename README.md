@@ -25,6 +25,8 @@ Unlike registry-only tools, this script queries the **actual Windows kernel** to
 - ✅ **"Which to Trust" Guidance** - Explicitly tells users whether to trust registry or runtime state
 - ✅ **Reboot Detection** - Warns when registry changes haven't taken effect yet (⚠ Pending status)
 - ✅ **Hardware Immunity Detection** - Detects CPUs with built-in protection (e.g., RDCL for Meltdown, MDS immunity)
+- ✅ **Smart Recommendations** - Only suggests mitigations that aren't already active in kernel runtime
+- ✅ **Enhanced IBRS Awareness** - Clearly indicates when hardware protection supersedes software mitigations
 - ✅ **PowerShell 5.1+ Compatible** - Works on Windows Server 2016+ without upgrades
 
 ### Example Runtime Detection Output
@@ -63,7 +65,8 @@ Category Score: 10/12 enabled (83.3%)
   ⚠ Pending - Registry says 'Enabled' but kernel is NOT active (check compatibility)
   ⚠ Active - Registry says 'Not Set' but kernel IS active (Windows default/policy)
   ✓ Immune - CPU has hardware immunity (no software mitigation needed)
-  ✓ Retpoline - Software mitigation is active
+  ✓ Not Needed - Hardware protection (Enhanced IBRS) supersedes software mitigation
+  ✓ Retpoline - Software mitigation active (older CPUs without Enhanced IBRS)
 ```
 
 ### Comparison with Microsoft's SpeculationControl Module
@@ -255,16 +258,33 @@ Category Score: 4/5 enabled (80%)
 🔧 HARDWARE PREREQUISITES
 ============================================================
 
-Mitigation Name Registry Status Kernel Runtime Impact
---------------- --------------- -------------- ------
-Secure Boot     ✓ Enabled       -              Essential for VBS, prevents boot malware
+Mitigation Name                         Registry Status      Kernel Runtime Impact
+---------------                         ---------------      -------------- ------
+UEFI Firmware (not Legacy BIOS)         UEFI Firmware Active -              Required for Secure Boot, VBS
+Secure Boot                             ✓ Enabled            -              Essential for VBS, prevents boot malware
+TPM 2.0 (Trusted Platform Module)       TPM 2.0 Enabled      -              Required for Credential Guard, BitLocker
+CPU Virtualization Support (VT-x/AMD-V) Enabled and Active   -              Essential for Hyper-V, VBS
+IOMU/VT-d Support                       ✓ Enabled            -              Provides DMA isolation, required for HVCI
 
-Category Score: 1/1 enabled (100%)
+Category Score: 5/5 enabled (100%)
+
+⚙ OTHER MITIGATIONS
+============================================================
+
+Mitigation Name                            Registry Status Kernel Runtime Impact
+---------------                            --------------- -------------- ------
+Retpoline Support                          Information     ✓ Not Needed   Compiler and application dependent
+Virtualization Based Security (VBS)        ✓ Enabled       -              Requires UEFI, Secure Boot
+Hypervisor-protected Code Integrity (HVCI) ✓ Enabled       -              May cause driver compatibility issues
+Hyper-V Core Scheduler                     ✓ Enabled       -              No action needed - already optimized
+Nested Virtualization Security             ✓ Enabled       -              Enables nested hypervisors in VMs
+
+Category Score: 4/5 enabled (80%)
 
 [>>] OVERALL SECURITY SUMMARY
 ============================================================
-Overall Mitigation Score: 83.3%
-Security Level: [████████░░] 15/18 enabled
+Overall Mitigation Score: 86.4%
+Security Level: [████████░░] 19/22 enabled
 
 ℹ KERNEL RUNTIME STATE - WHICH TO TRUST?
   ⭐ ALWAYS TRUST: Kernel Runtime (shows actual protection status)
@@ -277,13 +297,15 @@ Security Level: [████████░░] 15/18 enabled
   ⚠ Pending - Registry says 'Enabled' but kernel is NOT active (check compatibility)
   ⚠ Active - Registry says 'Not Set' but kernel IS active (Windows default/policy)
   ✓ Immune - CPU has hardware immunity (no software mitigation needed)
-  ✓ Retpoline - Software mitigation is active
+  ✓ Not Needed - Hardware protection (Enhanced IBRS) supersedes software mitigation
+  ✓ Retpoline - Software mitigation active (older CPUs without Enhanced IBRS)
 
 === Recommendations ===
 The following mitigations should be configured:
 - L1TF Mitigation: Enable L1TF protection. WARNING: High performance impact
-- MDS Mitigation: Enable MDS protection. WARNING: Moderate performance impact
 - Windows Defender Exploit Guard ASLR: Enable ASLR force relocate images
+
+Note: MDS Mitigation is NOT recommended because it's already active in the kernel runtime.
 
 To apply these configurations automatically, run:
 .\SideChannel_Check.ps1 -Apply
