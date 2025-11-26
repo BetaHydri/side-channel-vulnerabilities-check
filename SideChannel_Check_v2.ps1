@@ -15,10 +15,7 @@
     - Comprehensive change tracking and audit logging
 
 .PARAMETER Mode
-    Operation mode: 'Assess' (default), 'Apply', 'Revert'
-
-.PARAMETER Interactive
-    Enable interactive mode for Apply operations (recommended)
+    Operation mode: 'Assess' (default), 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore'
 
 .PARAMETER ShowDetails
     Display detailed technical information
@@ -34,12 +31,20 @@
     Run assessment and display current mitigation status
 
 .EXAMPLE
-    .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive
+    .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
     Interactively select and apply mitigations
 
 .EXAMPLE
-    .\SideChannel_Check_v2.ps1 -Mode Revert
-    Restore previously saved configuration
+    .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+    Interactively restore most recent backup
+
+.EXAMPLE
+    .\SideChannel_Check_v2.ps1 -Mode Backup
+    Create a backup of current mitigation settings
+
+.EXAMPLE
+    .\SideChannel_Check_v2.ps1 -Mode Restore
+    Interactively select and restore from available backups
 
 .EXAMPLE
     .\SideChannel_Check_v2.ps1 -ExportPath "results.csv"
@@ -52,14 +57,11 @@
     Compatible:     PowerShell 5.1, 7.x
 #>
 
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName = 'Assess')]
 param(
-    [Parameter()]
-    [ValidateSet('Assess', 'Apply', 'Revert')]
+    [Parameter(Mandatory)]
+    [ValidateSet('Assess', 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore')]
     [string]$Mode = 'Assess',
-    
-    [Parameter()]
-    [switch]$Interactive,
     
     [Parameter()]
     [switch]$ShowDetails,
@@ -1186,8 +1188,8 @@ function Show-MitigationTable {
         $Results | Format-Table -Property Name, OverallStatus, RuntimeStatus, RegistryStatus, ActionNeeded, Impact, CVE -AutoSize
     } else {
         # Simplified view
-        Write-Host ("{0,-45} {1,-15} {2,-20} {3,-10}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
-        Write-Host ("{0,-45} {1,-15} {2,-20} {3,-10}" -f ("-" * 44), ("-" * 14), ("-" * 19), ("-" * 9)) -ForegroundColor DarkGray
+        Write-Host ("{0,-45} {1,-20} {2,-25} {3,-10}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
+        Write-Host ("{0,-45} {1,-20} {2,-25} {3,-10}" -f ("-" * 44), ("-" * 19), ("-" * 24), ("-" * 9)) -ForegroundColor DarkGray
         
         foreach ($result in $Results) {
             $statusColor = switch ($result.OverallStatus) {
@@ -1204,8 +1206,8 @@ function Show-MitigationTable {
             }
             
             Write-Host ("{0,-45}" -f $result.Name) -NoNewline
-            Write-Host ("{0,-15}" -f $result.OverallStatus) -ForegroundColor $statusColor -NoNewline
-            Write-Host ("{0,-20}" -f $result.ActionNeeded) -ForegroundColor $actionColor -NoNewline
+            Write-Host ("{0,-20}" -f $result.OverallStatus) -ForegroundColor $statusColor -NoNewline
+            Write-Host ("{0,-25}" -f $result.ActionNeeded) -ForegroundColor $actionColor -NoNewline
             Write-Host ("{0,-10}" -f $result.Impact) -ForegroundColor Gray
         }
     }
@@ -1307,6 +1309,35 @@ function Get-LatestBackup {
     
     $latest = $backupFiles | Sort-Object LastWriteTime -Descending | Select-Object -First 1
     return Get-Content -Path $latest.FullName -Raw | ConvertFrom-Json
+}
+
+function Get-AllBackups {
+    $backupFiles = @(Get-ChildItem -Path $script:BackupPath -Filter "Backup_*.json" -ErrorAction SilentlyContinue)
+    
+    if ($backupFiles.Count -eq 0) {
+        return @()
+    }
+    
+    $backups = @()
+    foreach ($file in ($backupFiles | Sort-Object LastWriteTime -Descending)) {
+        try {
+            $backup = Get-Content -Path $file.FullName -Raw | ConvertFrom-Json
+            $backups += [PSCustomObject]@{
+                File = $file.FullName
+                FileName = $file.Name
+                Timestamp = $backup.Timestamp
+                Computer = $backup.Computer
+                User = $backup.User
+                MitigationCount = $backup.Mitigations.Count
+                FileSize = $file.Length
+                Data = $backup
+            }
+        } catch {
+            Write-Log "Could not parse backup file $($file.Name): $($_.Exception.Message)" -Level Warning
+        }
+    }
+    
+    return $backups
 }
 
 function Set-MitigationValue {
@@ -1539,14 +1570,9 @@ function Start-SideChannelCheck {
                 }
             }
             
-            'Apply' {
+            'ApplyInteractive' {
                 $results = Invoke-MitigationAssessment
-                if ($Interactive) {
-                    Invoke-InteractiveApply -Results $results
-                } else {
-                    Write-Host "`n⚠ Non-interactive apply mode requires -Interactive flag." -ForegroundColor Yellow
-                    Write-Host "Use: .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive" -ForegroundColor Cyan
-                }
+                Invoke-InteractiveApply -Results $results
                 
                 # Export if path provided
                 if ($ExportPath) {
@@ -1554,15 +1580,19 @@ function Start-SideChannelCheck {
                 }
             }
             
-            'Revert' {
+            'RevertInteractive' {
                 $backup = Get-LatestBackup
                 if ($null -eq $backup) {
                     Write-Host "`n✗ No backup found. Cannot revert." -ForegroundColor Red
+                    Write-Host "Tip: Use -Mode Restore to select from available backups." -ForegroundColor Gray
                     return
                 }
                 
-                Write-Host "`nFound backup from: $($backup.Timestamp)" -ForegroundColor Cyan
-                Write-Host "Computer: $($backup.Computer)" -ForegroundColor Gray
+                Write-Host "`n=== Revert to Most Recent Backup ===" -ForegroundColor Cyan
+                Write-Host "`nFound most recent backup:" -ForegroundColor Yellow
+                Write-Host "Timestamp: $($backup.Timestamp)" -ForegroundColor Gray
+                Write-Host "Computer:  $($backup.Computer)" -ForegroundColor Gray
+                Write-Host "User:      $($backup.User)" -ForegroundColor Gray
                 Write-Host "`nDo you want to restore this backup? (Y/N): " -NoNewline -ForegroundColor Yellow
                 $confirm = Read-Host
                 
@@ -1572,6 +1602,81 @@ function Start-SideChannelCheck {
                     Write-Host "⚠ A system restart is required." -ForegroundColor Yellow
                 } else {
                     Write-Host "Revert cancelled." -ForegroundColor Yellow
+                }
+            }
+            
+            'Backup' {
+                Write-Host "`n=== Create Configuration Backup ===" -ForegroundColor Cyan
+                Write-Host "`nCreating backup of current mitigation settings..." -ForegroundColor Yellow
+                
+                $mitigations = Get-MitigationDefinitions
+                $backupFile = New-ConfigurationBackup -Mitigations $mitigations
+                
+                Write-Host "`n✓ Backup created successfully!" -ForegroundColor Green
+                Write-Host "Location: $backupFile" -ForegroundColor Gray
+                
+                # Show backup details
+                $backupData = Get-Content -Path $backupFile -Raw | ConvertFrom-Json
+                Write-Host "`nBackup Details:" -ForegroundColor Cyan
+                Write-Host "Timestamp:   $($backupData.Timestamp)" -ForegroundColor White
+                Write-Host "Computer:    $($backupData.Computer)" -ForegroundColor White
+                Write-Host "User:        $($backupData.User)" -ForegroundColor White
+                Write-Host "Mitigations: $($backupData.Mitigations.Count)" -ForegroundColor White
+            }
+            
+            'Restore' {
+                $backups = Get-AllBackups
+                if ($backups.Count -eq 0) {
+                    Write-Host "`n✗ No backups found." -ForegroundColor Red
+                    Write-Host "Create a backup first using: .\SideChannel_Check_v2.ps1 -Mode Backup" -ForegroundColor Gray
+                    return
+                }
+                
+                Write-Host "`n=== Restore from Backup ===" -ForegroundColor Cyan
+                Write-Host "Found $($backups.Count) backup(s):`n" -ForegroundColor Yellow
+                
+                for ($i = 0; $i -lt $backups.Count; $i++) {
+                    $backup = $backups[$i]
+                    $timestamp = [DateTime]::Parse($backup.Timestamp)
+                    $age = (Get-Date) - $timestamp
+                    $ageStr = if ($age.Days -gt 0) { "$($age.Days)d ago" } 
+                              elseif ($age.Hours -gt 0) { "$($age.Hours)h ago" } 
+                              else { "$($age.Minutes)m ago" }
+                    
+                    Write-Host "[$($i+1)] " -NoNewline -ForegroundColor White
+                    Write-Host "$($timestamp.ToString('yyyy-MM-dd HH:mm:ss'))" -ForegroundColor Cyan -NoNewline
+                    Write-Host " ($ageStr)" -ForegroundColor DarkGray
+                    Write-Host "    Computer: $($backup.Computer) | User: $($backup.User) | Mitigations: $($backup.MitigationCount)" -ForegroundColor Gray
+                }
+                
+                Write-Host "`nSelect backup to restore (1-$($backups.Count)) or 'Q' to quit: " -NoNewline -ForegroundColor Yellow
+                $selection = Read-Host
+                
+                if ($selection -eq 'Q' -or $selection -eq 'q') {
+                    Write-Host "Restore cancelled." -ForegroundColor Yellow
+                    return
+                }
+                
+                $index = $null
+                if ([int]::TryParse($selection, [ref]$index) -and $index -ge 1 -and $index -le $backups.Count) {
+                    $selectedBackup = $backups[$index - 1]
+                    
+                    Write-Host "`nSelected backup:" -ForegroundColor Cyan
+                    Write-Host "Timestamp: $($selectedBackup.Timestamp)" -ForegroundColor Gray
+                    Write-Host "Computer:  $($selectedBackup.Computer)" -ForegroundColor Gray
+                    Write-Host "User:      $($selectedBackup.User)" -ForegroundColor Gray
+                    Write-Host "`nDo you want to restore this backup? (Y/N): " -NoNewline -ForegroundColor Yellow
+                    $confirm = Read-Host
+                    
+                    if ($confirm -eq 'Y') {
+                        Restore-Configuration -Backup $selectedBackup.Data
+                        Write-Host "`n✓ Configuration restored from backup." -ForegroundColor Green
+                        Write-Host "⚠ A system restart is required." -ForegroundColor Yellow
+                    } else {
+                        Write-Host "Restore cancelled." -ForegroundColor Yellow
+                    }
+                } else {
+                    Write-Host "Invalid selection. Restore cancelled." -ForegroundColor Red
                 }
             }
         }
