@@ -3851,8 +3851,19 @@ Write-ColorOutput "`n=== Hardware Prerequisites for Side-Channel Protection ==="
 # Get current hardware status
 $hwStatus = Get-HardwareRequirements
 
+# Define emoji symbols for status indicators (PS 5.1 compatible)
+$IconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))    # ✓ Check mark
+$IconQuestion = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2753", 16)) # ❓ Question mark
+$IconCross = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16))    # ✗ Cross mark
+
 Write-ColorOutput "Hardware Security Assessment:" -Color Info
-Write-ColorOutput "(Symbols: [+] Enabled/Good, [?] Needs Verification, [-] Disabled/Missing)" -Color Info
+Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
+Write-Host "$IconCheck" -NoNewline -ForegroundColor Green
+Write-Host " Enabled/Good, " -NoNewline -ForegroundColor Gray
+Write-Host "$IconQuestion" -NoNewline -ForegroundColor Yellow
+Write-Host " Needs Verification, " -NoNewline -ForegroundColor Gray
+Write-Host "$IconCross" -NoNewline -ForegroundColor Red
+Write-Host " Disabled/Missing)" -ForegroundColor Gray
 
 # Get updated hardware status from our Results array for consistency
 $uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
@@ -3863,31 +3874,31 @@ $iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
 
 # UEFI Status
 Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
-$uefiStatusIcon = if ($uefiResult.Status -match "Active") { "+" } else { "-" }
+$uefiStatusIcon = if ($uefiResult.Status -match "Active") { $IconCheck } else { $IconCross }
 $uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
 Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
 
 # Secure Boot Status
 Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
-$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { "+" } elseif ($secureBootResult.Status -match "Available|Unknown") { "-" } else { "-" }
+$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { $IconCheck } elseif ($secureBootResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
 $sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
 # TPM Status
 Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { "[+]" } elseif ($tpmResult.Status -match "Present|Unknown") { "[-]" } else { "[-]" }
+$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $IconCheck } elseif ($tpmResult.Status -match "Present|Unknown") { $IconQuestion } else { $IconCross }
 $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
                 
 # CPU Virtualization Status
 Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
-$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { "+" } elseif ($vtxResult.Status -match "Available|Unknown") { "-" } else { "-" }
+$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { $IconCheck } elseif ($vtxResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
 $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
 Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
 # IOMMU Status
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { "+" } else { "-" }
+$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { $IconCheck } else { $IconQuestion }
 $iommuColor = if ($iommuResult.Status -match "Enabled and Active") { $Colors['Good'] } else { $Colors['Warning'] }
 Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
 
