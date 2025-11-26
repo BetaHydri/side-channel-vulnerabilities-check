@@ -15,7 +15,7 @@
     - Comprehensive change tracking and audit logging
 
 .PARAMETER Mode
-    Operation mode: 'Assess' (default), 'Apply', 'Revert', 'Export'
+    Operation mode: 'Assess' (default), 'Apply', 'Revert'
 
 .PARAMETER Interactive
     Enable interactive mode for Apply operations (recommended)
@@ -24,7 +24,7 @@
     Display detailed technical information
 
 .PARAMETER ExportPath
-    Path to export assessment results (CSV format)
+    Path to export assessment results (CSV format). Can be used with any mode to save results.
 
 .PARAMETER LogPath
     Path to write detailed operation logs
@@ -41,6 +41,10 @@
     .\SideChannel_Check_v2.ps1 -Mode Revert
     Restore previously saved configuration
 
+.EXAMPLE
+    .\SideChannel_Check_v2.ps1 -ExportPath "results.csv"
+    Run assessment and export results to CSV
+
 .NOTES
     Version:        2.0.0
     Requires:       PowerShell 5.1 or higher, Administrator privileges
@@ -51,7 +55,7 @@
 [CmdletBinding()]
 param(
     [Parameter()]
-    [ValidateSet('Assess', 'Apply', 'Revert', 'Export')]
+    [ValidateSet('Assess', 'Apply', 'Revert')]
     [string]$Mode = 'Assess',
     
     [Parameter()]
@@ -1074,6 +1078,11 @@ function Start-SideChannelCheck {
                 Show-AssessmentSummary -Results $results
                 Show-MitigationTable -Results $results -Detailed $ShowDetails
                 Show-Recommendations -Results $results
+                
+                # Export if path provided
+                if ($ExportPath) {
+                    Export-AssessmentResults -Results $results -Path $ExportPath
+                }
             }
             
             'Apply' {
@@ -1083,6 +1092,11 @@ function Start-SideChannelCheck {
                 } else {
                     Write-Host "`n⚠ Non-interactive apply mode requires -Interactive flag." -ForegroundColor Yellow
                     Write-Host "Use: .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive" -ForegroundColor Cyan
+                }
+                
+                # Export if path provided
+                if ($ExportPath) {
+                    Export-AssessmentResults -Results $results -Path $ExportPath
                 }
             }
             
@@ -1105,15 +1119,6 @@ function Start-SideChannelCheck {
                 } else {
                     Write-Host "Revert cancelled." -ForegroundColor Yellow
                 }
-            }
-            
-            'Export' {
-                if (-not $ExportPath) {
-                    $ExportPath = Join-Path $PSScriptRoot "SideChannel_Assessment_$(Get-Date -Format 'yyyyMMdd_HHmmss').csv"
-                }
-                
-                $results = Invoke-MitigationAssessment
-                Export-AssessmentResults -Results $results -Path $ExportPath
             }
         }
         
