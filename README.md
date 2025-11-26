@@ -83,16 +83,6 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 - **Restore** → Need older backup or selective restore
 - **Backup** → Creating manual checkpoint (optional, ApplyInteractive auto-creates one)
 
-## 📦 Legacy Version
-
-The original v1.x version has been archived and is available in `archive/v1/` for reference. It is no longer actively maintained but remains available for compatibility with existing workflows.
-
-**To use v1 (archived):**
-```powershell
-cd archive\v1
-.\SideChannel_Check.ps1
-```
-
 ---
 
 ## 📋 Available Modes
@@ -926,6 +916,20 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 - Interactive modes
 - Automatic backup creation
 - JSON-based restore system
+
+---
+
+## 📦 Legacy Version (v1.x)
+
+The original v1.x version has been archived and is available in `archive/v1/` for reference. It is no longer actively maintained but remains available for compatibility with existing workflows.
+
+**To use v1 (archived):**
+```powershell
+cd archive\v1
+.\SideChannel_Check.ps1
+```
+
+**Note:** v1 is feature-complete but does not include the enhanced features of v2.1.0 (selective restore, runtime Unicode generation, intelligent scoring, etc.). New deployments should use v2.1.0.
 
 ---
 
