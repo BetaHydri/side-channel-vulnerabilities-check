@@ -3377,7 +3377,8 @@ else {
 # ============================================================================
 
 # Section break before detailed analysis
-Write-ColorOutput ("`n" + "=" * 80) -Color Header
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
 Write-ColorOutput "DETAILED SECURITY ANALYSIS" -Color Header
 Write-ColorOutput ("=" * 80) -Color Header
 
@@ -3479,7 +3480,8 @@ else {
 }
 
 # Security Feature Dependency Matrix
-Write-ColorOutput ("`n" + "=" * 80) -Color Header
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
 Write-ColorOutput "SECURITY FEATURE DEPENDENCY MATRIX" -Color Header
 Write-ColorOutput ("=" * 80) -Color Header
 
@@ -3746,7 +3748,8 @@ if ($hasSecureBoot -and $hasTPM -and $hasVirtualization -and $hasIOMMU) {
 }
 
 # Hardware Security Mitigation Value Matrix for detailed output
-Write-ColorOutput ("`n" + "=" * 80) -Color Header
+Write-ColorOutput "`n" -Color Header
+Write-ColorOutput ("=" * 80) -Color Header
 Write-ColorOutput "HARDWARE SECURITY MITIGATION VALUE MATRIX" -Color Header
 Write-ColorOutput ("=" * 80) -Color Header
 
@@ -4461,8 +4464,10 @@ if ($Apply) {
 }
 else {
     # Recommendations when not applying
-    Write-ColorOutput "`nRecommendations:" -Color Header
-    Write-ColorOutput ("=" * 25) -Color Header
+    Write-ColorOutput "`n" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
+    Write-ColorOutput "Recommendations" -Color Header
+    Write-ColorOutput ("=" * 50) -Color Header
     
     # Filter out items that are already properly configured using centralized logic
     $notConfigured = $Results | Where-Object { 
