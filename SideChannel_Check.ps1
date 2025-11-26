@@ -968,25 +968,67 @@ function Get-HardwareRequirements {
             $hwInfo.VTxDetectionMethod = "Detection Failed"
         }
         
-        # Check IOMMU/VT-d support (basic detection)
+        # Check IOMMU/VT-d support (enhanced multi-method detection)
         try {
+            $iommuDetected = $false
+            $iommuMethod = ""
+            
+            # Method 1: Check for IOMMU service/driver
             $vtdRegistry = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\iommu" -ErrorAction SilentlyContinue
             if ($vtdRegistry) {
-                $hwInfo.IOMMUSupport = "Available"
+                $iommuDetected = $true
+                $iommuMethod = "IOMMU Driver"
             }
-            else {
-                # Check for Hyper-V IOMMU indicators
+            
+            # Method 2: Check VBS AvailableSecurityProperties for DMA protection (property 7)
+            if (!$iommuDetected) {
+                try {
+                    $vbsCheck = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+                    if ($vbsCheck -and $vbsCheck.AvailableSecurityProperties -contains 7) {
+                        $iommuDetected = $true
+                        $iommuMethod = "VBS DMA Protection"
+                    }
+                }
+                catch { }
+            }
+            
+            # Method 3: Check Hyper-V IOMMU indicators
+            if (!$iommuDetected) {
                 $hvIommu = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -ErrorAction SilentlyContinue
                 if ($hvIommu) {
-                    $hwInfo.IOMMUSupport = "Available (Hyper-V)"
+                    $iommuDetected = $true
+                    $iommuMethod = "Hyper-V"
                 }
-                else {
-                    $hwInfo.IOMMUSupport = "Unknown"
+            }
+            
+            # Method 4: Check Intel/AMD specific registry keys
+            if (!$iommuDetected) {
+                $cpuManufacturer = (Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1).Manufacturer
+                if ($cpuManufacturer -match "Intel") {
+                    $vtdEnabled = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled" -ErrorAction SilentlyContinue
+                    if ($vtdEnabled.VTdEnabled -eq 1) {
+                        $iommuDetected = $true
+                        $iommuMethod = "Intel VT-d"
+                    }
                 }
+                elseif ($cpuManufacturer -match "AMD") {
+                    $amdViEnabled = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled" -ErrorAction SilentlyContinue
+                    if ($amdViEnabled.IOMMUEnabled -eq 1) {
+                        $iommuDetected = $true
+                        $iommuMethod = "AMD IOMMU"
+                    }
+                }
+            }
+            
+            if ($iommuDetected) {
+                $hwInfo.IOMMUSupport = "Enabled ($iommuMethod)"
+            }
+            else {
+                $hwInfo.IOMMUSupport = "Not Enabled or Not Available"
             }
         }
         catch {
-            $hwInfo.IOMMUSupport = "Detection Failed"
+            $hwInfo.IOMMUSupport = "Not Enabled or Not Available"
         }
     }
     catch {
@@ -2461,13 +2503,13 @@ $Results += [PSCustomObject]@{
 $Results += [PSCustomObject]@{
     Name           = "IOMMU/VT-d Support"
     Description    = "Input/Output Memory Management Unit for secure DMA isolation"
-    Status         = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "Enabled" } elseif ($hwRequirements.IOMMUSupport -match "Available") { "Not Configured" } else { "Not Configured" }
+    Status         = if ($hwRequirements.IOMMUSupport -match "Enabled") { "Enabled" } else { "Disabled" }
     CurrentValue   = $hwRequirements.IOMMUSupport
-    ExpectedValue  = "Enabled and Active"
+    ExpectedValue  = "Enabled"
     RegistryPath   = "Hardware Feature (BIOS/UEFI Setting)"
-    RegistryName   = "Intel VT-d / AMD IOMMU"
-    Recommendation = if ($hwRequirements.IOMMUSupport -match "Available.*Hyper-V") { "IOMMU/VT-d is enabled and being used by Hyper-V - optimal configuration" } else { "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI for enhanced DMA protection" }
-    Impact         = "Provides DMA isolation and enhanced security for VBS"
+    RegistryName   = "Intel VT-d / AMD IOMMU (AMD-Vi)"
+    Recommendation = if ($hwRequirements.IOMMUSupport -match "Enabled") { "IOMMU/VT-d is enabled - optimal configuration for DMA protection" } else { "Enable VT-d (Intel) or AMD-Vi (AMD) in BIOS/UEFI settings for enhanced DMA protection and HVCI support" }
+    Impact         = "Provides DMA isolation, prevents PCIe/Thunderbolt attacks, required for full HVCI protection"
     CanBeEnabled   = $false
 }
 
@@ -3910,9 +3952,12 @@ Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
 # IOMMU Status
 Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-$iommuStatusIcon = if ($iommuResult.Status -match "Enabled and Active") { $IconCheck } else { $IconQuestion }
-$iommuColor = if ($iommuResult.Status -match "Enabled and Active") { $Colors['Good'] } else { $Colors['Warning'] }
+$iommuStatusIcon = if ($iommuResult.Status -eq "Enabled") { $IconCheck } elseif ($iommuResult.Status -eq "Disabled") { $IconCross } else { $IconQuestion }
+$iommuColor = if ($iommuResult.Status -eq "Enabled") { $Colors['Good'] } else { $Colors['Bad'] }
 Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
+if ($iommuResult.CurrentValue -ne $iommuResult.Status) {
+    Write-Host "  └─ Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
+}
 
 Write-ColorOutput "`nRequired CPU Features:" -Color Info
 Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
