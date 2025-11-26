@@ -159,8 +159,13 @@ function Write-Log {
         # Silently continue if log write fails
     }
     
-    # Write to console
+    # Write to console (skip Debug messages unless $DebugPreference is set)
     if (-not $NoConsole) {
+        # Skip Debug messages unless explicitly enabled
+        if ($Level -eq 'Debug' -and $DebugPreference -eq 'SilentlyContinue') {
+            return
+        }
+        
         $color = switch ($Level) {
             'Success' { 'Green' }
             'Warning' { 'Yellow' }
