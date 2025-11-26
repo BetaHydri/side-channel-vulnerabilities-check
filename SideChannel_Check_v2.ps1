@@ -46,7 +46,7 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.0.0
+    Version:        2.1.0
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
@@ -83,7 +83,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.0.0'
+$script:Version = '2.1.0'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -96,6 +96,18 @@ $script:RuntimeState = @{
 $script:PlatformInfo = @{
     Type = 'Unknown'
     Details = @{}
+}
+
+$script:HardwareInfo = @{
+    IsUEFI = $false
+    SecureBootEnabled = $false
+    SecureBootCapable = $false
+    TPMPresent = $false
+    TPMVersion = 'Unknown'
+    VTxEnabled = $false
+    IOMMUSupport = $false
+    VBSCapable = $false
+    HVCICapable = $false
 }
 
 # Ensure required directories exist
@@ -344,6 +356,104 @@ function Test-PlatformApplicability {
     }
 }
 
+function Initialize-HardwareDetection {
+    <#
+    .SYNOPSIS
+    Detects hardware security capabilities and prerequisites
+    #>
+    
+    Write-Log "Detecting hardware security features..." -Level Debug
+    
+    # Check UEFI
+    try {
+        $firmwareType = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+        $script:HardwareInfo.IsUEFI = $null -ne $firmwareType
+    } catch {
+        $script:HardwareInfo.IsUEFI = $false
+    }
+    
+    # Check Secure Boot
+    try {
+        $secureBootState = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State" -Name "UEFISecureBootEnabled" -ErrorAction SilentlyContinue
+        if ($secureBootState) {
+            $script:HardwareInfo.SecureBootEnabled = $secureBootState.UEFISecureBootEnabled -eq 1
+            $script:HardwareInfo.SecureBootCapable = $true
+        }
+    } catch {
+        $script:HardwareInfo.SecureBootEnabled = $false
+    }
+    
+    # Check TPM
+    try {
+        $tpm = Get-CimInstance -Namespace "Root\cimv2\Security\MicrosoftTpm" -ClassName "Win32_Tpm" -ErrorAction SilentlyContinue
+        if ($tpm) {
+            $script:HardwareInfo.TPMPresent = $true
+            $script:HardwareInfo.TPMVersion = $tpm.SpecVersion
+        } else {
+            # Fallback check
+            $tpmWmi = Get-WmiObject -Namespace "Root\cimv2\Security\MicrosoftTpm" -Class "Win32_Tpm" -ErrorAction SilentlyContinue
+            if ($tpmWmi) {
+                $script:HardwareInfo.TPMPresent = $true
+                $script:HardwareInfo.TPMVersion = "Available"
+            }
+        }
+    } catch {
+        $script:HardwareInfo.TPMPresent = $false
+    }
+    
+    # Check CPU Virtualization (VT-x/AMD-V)
+    try {
+        $cpu = Get-CimInstance -ClassName Win32_Processor | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled -eq $true) {
+            $script:HardwareInfo.VTxEnabled = $true
+        } else {
+            # Check if Hyper-V is running
+            $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
+            if ($hyperv -and $hyperv.State -eq 'Enabled') {
+                $script:HardwareInfo.VTxEnabled = $true
+            }
+        }
+    } catch {
+        $script:HardwareInfo.VTxEnabled = $false
+    }
+    
+    # Check IOMMU/VT-d
+    try {
+        $iommuRegistry = Get-ItemProperty "HKLM:\SYSTEM\CurrentControlSet\Services\iommu" -ErrorAction SilentlyContinue
+        if ($iommuRegistry) {
+            $script:HardwareInfo.IOMMUSupport = $true
+        } else {
+            # Check VBS properties
+            $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+            if ($deviceGuard -and $deviceGuard.AvailableSecurityProperties -contains 7) {
+                $script:HardwareInfo.IOMMUSupport = $true
+            }
+        }
+    } catch {
+        $script:HardwareInfo.IOMMUSupport = $false
+    }
+    
+    # Check VBS capability
+    try {
+        $deviceGuard = Get-CimInstance -ClassName Win32_DeviceGuard -Namespace root\Microsoft\Windows\DeviceGuard -ErrorAction SilentlyContinue
+        if ($deviceGuard) {
+            # VBS requires: UEFI, Secure Boot, VT-x, IOMMU
+            $script:HardwareInfo.VBSCapable = $script:HardwareInfo.IsUEFI -and 
+                                               $script:HardwareInfo.SecureBootCapable -and 
+                                               $script:HardwareInfo.VTxEnabled -and 
+                                               $script:HardwareInfo.IOMMUSupport
+            
+            # HVCI additionally requires VBS
+            $script:HardwareInfo.HVCICapable = $script:HardwareInfo.VBSCapable
+        }
+    } catch {
+        $script:HardwareInfo.VBSCapable = $false
+        $script:HardwareInfo.HVCICapable = $false
+    }
+    
+    Write-Log "Hardware detection complete" -Level Success
+}
+
 # ============================================================================
 # MITIGATION REGISTRY
 # ============================================================================
@@ -497,6 +607,216 @@ function Get-MitigationDefinitions {
             Platform = 'All'
             RuntimeDetection = $null
             Recommendation = 'Enable core hardware mitigation features'
+        },
+        
+        # Additional Side-Channel Mitigations (2022+)
+        @{
+            Id = 'SBDR'
+            Name = 'SBDR/SBDS Mitigation'
+            CVE = 'CVE-2022-21123, CVE-2022-21125'
+            Category = 'Recommended'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName = 'SBDRMitigationLevel'
+            EnabledValue = 1
+            Description = 'Shared Buffer Data Read/Sampling protection'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable to protect against SBDR/SBDS attacks'
+        },
+        @{
+            Id = 'SRBDS'
+            Name = 'SRBDS Update Mitigation'
+            CVE = 'CVE-2022-21127'
+            Category = 'Recommended'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName = 'SRBDSMitigationLevel'
+            EnabledValue = 1
+            Description = 'Special Register Buffer Data Sampling protection'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable to protect against SRBDS attacks'
+        },
+        @{
+            Id = 'DRPW'
+            Name = 'DRPW Mitigation'
+            CVE = 'CVE-2022-21166'
+            Category = 'Recommended'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName = 'DRPWMitigationLevel'
+            EnabledValue = 1
+            Description = 'Device Register Partial Write protection'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable to protect against DRPW attacks'
+        },
+        
+        # Security Features
+        @{
+            Id = 'ExceptionChainValidation'
+            Name = 'Exception Chain Validation'
+            CVE = 'General SEH Protection'
+            Category = 'Recommended'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName = 'DisableExceptionChainValidation'
+            EnabledValue = 0
+            Description = 'Validates exception handler chains (SEH protection)'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable to prevent SEH exploitation'
+        },
+        @{
+            Id = 'SMAP'
+            Name = 'Supervisor Mode Access Prevention'
+            CVE = 'Privilege Escalation Protection'
+            Category = 'Recommended'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+            RegistryName = 'MoveImages'
+            EnabledValue = 1
+            Description = 'Prevents kernel access to user-mode pages'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable to prevent privilege escalation attacks'
+        },
+        @{
+            Id = 'VBS'
+            Name = 'Virtualization Based Security'
+            CVE = 'Kernel Isolation'
+            Category = 'Optional'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard'
+            RegistryName = 'EnableVirtualizationBasedSecurity'
+            EnabledValue = 1
+            Description = 'Hardware-based security isolation using virtualization'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable for enhanced kernel isolation (requires hardware support)'
+            HardwareRequired = 'VBS'
+        },
+        @{
+            Id = 'HVCI'
+            Name = 'Hypervisor-protected Code Integrity'
+            CVE = 'Code Injection Protection'
+            Category = 'Optional'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity'
+            RegistryName = 'Enabled'
+            EnabledValue = 1
+            Description = 'Hardware-enforced code integrity using hypervisor'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable for kernel code integrity enforcement (requires VBS)'
+            HardwareRequired = 'HVCI'
+        },
+        @{
+            Id = 'CredentialGuard'
+            Name = 'Credential Guard'
+            CVE = 'Credential Theft Protection'
+            Category = 'Optional'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
+            RegistryName = 'LsaCfgFlags'
+            EnabledValue = 1
+            Description = 'Protects domain credentials using VBS'
+            Impact = 'Low'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable for domain credential protection (requires VBS)'
+            HardwareRequired = 'VBS'
+        },
+        @{
+            Id = 'HyperVCoreScheduler'
+            Name = 'Hyper-V Core Scheduler'
+            CVE = 'SMT Side-Channel Protection'
+            Category = 'Optional'
+            RegistryPath = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization'
+            RegistryName = 'CoreSchedulerType'
+            EnabledValue = 1
+            Description = 'Prevents SMT-based side-channel attacks between VMs'
+            Impact = 'Medium'
+            Platform = 'HyperVHost'
+            RuntimeDetection = $null
+            Recommendation = 'Enable on Hyper-V hosts for multi-tenant environments'
+        },
+        
+        # Hardware Prerequisites (Informational)
+        @{
+            Id = 'UEFI'
+            Name = 'UEFI Firmware'
+            CVE = 'Boot Security Prerequisite'
+            Category = 'Prerequisite'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State'
+            RegistryName = 'UEFISecureBootEnabled'
+            EnabledValue = $null
+            Description = 'UEFI firmware mode (required for Secure Boot and modern security)'
+            Impact = 'None'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'UEFI mode required for Secure Boot, VBS, and HVCI'
+            IsPrerequisite = $true
+        },
+        @{
+            Id = 'SecureBoot'
+            Name = 'Secure Boot'
+            CVE = 'Boot Malware Protection'
+            Category = 'Prerequisite'
+            RegistryPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State'
+            RegistryName = 'UEFISecureBootEnabled'
+            EnabledValue = 1
+            Description = 'Prevents unauthorized bootloaders and boot-level malware'
+            Impact = 'None'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable in UEFI firmware settings for boot security'
+            IsPrerequisite = $true
+        },
+        @{
+            Id = 'TPM'
+            Name = 'TPM 2.0'
+            CVE = 'Hardware Cryptographic Security'
+            Category = 'Prerequisite'
+            RegistryPath = $null
+            RegistryName = $null
+            EnabledValue = $null
+            Description = 'Trusted Platform Module for hardware-based cryptography'
+            Impact = 'None'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'TPM 2.0 required for BitLocker, Credential Guard, and VBS'
+            IsPrerequisite = $true
+        },
+        @{
+            Id = 'VTx'
+            Name = 'CPU Virtualization (VT-x/AMD-V)'
+            CVE = 'Virtualization Prerequisite'
+            Category = 'Prerequisite'
+            RegistryPath = $null
+            RegistryName = $null
+            EnabledValue = $null
+            Description = 'Hardware virtualization support for Hyper-V and VBS'
+            Impact = 'None'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Enable in BIOS/UEFI for Hyper-V and VBS support'
+            IsPrerequisite = $true
+        },
+        @{
+            Id = 'IOMMU'
+            Name = 'IOMMU/VT-d Support'
+            CVE = 'DMA Protection'
+            Category = 'Prerequisite'
+            RegistryPath = $null
+            RegistryName = $null
+            EnabledValue = $null
+            Description = 'I/O Memory Management Unit for DMA protection'
+            Impact = 'None'
+            Platform = 'All'
+            RuntimeDetection = $null
+            Recommendation = 'Required for HVCI and advanced VBS features'
+            IsPrerequisite = $true
         }
     )
 }
@@ -536,6 +856,35 @@ function Test-Mitigation {
         [Parameter(Mandatory)]
         [hashtable]$Mitigation
     )
+    
+    # Handle prerequisites separately
+    if ($Mitigation.ContainsKey('IsPrerequisite') -and $Mitigation.IsPrerequisite) {
+        return Test-Prerequisite -Mitigation $Mitigation
+    }
+    
+    # Check hardware requirements
+    if ($Mitigation.ContainsKey('HardwareRequired') -and $Mitigation.HardwareRequired) {
+        $hwCapable = Test-HardwareCapability -Requirement $Mitigation.HardwareRequired
+        if (-not $hwCapable) {
+            return [PSCustomObject]@{
+                Id = $Mitigation.Id
+                Name = $Mitigation.Name
+                CVE = $Mitigation.CVE
+                Category = $Mitigation.Category
+                RegistryStatus = 'N/A'
+                RuntimeStatus = 'Hardware Not Supported'
+                OverallStatus = 'Not Applicable'
+                ActionNeeded = 'No'
+                CurrentValue = $null
+                ExpectedValue = $Mitigation.EnabledValue
+                Impact = $Mitigation.Impact
+                Description = $Mitigation.Description
+                Recommendation = "Hardware prerequisites not met: $($Mitigation.HardwareRequired)"
+                RegistryPath = $Mitigation.RegistryPath
+                RegistryName = $Mitigation.RegistryName
+            }
+        }
+    }
     
     # Get current registry value
     $currentValue = $null
@@ -579,6 +928,64 @@ function Test-Mitigation {
         CurrentValue = $currentValue
         ExpectedValue = $Mitigation.EnabledValue
         Impact = $Mitigation.Impact
+        Description = $Mitigation.Description
+        Recommendation = $Mitigation.Recommendation
+        RegistryPath = $Mitigation.RegistryPath
+        RegistryName = $Mitigation.RegistryName
+    }
+}
+
+function Test-HardwareCapability {
+    param([string]$Requirement)
+    
+    switch ($Requirement) {
+        'VBS' { return $script:HardwareInfo.VBSCapable }
+        'HVCI' { return $script:HardwareInfo.HVCICapable }
+        default { return $true }
+    }
+}
+
+function Test-Prerequisite {
+    param([hashtable]$Mitigation)
+    
+    $status = 'Not Met'
+    $currentValue = $null
+    
+    switch ($Mitigation.Id) {
+        'UEFI' {
+            $status = if ($script:HardwareInfo.IsUEFI) { 'Met' } else { 'Not Met' }
+            $currentValue = $script:HardwareInfo.IsUEFI
+        }
+        'SecureBoot' {
+            $status = if ($script:HardwareInfo.SecureBootEnabled) { 'Met' } else { 'Not Met' }
+            $currentValue = $script:HardwareInfo.SecureBootEnabled
+        }
+        'TPM' {
+            $status = if ($script:HardwareInfo.TPMPresent) { 'Met' } else { 'Not Met' }
+            $currentValue = $script:HardwareInfo.TPMVersion
+        }
+        'VTx' {
+            $status = if ($script:HardwareInfo.VTxEnabled) { 'Met' } else { 'Not Met' }
+            $currentValue = $script:HardwareInfo.VTxEnabled
+        }
+        'IOMMU' {
+            $status = if ($script:HardwareInfo.IOMMUSupport) { 'Met' } else { 'Not Met' }
+            $currentValue = $script:HardwareInfo.IOMMUSupport
+        }
+    }
+    
+    return [PSCustomObject]@{
+        Id = $Mitigation.Id
+        Name = $Mitigation.Name
+        CVE = $Mitigation.CVE
+        Category = 'Prerequisite'
+        RegistryStatus = 'N/A'
+        RuntimeStatus = $status
+        OverallStatus = if ($status -eq 'Met') { 'Available' } else { 'Missing' }
+        ActionNeeded = if ($status -eq 'Met') { 'No' } else { 'Configure in Firmware' }
+        CurrentValue = $currentValue
+        ExpectedValue = $Mitigation.EnabledValue
+        Impact = 'None'
         Description = $Mitigation.Description
         Recommendation = $Mitigation.Recommendation
         RegistryPath = $Mitigation.RegistryPath
@@ -684,10 +1091,17 @@ function Show-AssessmentSummary {
     
     Write-Host "`n--- Security Assessment Summary ---" -ForegroundColor Yellow
     
-    $protected = @($Results | Where-Object { $_.OverallStatus -eq 'Protected' }).Count
-    $vulnerable = @($Results | Where-Object { $_.OverallStatus -eq 'Vulnerable' }).Count
-    $unknown = @($Results | Where-Object { $_.OverallStatus -eq 'Unknown' }).Count
-    $total = $Results.Count
+    # Separate prerequisites from actual mitigations
+    $prerequisites = @($Results | Where-Object { $_.Category -eq 'Prerequisite' })
+    $mitigations = @($Results | Where-Object { $_.Category -ne 'Prerequisite' })
+    
+    # Calculate for mitigations only (exclude N/A)
+    $applicableMitigations = @($mitigations | Where-Object { $_.OverallStatus -ne 'Not Applicable' })
+    $protected = @($applicableMitigations | Where-Object { $_.OverallStatus -eq 'Protected' }).Count
+    $vulnerable = @($applicableMitigations | Where-Object { $_.OverallStatus -eq 'Vulnerable' }).Count
+    $unknown = @($applicableMitigations | Where-Object { $_.OverallStatus -eq 'Unknown' }).Count
+    $notApplicable = @($mitigations | Where-Object { $_.OverallStatus -eq 'Not Applicable' }).Count
+    $total = $applicableMitigations.Count
     
     $protectionPercent = if ($total -gt 0) { [math]::Round(($protected / $total) * 100, 1) } else { 0 }
     
@@ -737,6 +1151,26 @@ function Show-AssessmentSummary {
         Write-Host "Fair" -ForegroundColor Yellow
     } else {
         Write-Host "Poor - Action Required" -ForegroundColor Red
+    }
+    
+    # Show hardware prerequisites status
+    if ($prerequisites.Count -gt 0) {
+        Write-Host "`n--- Hardware Prerequisites ---" -ForegroundColor Yellow
+        $prereqMet = @($prerequisites | Where-Object { $_.OverallStatus -eq 'Available' }).Count
+        $prereqMissing = @($prerequisites | Where-Object { $_.OverallStatus -eq 'Missing' }).Count
+        
+        Write-Host "Prerequisites Met:    " -NoNewline
+        Write-Host "$prereqMet" -ForegroundColor Green -NoNewline
+        Write-Host " / $($prerequisites.Count)"
+        
+        if ($prereqMissing -gt 0) {
+            Write-Host "Prerequisites Missing: " -NoNewline
+            Write-Host "$prereqMissing" -ForegroundColor Red
+        }
+    }
+    
+    if ($notApplicable -gt 0) {
+        Write-Host "`nNote: $notApplicable mitigation(s) not applicable (hardware requirements not met)" -ForegroundColor Gray
     }
 }
 
@@ -1085,6 +1519,7 @@ function Start-SideChannelCheck {
         
         # Initialize components
         Initialize-PlatformDetection
+        Initialize-HardwareDetection
         Initialize-RuntimeDetection
         
         # Display platform info
