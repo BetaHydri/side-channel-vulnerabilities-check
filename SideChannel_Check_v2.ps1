@@ -1409,8 +1409,8 @@ function Show-MitigationTable {
     }
     else {
         # Simplified view
-        Write-Host ("{0,-45} {1,-20} {2,-25} {3,-10}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
-        Write-Host ("{0,-45} {1,-20} {2,-25} {3,-10}" -f ("-" * 44), ("-" * 19), ("-" * 24), ("-" * 9)) -ForegroundColor DarkGray
+        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
+        Write-Host ("{0,-45} {1,-20} {2,-26} {3}" -f ("-" * 44), ("-" * 19), ("-" * 25), ("-" * 9)) -ForegroundColor DarkGray
         
         foreach ($result in $Results) {
             $statusColor = switch ($result.OverallStatus) {
@@ -1427,9 +1427,9 @@ function Show-MitigationTable {
             }
             
             Write-Host ("{0,-45}" -f $result.Name) -NoNewline
-            Write-Host ("{0,-20}" -f $result.OverallStatus) -ForegroundColor $statusColor -NoNewline
-            Write-Host ("{0,-25}" -f $result.ActionNeeded) -ForegroundColor $actionColor -NoNewline
-            Write-Host ("{0,-10}" -f $result.Impact) -ForegroundColor Gray
+            Write-Host ("{0,-20}" -f $result.OverallStatus) -NoNewline -ForegroundColor $statusColor
+            Write-Host ("{0,-26}" -f $result.ActionNeeded) -NoNewline -ForegroundColor $actionColor
+            Write-Host $result.Impact -ForegroundColor Gray
         }
     }
 }
