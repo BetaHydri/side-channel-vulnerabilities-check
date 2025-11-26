@@ -689,8 +689,28 @@ function Show-ResultsTable {
                 $enabled = ($categoryResults | Where-Object { $_.Status -match "Enabled|Active|TPM 2\.0 Enabled|UEFI Firmware Active|Enabled and Active" }).Count
             }
             else {
-                # Software mitigations and security features use "Enabled"
-                $enabled = ($categoryResults | Where-Object { $_.Status -eq "Enabled" }).Count
+                # Software mitigations and security features - count "Enabled" OR runtime active
+                $enabled = 0
+                foreach ($item in $categoryResults) {
+                    $isEnabled = $item.Status -eq "Enabled"
+                    
+                    # Also check if active in kernel runtime (even if registry says "Not Set")
+                    $isRuntimeActive = $false
+                    if ($script:RuntimeState.APIAvailable) {
+                        $isRuntimeActive = switch ($item.Name) {
+                            "Branch Target Injection Mitigation" { $script:RuntimeState.BTIEnabled }
+                            "Speculative Store Bypass Disable" { $script:RuntimeState.SSBDSystemWide }
+                            "Kernel VA Shadow (Meltdown Protection)" { $script:RuntimeKVAState.KVAShadowEnabled -or $script:RuntimeState.RDCLHardwareProtected }
+                            "MDS Mitigation" { $script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected }
+                            "Enhanced IBRS" { $script:RuntimeState.EnhancedIBRS }
+                            default { $false }
+                        }
+                    }
+                    
+                    if ($isEnabled -or $isRuntimeActive) {
+                        $enabled++
+                    }
+                }
             }
             $total = $categoryResults.Count
             $percentage = if ($total -gt 0) { [math]::Round(($enabled / $total) * 100, 1) } else { 0 }
