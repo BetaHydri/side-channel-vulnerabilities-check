@@ -525,10 +525,6 @@ function Show-ResultsTable {
         default { $Colors['Bad'] }
     }
     
-    Write-Host "Overall Protection Level: " -NoNewline
-    $overallText = "$totalEnabled/$totalCount mitigations enabled (" + [string]$overallPercentage + "%)"
-    Write-Host $overallText -ForegroundColor $overallColor
-    
     # Create visual progress bar with Unicode blocks (PowerShell 5.1 compatible)
     $BlockFull = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16))   # █ Full block
     $BlockLight = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16))  # ░ Light shade
@@ -536,14 +532,16 @@ function Show-ResultsTable {
     $filledBlocks = [math]::Floor($overallPercentage / 10)
     $emptyBlocks = 10 - $filledBlocks
     
-    Write-Host "Security Level: [" -NoNewline
+    Write-Host "Overall Mitigation Score: " -NoNewline -ForegroundColor Gray
+    Write-Host "$overallPercentage%" -ForegroundColor $overallColor
+    Write-Host "Security Level: [" -NoNewline -ForegroundColor Gray
     if ($filledBlocks -gt 0) {
         Write-Host ($BlockFull * $filledBlocks) -ForegroundColor $overallColor -NoNewline
     }
     if ($emptyBlocks -gt 0) {
         Write-Host ($BlockLight * $emptyBlocks) -ForegroundColor DarkGray -NoNewline
     }
-    Write-Host "]"
+    Write-Host "] $totalEnabled/$totalCount enabled" -ForegroundColor Gray
     
     # Display color-coded status legend
     Write-ColorOutput ("`n" + $Emojis.Clipboard + " STATUS LEGEND") -Color Header
