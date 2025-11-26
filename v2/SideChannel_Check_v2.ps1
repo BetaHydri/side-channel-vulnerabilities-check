@@ -1098,6 +1098,38 @@ function Get-ActionNeeded {
 # OUTPUT FORMATTING
 # ============================================================================
 
+function Get-StatusIcon {
+    <#
+    .SYNOPSIS
+        Returns Unicode icons for status display (PS 5.1 compatible)
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [ValidateSet(
+            'Success', 'Error', 'Warning', 'Info',
+            'Check', 'Cross', 'Bullet',
+            'RedCircle', 'YellowCircle', 'GreenCircle',
+            'BlockFull', 'BlockLight'
+        )]
+        [string]$Name
+    )
+    
+    switch ($Name) {
+        'Success' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Error' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Warning' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16)) }  # $(Get-StatusIcon -Name Warning)
+        'Info' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16)) }  # ℹ
+        'Check' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) }  # ✓
+        'Cross' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) }  # ✗
+        'Bullet' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2022", 16)) }  # $(Get-StatusIcon -Name Bullet)
+        'RedCircle' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F534", 16)) }  # $(Get-StatusIcon -Name RedCircle)
+        'YellowCircle' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F7E1", 16)) }  # $(Get-StatusIcon -Name YellowCircle)
+        'GreenCircle' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("1F7E2", 16)) }  # $(Get-StatusIcon -Name GreenCircle)
+        'BlockFull' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2588", 16)) }  # █
+        'BlockLight' { [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2591", 16)) }  # ░
+    }
+}
+
 function Show-Header {
     $header = @"
 
@@ -1160,7 +1192,7 @@ function Show-AssessmentSummary {
         Write-Host $unknown -ForegroundColor Gray
     }
     
-    # Visual progress bar
+    # Visual progress bar with block characters
     Write-Host "`nSecurity Score: " -NoNewline
     $barLength = 40
     $filledLength = [math]::Round(($protectionPercent / 100) * $barLength)
@@ -1172,10 +1204,18 @@ function Show-AssessmentSummary {
                 elseif ($protectionPercent -ge 50) { 'Yellow' }
                 else { 'Red' }
     
-    # Build progress bar using block characters (PS 5.1 compatible)
+    # Get block characters
+    $blockFull = Get-StatusIcon -Name BlockFull
+    $blockLight = Get-StatusIcon -Name BlockLight
+    
+    # Build progress bar using filled/empty blocks
     Write-Host "[" -NoNewline
-    Write-Host ("=" * $filledLength) -ForegroundColor $barColor -NoNewline
-    Write-Host (" " * $emptyLength) -NoNewline
+    if ($filledLength -gt 0) {
+        Write-Host ($blockFull * $filledLength) -ForegroundColor $barColor -NoNewline
+    }
+    if ($emptyLength -gt 0) {
+        Write-Host ($blockLight * $emptyLength) -ForegroundColor DarkGray -NoNewline
+    }
     Write-Host "] " -NoNewline
     Write-Host "$protectionPercent%" -ForegroundColor $barColor
     
@@ -1227,7 +1267,74 @@ function Show-MitigationTable {
     Write-Host "`n--- Mitigation Status ---" -ForegroundColor Yellow
     
     if ($Detailed) {
-        $Results | Format-Table -Property Name, OverallStatus, RuntimeStatus, RegistryStatus, ActionNeeded, Impact, CVE -AutoSize
+        # Enhanced detailed view with educational information
+        foreach ($result in $Results) {
+            $statusColor = switch ($result.OverallStatus) {
+                'Protected' { 'Green' }
+                'Vulnerable' { 'Red' }
+                'Active' { 'Cyan' }
+                default { 'Gray' }
+            }
+            
+            Write-Host "`n$(Get-StatusIcon -Name Bullet) " -NoNewline -ForegroundColor Cyan
+            Write-Host $result.Name -ForegroundColor White -NoNewline
+            Write-Host " [" -NoNewline -ForegroundColor DarkGray
+            Write-Host $result.OverallStatus -ForegroundColor $statusColor -NoNewline
+            Write-Host "]" -ForegroundColor DarkGray
+            
+            # Show CVE if available
+            if ($result.CVE -and $result.CVE -ne 'N/A') {
+                Write-Host "  CVE:          " -NoNewline -ForegroundColor Gray
+                Write-Host $result.CVE -ForegroundColor Yellow
+            }
+            
+            # Show Description if available
+            if ($result.Description) {
+                Write-Host "  Description:  " -NoNewline -ForegroundColor Gray
+                Write-Host $result.Description -ForegroundColor Cyan
+            }
+            
+            # Show Runtime vs Registry Status
+            if ($result.RuntimeStatus -and $result.RuntimeStatus -ne 'N/A') {
+                Write-Host "  Runtime:      " -NoNewline -ForegroundColor Gray
+                Write-Host $result.RuntimeStatus -ForegroundColor Cyan
+            }
+            
+            if ($result.RegistryStatus -and $result.RegistryStatus -ne 'N/A') {
+                Write-Host "  Registry:     " -NoNewline -ForegroundColor Gray
+                Write-Host $result.RegistryStatus -ForegroundColor Gray
+            }
+            
+            # Show Performance Impact
+            Write-Host "  Impact:       " -NoNewline -ForegroundColor Gray
+            $impactColor = switch ($result.Impact) {
+                'High' { 'Red' }
+                'Medium' { 'Yellow' }
+                'Low' { 'Green' }
+                default { 'Gray' }
+            }
+            Write-Host $result.Impact -ForegroundColor $impactColor
+            
+            # Show Recommendation if action needed
+            if ($result.ActionNeeded -match 'Yes|Consider' -and $result.Recommendation) {
+                Write-Host "  Action:       " -NoNewline -ForegroundColor Gray
+                Write-Host $result.Recommendation -ForegroundColor Yellow
+            }
+        }
+        
+        # Add educational note about runtime vs registry
+        if ($script:RuntimeState.APIAvailable) {
+            Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
+            Write-Host "Runtime Status Guide:" -ForegroundColor White
+            Write-Host "  $(Get-StatusIcon -Name Success) Active" -ForegroundColor Green -NoNewline
+            Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
+            Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
+            Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
+            Write-Host "  $(Get-StatusIcon -Name Info) Not Needed" -ForegroundColor Cyan -NoNewline
+            Write-Host " - Hardware protection supersedes software mitigation" -ForegroundColor Gray
+            Write-Host "  $(Get-StatusIcon -Name Info) HW Immune" -ForegroundColor Cyan -NoNewline
+            Write-Host " - CPU has hardware immunity (no mitigation needed)" -ForegroundColor Gray
+        }
     } else {
         # Simplified view
         Write-Host ("{0,-45} {1,-20} {2,-25} {3,-10}" -f "Mitigation", "Status", "Action Needed", "Impact") -ForegroundColor Gray
@@ -1261,7 +1368,7 @@ function Show-Recommendations {
     $actionable = @($Results | Where-Object { $_.ActionNeeded -match 'Yes|Consider' })
     
     if ($actionable.Count -eq 0) {
-        Write-Host "`n✓ All critical mitigations are properly configured!" -ForegroundColor Green
+        Write-Host "`n$(Get-StatusIcon -Name Success) All critical mitigations are properly configured!" -ForegroundColor Green
         return
     }
     
@@ -1272,28 +1379,28 @@ function Show-Recommendations {
     $optional = @($actionable | Where-Object { $_.ActionNeeded -eq 'Consider' })
     
     if ($critical.Count -gt 0) {
-        Write-Host "`n🔴 CRITICAL - Apply immediately:" -ForegroundColor Red
+        Write-Host "`n$(Get-StatusIcon -Name RedCircle) CRITICAL - Apply immediately:" -ForegroundColor Red
         foreach ($item in $critical) {
-            Write-Host "   • $($item.Name)" -ForegroundColor White
+            Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
             if ($item.Impact -eq 'High') {
-                Write-Host "     ⚠ Performance Impact: HIGH" -ForegroundColor Yellow
+                Write-Host "     $(Get-StatusIcon -Name Warning) Performance Impact: HIGH" -ForegroundColor Yellow
             }
         }
     }
     
     if ($recommended.Count -gt 0) {
-        Write-Host "`n🟡 RECOMMENDED - Apply for enhanced security:" -ForegroundColor Yellow
+        Write-Host "`n$(Get-StatusIcon -Name YellowCircle) RECOMMENDED - Apply for enhanced security:" -ForegroundColor Yellow
         foreach ($item in $recommended) {
-            Write-Host "   • $($item.Name)" -ForegroundColor White
+            Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
         }
     }
     
     if ($optional.Count -gt 0) {
-        Write-Host "`n🟢 OPTIONAL - Evaluate based on environment:" -ForegroundColor Cyan
+        Write-Host "`n$(Get-StatusIcon -Name GreenCircle) OPTIONAL - Evaluate based on environment:" -ForegroundColor Cyan
         foreach ($item in $optional) {
-            Write-Host "   • $($item.Name)" -ForegroundColor White
+            Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
         }
     }
@@ -1543,7 +1650,7 @@ function Invoke-InteractiveApply {
     
     # Confirm
     Write-Host "`nYou have selected $($selectedItems.Count) mitigation(s):" -ForegroundColor Cyan
-    $selectedItems | ForEach-Object { Write-Host "  • $($_.Name)" -ForegroundColor White }
+    $selectedItems | ForEach-Object { Write-Host "  $(Get-StatusIcon -Name Bullet) $($_.Name)" -ForegroundColor White }
     
     if ($WhatIfPreference) {
         Write-Host "`n=== WhatIf: Changes Preview ===" -ForegroundColor Cyan
@@ -1605,7 +1712,7 @@ function Invoke-InteractiveApply {
     }
     Write-Host "Backup saved: $backupFile" -ForegroundColor Gray
     
-    Write-Host "`n⚠ A system restart is required for changes to take effect." -ForegroundColor Yellow
+    Write-Host "`n$(Get-StatusIcon -Name Warning) A system restart is required for changes to take effect." -ForegroundColor Yellow
 }
 
 # ============================================================================
@@ -1621,10 +1728,10 @@ function Export-AssessmentResults {
     try {
         $Results | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8
         Write-Log "Assessment exported to: $Path" -Level Success
-        Write-Host "`n✓ Assessment exported successfully to: $Path" -ForegroundColor Green
+        Write-Host "`n$(Get-StatusIcon -Name Success) Assessment exported successfully to: $Path" -ForegroundColor Green
     } catch {
         Write-Log "Export failed: $($_.Exception.Message)" -Level Error
-        Write-Host "✗ Export failed: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "$(Get-StatusIcon -Name Error) Export failed: $($_.Exception.Message)" -ForegroundColor Red
     }
 }
 
@@ -1675,7 +1782,7 @@ function Start-SideChannelCheck {
             'RevertInteractive' {
                 $backup = Get-LatestBackup
                 if ($null -eq $backup) {
-                    Write-Host "`n✗ No backup found. Cannot revert." -ForegroundColor Red
+                    Write-Host "`n$(Get-StatusIcon -Name Error) No backup found. Cannot revert." -ForegroundColor Red
                     Write-Host "Tip: Use -Mode Restore to select from available backups." -ForegroundColor Gray
                     return
                 }
@@ -1690,8 +1797,8 @@ function Start-SideChannelCheck {
                 
                 if ($confirm -eq 'Y') {
                     Restore-Configuration -Backup $backup
-                    Write-Host "`n✓ Configuration restored." -ForegroundColor Green
-                    Write-Host "⚠ A system restart is required." -ForegroundColor Yellow
+                    Write-Host "`n$(Get-StatusIcon -Name Success) Configuration restored." -ForegroundColor Green
+                    Write-Host "$(Get-StatusIcon -Name Warning) A system restart is required." -ForegroundColor Yellow
                 } else {
                     Write-Host "Revert cancelled." -ForegroundColor Yellow
                 }
@@ -1718,7 +1825,7 @@ function Start-SideChannelCheck {
                 $mitigations = Get-MitigationDefinitions
                 $backupFile = New-ConfigurationBackup -Mitigations $mitigations
                 
-                Write-Host "`n✓ Backup created successfully!" -ForegroundColor Green
+                Write-Host "`n$(Get-StatusIcon -Name Success) Backup created successfully!" -ForegroundColor Green
                 Write-Host "Location: $backupFile" -ForegroundColor Gray
                 
                 # Show backup details
@@ -1733,7 +1840,7 @@ function Start-SideChannelCheck {
             'Restore' {
                 $backups = Get-AllBackups
                 if ($backups.Count -eq 0) {
-                    Write-Host "`n✗ No backups found." -ForegroundColor Red
+                    Write-Host "`n$(Get-StatusIcon -Name Error) No backups found." -ForegroundColor Red
                     Write-Host "Create a backup first using: .\SideChannel_Check_v2.ps1 -Mode Backup" -ForegroundColor Gray
                     return
                 }
@@ -1776,8 +1883,8 @@ function Start-SideChannelCheck {
                     
                     if ($confirm -eq 'Y') {
                         Restore-Configuration -Backup $selectedBackup.Data
-                        Write-Host "`n✓ Configuration restored from backup." -ForegroundColor Green
-                        Write-Host "⚠ A system restart is required." -ForegroundColor Yellow
+                        Write-Host "`n$(Get-StatusIcon -Name Success) Configuration restored from backup." -ForegroundColor Green
+                        Write-Host "$(Get-StatusIcon -Name Warning) A system restart is required." -ForegroundColor Yellow
                     } else {
                         Write-Host "Restore cancelled." -ForegroundColor Yellow
                     }
@@ -1791,7 +1898,7 @@ function Start-SideChannelCheck {
         
     } catch {
         Write-Log "Fatal error: $($_.Exception.Message)" -Level Error
-        Write-Host "`n✗ An error occurred: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "`n$(Get-StatusIcon -Name Error) An error occurred: $($_.Exception.Message)" -ForegroundColor Red
         Write-Host "See log file: $LogPath" -ForegroundColor Gray
         throw
     }

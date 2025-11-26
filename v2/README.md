@@ -11,8 +11,9 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 - **📊 Intelligent Scoring** - Excludes prerequisites and N/A items from security score
 - **💾 Advanced Backup System** - Dedicated Backup and Restore modes
 - **👁️ WhatIf Support** - Preview all changes before applying
-- **🎨 Visual Progress Bar** - Color-coded security score visualization
+- **🎨 Enhanced Visual Output** - Block-based progress bar with Unicode icons (█░)
 - **🖥️ Platform-Aware** - Automatically adapts to Physical/Hyper-V/VMware environments
+- **🔧 PS 5.1 & 7.x Compatible** - Runtime Unicode generation for cross-version compatibility
 
 ### Version Comparison
 
@@ -25,15 +26,18 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 | Modes | Assess/Apply/Revert | 5 dedicated modes |
 | Backup System | Auto-backup only | Dedicated management |
 | WhatIf Support | ❌ No | ✅ Yes |
-| PowerShell Support | 5.1+ | 5.1 & 7.x |
+| PowerShell Support | 5.1+ | 5.1 & 7.x (optimized) |
+| Unicode Rendering | BOM-dependent | Runtime generation |
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - Windows 10/11 or Windows Server 2016+
-- PowerShell 5.1 or higher
+- PowerShell 5.1 or PowerShell 7.x
 - Administrator privileges
 - Execution policy allowing script execution
+
+**Note:** v2.1.0 uses runtime Unicode generation for full compatibility across PowerShell versions without requiring UTF-8 BOM encoding.
 
 ```powershell
 # Set execution policy (if needed)
@@ -68,10 +72,10 @@ Evaluate current security posture without making changes.
 # Standard assessment
 .\SideChannel_Check_v2.ps1
 
-# With detailed output
+# With detailed educational output
 .\SideChannel_Check_v2.ps1 -ShowDetails
 
-# Export results
+# Export results to CSV
 .\SideChannel_Check_v2.ps1 -ExportPath "security_assessment.csv"
 ```
 
@@ -79,8 +83,28 @@ Evaluate current security posture without making changes.
 - Platform Information (CPU, OS, Hypervisor status)
 - Hardware Prerequisites Status (5 checks)
 - Security Mitigations Status (19 mitigations)
-- Visual Security Score Bar
-- Categorized Recommendations
+- Enhanced Visual Security Score Bar with block characters (█░)
+- Color-coded recommendations with emoji indicators
+- Detailed mitigation table with impact assessment
+
+**Detailed Output** (`-ShowDetails` flag):
+When using `-ShowDetails`, each mitigation displays comprehensive educational information:
+- **CVE Numbers** - Associated vulnerability identifiers
+- **Description** - What the mitigation protects against
+- **Runtime Status** - Actual kernel-level protection state
+- **Registry Status** - Configured values
+- **Impact** - Performance implications (Low/Medium/High)
+- **Recommendations** - Actions needed (if any)
+
+Example detailed output:
+```
+• Speculative Store Bypass Disable [Protected]
+  CVE:          CVE-2018-3639
+  Description:  Prevents Speculative Store Bypass (Variant 4) attacks
+  Runtime:      Active
+  Registry:     Enabled
+  Impact:       Low
+```
 
 ### 2. **ApplyInteractive**
 Interactively select and apply security mitigations.
@@ -167,16 +191,25 @@ Browse and restore from any available backup.
   Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
 ================================================================================
 
+[Debug] Detecting platform type...
+[Info] Platform detected: HyperVHost
+[Debug] Detecting hardware security features...
+[Success] Hardware detection complete
+[Debug] Initializing kernel runtime state detection...
+[Success] Kernel runtime state detection: Operational
+
 --- Platform Information ---
 Type:        HyperVHost
 CPU:         11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS:          Microsoft Windows 11 Enterprise (Build 26200)
+[Info] Starting mitigation assessment...
+[Success] Assessment complete: 24 mitigations evaluated
 
 --- Security Assessment Summary ---
 Total Mitigations Evaluated:  19
-Protected:                    19 (100.0%)
+Protected:                    19 (100%)
 
-Security Score: [========================================] 100%
+Security Score: [████████████████████████████████████████] 100%
 Security Level: Excellent
 
 --- Hardware Prerequisites ---
@@ -185,28 +218,35 @@ Prerequisites Enabled: 5 / 5
 --- Mitigation Status ---
 Mitigation                                    Status               Action Needed             Impact
 --------------------------------------------  -------------------  ------------------------  ---------
-Speculative Store Bypass Disable             Protected            No                        Low
-SSBD Feature Mask                            Protected            No                        Low
-Branch Target Injection Mitigation           Protected            No                        Low
-Kernel VA Shadow (Meltdown Protection)       Protected            No                        Medium
-Enhanced IBRS                                Protected            No                        Low
-Intel TSX Disable                            Protected            No                        Low
-L1 Terminal Fault Mitigation                 Not Applicable       No                        High
-MDS Mitigation (ZombieLoad)                  Protected            No                        Medium
-TSX Asynchronous Abort Mitigation            Protected            No                        Medium
-Hardware Security Mitigations                Protected            No                        Low
-SBDR/SBDS Mitigation                         Protected            No                        Low
-SRBDS Update Mitigation                      Protected            No                        Low
-DRPW Mitigation                              Protected            No                        Low
-Exception Chain Validation                   Protected            No                        Low
-Supervisor Mode Access Prevention            Protected            No                        Low
-Virtualization Based Security                Not Applicable       No                        Low
-Hypervisor-protected Code Integrity          Not Applicable       No                        Low
-Credential Guard                             Not Applicable       No                        Low
-Hyper-V Core Scheduler                       Protected            No                        Medium
+Speculative Store Bypass Disable             Protected           No                       Low
+SSBD Feature Mask                            Protected           No                       Low
+Branch Target Injection Mitigation           Protected           No                       Low
+Kernel VA Shadow (Meltdown Protection)       Protected           No                       Medium
+Enhanced IBRS                                Protected           No                       Low
+Intel TSX Disable                            Protected           No                       Low
+L1 Terminal Fault Mitigation                 Protected           No                       High
+MDS Mitigation (ZombieLoad)                  Protected           No                       Medium
+TSX Asynchronous Abort Mitigation            Protected           No                       Medium
+Hardware Security Mitigations                Protected           No                       Low
+SBDR/SBDS Mitigation                         Protected           No                       Low
+SRBDS Update Mitigation                      Protected           No                       Low
+DRPW Mitigation                              Protected           No                       Low
+Exception Chain Validation                   Protected           No                       Low
+Supervisor Mode Access Prevention            Protected           No                       Low
+Virtualization Based Security                Protected           No                       Low
+Hypervisor-protected Code Integrity          Protected           No                       Low
+Credential Guard                             Protected           No                       Low
+Hyper-V Core Scheduler                       Protected           No                       Medium
+UEFI Firmware                                Active              No                       None
+Secure Boot                                  Protected           No                       None
+TPM 2.0                                      Protected           No                       None
+CPU Virtualization (VT-x/AMD-V)              Protected           No                       None
+IOMMU/VT-d Support                           Protected           No                       None
 
 ✓ All critical mitigations are properly configured!
 ```
+
+**Note:** The security score bar uses filled blocks (█) for protected mitigations and light blocks (░) for unprotected ones, providing a clear visual representation. The bar is color-coded: Green (≥90%), Cyan (≥75%), Yellow (≥50%), Red (<50%).
 
 ### Detailed Status Explanation
 
@@ -303,19 +343,46 @@ System restart would be required: Yes
   Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
 ================================================================================
 
+[Debug] Detecting platform type...
+[Info] Platform detected: HyperVHost
+[Debug] Detecting hardware security features...
+[Success] Hardware detection complete
+[Debug] Initializing kernel runtime state detection...
+[Success] Kernel runtime state detection: Operational
+
 --- Platform Information ---
 Type:        HyperVHost
 CPU:         11th Gen Intel(R) Core(TM) i7-11370H @ 3.30GHz
 OS:          Microsoft Windows 11 Enterprise (Build 26200)
 
-[INFO] Creating configuration backup...
-[SUCCESS] Backup created: C:\...\Backups\Backup_20251126_153622.json
+=== Create Configuration Backup ===
+
+Creating backup of current mitigation settings...
+
+✓ Backup created successfully!
+Location: C:\...\Backups\Backup_20251126_201040.json
 
 Backup Details:
-  Computer: WORKSTATION01
-  User: Administrator
-  Timestamp: 2025-11-26T15:36:22
-  Mitigations: 19 settings backed up
+Timestamp:   2025-11-26T20:10:40
+Computer:    JANTIEDE-STUDIO
+User:        jantiede
+Mitigations: 21
+```
+
+**Backup with WhatIf Preview:**
+```
+.\SideChannel_Check_v2.ps1 -Mode Backup -WhatIf
+
+=== Create Configuration Backup ===
+
+[WhatIf Mode] Would create backup of current mitigation settings...
+
+Backup would include:
+Computer:    JANTIEDE-STUDIO
+User:        jantiede
+Mitigations: 21
+
+Would save to: C:\...\Backups\Backup_<timestamp>.json
 ```
 
 ### Sample Output - Restore Mode
@@ -711,6 +778,13 @@ New-Item -ItemType Directory -Path $exportDir -Force
 Get-Help about_Functions_CmdletBindingAttribute
 ```
 
+### Unicode characters not displaying correctly
+**Solution:** v2.1.0 uses runtime Unicode generation for full compatibility.
+
+The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) at runtime using `[System.Char]::ConvertFromUtf32()`, ensuring consistent display across PowerShell 5.1 and 7.x without requiring specific file encoding.
+
+**No action needed** - this is handled automatically by the `Get-StatusIcon` function.
+
 ---
 
 ## ⚠️ Important Warnings
@@ -731,8 +805,12 @@ Get-Help about_Functions_CmdletBindingAttribute
 - ✨ Get-AllBackups function for Restore mode
 - ✨ Comprehensive hardware detection (5 prerequisites)
 - ✨ Intelligent scoring system (excludes N/A and prerequisites)
-- ✨ Visual security score bar
+- ✨ Enhanced visual security score bar with block characters (█░)
 - ✨ Dedicated Backup and Restore modes
+- 🔧 PowerShell 5.1 & 7.x compatibility improvements
+- 🔧 Runtime Unicode generation for cross-version compatibility
+- 🎨 Color-coded recommendations with emoji indicators
+- 🐛 Fixed UTF-8 encoding issues in PowerShell 5.1
 
 ### v2.0.0 (2025-11-20)
 - 🎉 Initial v2 release
