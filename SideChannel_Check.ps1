@@ -793,6 +793,21 @@ function Show-ResultsTable {
     Write-Host "$IconCross Not Set" -ForegroundColor $Colors['Warning'] -NoNewline
     Write-Host " - Registry value not configured (using defaults)"
     
+    # Color guide (traffic light system)
+    Write-ColorOutput "`nColor Guide:" -Color Header
+    Write-Host "  " -NoNewline
+    Write-Host "Green  " -ForegroundColor Green -NoNewline
+    Write-Host "= Good/Enabled    " -NoNewline
+    Write-Host "Yellow " -ForegroundColor Yellow -NoNewline
+    Write-Host "= Warning/Caution    " -NoNewline
+    Write-Host "Red    " -ForegroundColor Red -NoNewline
+    Write-Host "= Bad/Disabled"
+    Write-Host "  " -NoNewline
+    Write-Host "Cyan   " -ForegroundColor Cyan -NoNewline
+    Write-Host "= Information     " -NoNewline
+    Write-Host "Magenta" -ForegroundColor Magenta -NoNewline
+    Write-Host " = Section Headers"
+    
     Write-ColorOutput ("`n" + $Emojis.Target + " CATEGORY DESCRIPTIONS") -Color Header
     Write-ColorOutput ($Emojis.Shield + "  SOFTWARE MITIGATIONS: OS-level protections against CPU vulnerabilities") -Color Info
     Write-ColorOutput ($Emojis.Lock + " SECURITY FEATURES: Advanced Windows security technologies") -Color Info
