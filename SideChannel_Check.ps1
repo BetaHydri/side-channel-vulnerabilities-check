@@ -597,6 +597,21 @@ function Show-ResultsTable {
                             $runtimeState = "$iconEnabled Retpoline"
                             $runtimeColor = "Green"
                         }
+                        elseif ($result.Name -eq "Retpoline Support") {
+                            # Show clear status for Retpoline based on what's actually active
+                            if ($script:RuntimeState.EnhancedIBRS) {
+                                $runtimeState = "$iconEnabled Not Needed"
+                                $runtimeColor = "Cyan"
+                            }
+                            elseif ($script:RuntimeState.RetpolineEnabled) {
+                                $runtimeState = "$iconEnabled Active"
+                                $runtimeColor = "Green"
+                            }
+                            else {
+                                $runtimeState = "$iconDisabled Inactive"
+                                $runtimeColor = "Yellow"
+                            }
+                        }
                     }
                 }
                 
@@ -767,8 +782,10 @@ function Show-ResultsTable {
         Write-Host " - Registry says 'Not Set' but kernel IS active (Windows default/policy)" -ForegroundColor Gray
         Write-Host "  $iconCheck Immune" -ForegroundColor Cyan -NoNewline
         Write-Host " - CPU has hardware immunity (no software mitigation needed)" -ForegroundColor Gray
+        Write-Host "  $iconCheck Not Needed" -ForegroundColor Cyan -NoNewline
+        Write-Host " - Hardware protection (Enhanced IBRS) supersedes software mitigation" -ForegroundColor Gray
         Write-Host "  $iconCheck Retpoline" -ForegroundColor Green -NoNewline
-        Write-Host " - Software mitigation is active" -ForegroundColor Gray
+        Write-Host " - Software mitigation active (older CPUs without Enhanced IBRS)" -ForegroundColor Gray
     }
 }
 
