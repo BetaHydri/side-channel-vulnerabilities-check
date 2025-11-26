@@ -1340,7 +1340,7 @@ function Show-MitigationTable {
             }
             
             # Show URL if available
-            if ($result.URL) {
+            if ($result.PSObject.Properties.Name -contains 'URL' -and $result.URL) {
                 Write-Host "  Reference:    " -NoNewline -ForegroundColor Gray
                 Write-Host $result.URL -ForegroundColor Blue
             }
