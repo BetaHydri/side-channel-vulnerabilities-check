@@ -2804,24 +2804,88 @@ try {
 }
 catch { }
 
-# Check for Virtualization (from earlier in script)
-if ($cpuInfo.VirtualizationEnabled) {
-    $hasVirtualization = $true
+# Check for Virtualization - improved detection
+# When Hyper-V is running, CPU virtualization extensions are controlled by the hypervisor
+# So we need to check multiple sources
+$hasVirtualization = $false
+
+# Method 1: Check if Hyper-V is enabled (implies virtualization is available)
+try {
+    $hyperVFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
+    if ($hyperVFeature -and $hyperVFeature.State -eq 'Enabled') {
+        $hasVirtualization = $true
+    }
+}
+catch { }
+
+# Method 2: Check for hypervisor presence
+if (!$hasVirtualization) {
+    try {
+        $computerSystem = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+        if ($computerSystem.HypervisorPresent) {
+            $hasVirtualization = $true
+        }
+    }
+    catch { }
 }
 
-# Check for IOMMU (VT-d / AMD-Vi)
-$iommuEnabled = $false
-if ($cpuInfo.Manufacturer -match "Intel") {
-    # Check for VT-d
-    $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
-    $iommuEnabled = ($vtdReg -eq 1)
+# Method 3: Check VBS properties (indicates virtualization support)
+if (!$hasVirtualization -and $vbsStatus) {
+    # If VBS is available, virtualization must be enabled
+    if ($vbsStatus.AvailableSecurityProperties -contains 1) {
+        $hasVirtualization = $true
+    }
 }
-elseif ($cpuInfo.Manufacturer -match "AMD") {
-    # Check for AMD-Vi
-    $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
-    $iommuEnabled = ($amdViReg -eq 1)
+
+# Method 4: Check CPU directly (only works when Hyper-V is NOT running)
+if (!$hasVirtualization) {
+    try {
+        $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($cpu.VirtualizationFirmwareEnabled -or $cpu.VMMonitorModeExtensions) {
+            $hasVirtualization = $true
+        }
+    }
+    catch { }
 }
-$hasIOMMU = $iommuEnabled
+
+# Check for IOMMU (VT-d / AMD-Vi) - improved detection
+$hasIOMMU = $false
+
+# Method 1: Check VBS AvailableSecurityProperties
+# Property 2 = SLAT (Second Level Address Translation / EPT)
+# Property 7 = DMA Protection (requires IOMMU)
+if ($vbsStatus) {
+    $availableProps = $vbsStatus.AvailableSecurityProperties
+    # Check if SLAT (property 2) and DMA protection (property 7) are available
+    if ($availableProps -contains 2) {
+        $hasIOMMU = $true  # SLAT/EPT implies IOMMU is available
+    }
+}
+
+# Method 2: Check Hyper-V specific IOMMU indicators
+if (!$hasIOMMU -and $virtInfo.HyperVStatus -eq "Enabled") {
+    # If Hyper-V is running with VBS, IOMMU is likely available
+    try {
+        $hvStatus = Get-VMHost -ErrorAction SilentlyContinue
+        if ($hvStatus) {
+            # Hyper-V host cmdlets available means we're on a Hyper-V host with full features
+            $hasIOMMU = $true
+        }
+    }
+    catch { }
+}
+
+# Method 3: Check registry (legacy method, less reliable)
+if (!$hasIOMMU) {
+    if ($cpuInfo.Manufacturer -match "Intel") {
+        $vtdReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\intelppm\Parameters" -Name "VTdEnabled"
+        $hasIOMMU = ($vtdReg -eq 1)
+    }
+    elseif ($cpuInfo.Manufacturer -match "AMD") {
+        $amdViReg = Get-RegistryValue -Path "HKLM:\SYSTEM\CurrentControlSet\Services\amdppm\Parameters" -Name "IOMMUEnabled"
+        $hasIOMMU = ($amdViReg -eq 1)
+    }
+}
 
 Write-ColorOutput "`nYour System Capabilities:" -Color Header
 Write-Host "  Secure Boot:      " -NoNewline -ForegroundColor Gray
