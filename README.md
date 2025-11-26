@@ -240,7 +240,7 @@ DRPW Mitigation                        ✓ Enabled       -              LOW - Mi
      3. CPU has hardware-level immunity (no registry config needed)
   ℹ Status: PROTECTED - No action needed (protection is working)
 
-Category Score: 10/12 enabled (83.3%)
+Category Score: 11/12 enabled (91.7%)
 
 🔒 SECURITY FEATURES
 ============================================================
