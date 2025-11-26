@@ -1,0 +1,22 @@
+# Log files
+Logs/
+*.log
+
+# Backup files
+Backups/
+*.json
+
+# Test exports
+test_*.csv
+*_test.csv
+
+# Config files (if containing sensitive data)
+Config/
+
+# PowerShell transcript files
+PowerShell_transcript.*
+
+# Temporary files
+*.tmp
+*.temp
+~$*
