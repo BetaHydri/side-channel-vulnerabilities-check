@@ -4589,135 +4589,135 @@ if ($Detailed) {
     Write-ColorOutput "HARDWARE PREREQUISITES DETAILED ANALYSIS" -Color Header
     Write-ColorOutput ("=" * 80) -Color Header
 
-# Get current hardware status
-$hwStatus = Get-HardwareRequirements
+    # Get current hardware status
+    $hwStatus = Get-HardwareRequirements
 
-# Define emoji symbols for status indicators (PS 5.1 compatible)
-$IconCheck = Get-Icon -Name Check
-$IconQuestion = Get-Icon -Name Question
-$IconCross = Get-Icon -Name Cross
-$IconArrow = Get-Icon -Name Arrow
-$IconCross = Get-Icon -Name Cross
+    # Define emoji symbols for status indicators (PS 5.1 compatible)
+    $IconCheck = Get-Icon -Name Check
+    $IconQuestion = Get-Icon -Name Question
+    $IconCross = Get-Icon -Name Cross
+    $IconArrow = Get-Icon -Name Arrow
+    $IconCross = Get-Icon -Name Cross
 
-Write-ColorOutput "Hardware Security Assessment:" -Color Info
-Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
-Write-Host "$IconCheck" -NoNewline -ForegroundColor Green
-Write-Host " Enabled/Good, " -NoNewline -ForegroundColor Gray
-Write-Host "$IconQuestion" -NoNewline -ForegroundColor Yellow
-Write-Host " Needs Verification, " -NoNewline -ForegroundColor Gray
-Write-Host "$IconCross" -NoNewline -ForegroundColor Red
-Write-Host " Disabled/Missing)" -ForegroundColor Gray
+    Write-ColorOutput "Hardware Security Assessment:" -Color Info
+    Write-Host "(Symbols: " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconCheck" -NoNewline -ForegroundColor Green
+    Write-Host " Enabled/Good, " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconQuestion" -NoNewline -ForegroundColor Yellow
+    Write-Host " Needs Verification, " -NoNewline -ForegroundColor Gray
+    Write-Host "$IconCross" -NoNewline -ForegroundColor Red
+    Write-Host " Disabled/Missing)" -ForegroundColor Gray
 
-# Get updated hardware status from our Results array for consistency
-$uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
-$secureBootResult = $Results | Where-Object { $_.Name -eq "Secure Boot" }
-$tpmResult = $Results | Where-Object { $_.Name -match "TPM 2.0" }
-$vtxResult = $Results | Where-Object { $_.Name -match "CPU Virtualization" }
-$iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
+    # Get updated hardware status from our Results array for consistency
+    $uefiResult = $Results | Where-Object { $_.Name -match "UEFI Firmware" }
+    $secureBootResult = $Results | Where-Object { $_.Name -eq "Secure Boot" }
+    $tpmResult = $Results | Where-Object { $_.Name -match "TPM 2.0" }
+    $vtxResult = $Results | Where-Object { $_.Name -match "CPU Virtualization" }
+    $iommuResult = $Results | Where-Object { $_.Name -match "IOMMU" }
 
-# UEFI Status
-Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
-$uefiStatusIcon = if ($uefiResult.Status -match "Active") { $IconCheck } else { $IconCross }
-$uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
+    # UEFI Status
+    Write-Host "- UEFI Firmware: " -NoNewline -ForegroundColor Gray
+    $uefiStatusIcon = if ($uefiResult.Status -match "Active") { $IconCheck } else { $IconCross }
+    $uefiColor = if ($uefiResult.Status -match "Active") { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host "$uefiStatusIcon $($uefiResult.Status)" -ForegroundColor $uefiColor
 
-# Secure Boot Status
-Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
-$sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { $IconCheck } elseif ($secureBootResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
-$sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
-Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
+    # Secure Boot Status
+    Write-Host "- Secure Boot: " -NoNewline -ForegroundColor Gray
+    $sbStatusIcon = if ($secureBootResult.Status -eq "Enabled") { $IconCheck } elseif ($secureBootResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
+    $sbColor = if ($secureBootResult.Status -eq "Enabled") { $Colors['Good'] } elseif ($secureBootResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$sbStatusIcon $($secureBootResult.Status)" -ForegroundColor $sbColor
 
-# TPM Status
-Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
-$tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $IconCheck } elseif ($tpmResult.Status -match "Present|Unknown") { $IconQuestion } else { $IconCross }
-$tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
-Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
+    # TPM Status
+    Write-Host "- TPM 2.0: " -NoNewline -ForegroundColor Gray
+    $tpmStatusIcon = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $IconCheck } elseif ($tpmResult.Status -match "Present|Unknown") { $IconQuestion } else { $IconCross }
+    $tpmColor = if ($tpmResult.Status -match "TPM 2.0 Enabled") { $Colors['Good'] } elseif ($tpmResult.Status -match "Present|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$tpmStatusIcon $($tpmResult.Status)" -ForegroundColor $tpmColor
                 
-# CPU Virtualization Status
-Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
-$vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { $IconCheck } elseif ($vtxResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
-$vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
-Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
+    # CPU Virtualization Status
+    Write-Host "- CPU Virtualization (VT-x/AMD-V): " -NoNewline -ForegroundColor Gray
+    $vtxStatusIcon = if ($vtxResult.Status -match "Enabled and Active") { $IconCheck } elseif ($vtxResult.Status -match "Available|Unknown") { $IconQuestion } else { $IconCross }
+    $vtxColor = if ($vtxResult.Status -match "Enabled and Active") { $Colors['Good'] } elseif ($vtxResult.Status -match "Available|Unknown") { $Colors['Warning'] } else { $Colors['Bad'] }
+    Write-Host "$vtxStatusIcon $($vtxResult.Status)" -ForegroundColor $vtxColor
 
-# IOMMU Status
-Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
-$iommuStatusIcon = if ($iommuResult.Status -eq "Enabled") { $IconCheck } elseif ($iommuResult.Status -eq "Disabled") { $IconCross } else { $IconQuestion }
-$iommuColor = if ($iommuResult.Status -eq "Enabled") { $Colors['Good'] } else { $Colors['Bad'] }
-Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
-if ($iommuResult.CurrentValue -ne $iommuResult.Status) {
-    Write-Host "  $IconArrow Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
-}
-
-Write-ColorOutput "`nRequired CPU Features:" -Color Info
-Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
-Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Info
-Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
-Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color $(if ($hwStatus.TPMPresent -and $hwStatus.SecureBootEnabled -and $hwStatus.IsUEFI) { 'Good' } else { 'Warning' })
-
-Write-ColorOutput "`nAdministrator Action Items:" -Color Header
-Write-ColorOutput "===========================" -Color Header
-
-# Generate specific action items based on current status
-$actionItems = @()
-
-if (!$hwStatus.IsUEFI) {
-    $actionItems += "- CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
-}
-
-if ($hwStatus.IsUEFI -and !$hwStatus.SecureBootEnabled) {
-    $actionItems += "- Access UEFI firmware settings and enable Secure Boot"
-}
-
-if (!$hwStatus.TPMPresent) {
-    $actionItems += "- Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
-}
-elseif ($hwStatus.TPMVersion -notmatch "2\.0") {
-    $actionItems += "- Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
-}
-
-if (!$hwStatus.VTxSupport) {
-    $actionItems += "- Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
-}
-
-if ($hwStatus.IOMMUSupport -notmatch "^Enabled") {
-    $actionItems += "- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
-}
-
-# Always include firmware update recommendation
-$actionItems += "- Update system firmware/BIOS to latest version for security fixes"
-$actionItems += "- Update CPU microcode through Windows Update or vendor tools"
-
-if ($actionItems.Count -gt 0) {
-    Write-ColorOutput "`nRequired Actions for Optimal Security:" -Color Warning
-    foreach ($item in $actionItems) {
-        Write-ColorOutput $item -Color Warning
+    # IOMMU Status
+    Write-Host "- IOMMU/VT-d Support: " -NoNewline -ForegroundColor Gray
+    $iommuStatusIcon = if ($iommuResult.Status -eq "Enabled") { $IconCheck } elseif ($iommuResult.Status -eq "Disabled") { $IconCross } else { $IconQuestion }
+    $iommuColor = if ($iommuResult.Status -eq "Enabled") { $Colors['Good'] } else { $Colors['Bad'] }
+    Write-Host "$iommuStatusIcon $($iommuResult.Status)" -ForegroundColor $iommuColor
+    if ($iommuResult.CurrentValue -ne $iommuResult.Status) {
+        Write-Host "  $IconArrow Detection: $($iommuResult.CurrentValue)" -ForegroundColor DarkGray
     }
-}
-else {
-    Write-ColorOutput "`nHardware Security Status: All critical components properly configured!" -Color Good
-}
 
-Write-ColorOutput "`nManual Verification Steps:" -Color Info
-Write-ColorOutput "- Boot into UEFI/BIOS setup to verify settings" -Color Info
-Write-ColorOutput "- Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
-Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color Info
-Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
+    Write-ColorOutput "`nRequired CPU Features:" -Color Info
+    Write-ColorOutput "- Intel: VT-x with EPT, VT-d (or AMD: AMD-V with RVI, AMD-Vi)" -Color $(if ($hwStatus.VTxSupport) { 'Good' } else { 'Warning' })
+    Write-ColorOutput "- Hardware support for SMEP/SMAP" -Color Info
+    Write-ColorOutput "- CPU microcode with Spectre/Meltdown mitigations" -Color Warning
+    Write-ColorOutput "- For VBS: IOMMU, TPM 2.0, UEFI Secure Boot" -Color $(if ($hwStatus.TPMPresent -and $hwStatus.SecureBootEnabled -and $hwStatus.IsUEFI) { 'Good' } else { 'Warning' })
 
-Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
+    Write-ColorOutput "`nAdministrator Action Items:" -Color Header
+    Write-ColorOutput "===========================" -Color Header
 
-$IconCheck = Get-Icon -Name Check
-$IconCross = Get-Icon -Name Cross
-$IconQuestion = Get-Icon -Name Question
+    # Generate specific action items based on current status
+    $actionItems = @()
 
-$uefiStatusText = if ($hwStatus.IsUEFI) { "$IconCheck Met" } else { "$IconCross Not Met" }
-$uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
-Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
-$secureBootStatusText = if ($hwStatus.SecureBootCapable) { "$IconCheck Available" } else { "$IconCross Not Available" }
-$secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
-Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
-$tpmStatusText = if ($hwStatus.TPMPresent) { "$IconCheck Present" } else { "$IconCross Missing" }
-$tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
-Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
+    if (!$hwStatus.IsUEFI) {
+        $actionItems += "- CRITICAL: Convert from Legacy BIOS to UEFI mode (may require OS reinstall)"
+    }
+
+    if ($hwStatus.IsUEFI -and !$hwStatus.SecureBootEnabled) {
+        $actionItems += "- Access UEFI firmware settings and enable Secure Boot"
+    }
+
+    if (!$hwStatus.TPMPresent) {
+        $actionItems += "- Enable TPM 2.0 in BIOS/UEFI or install TPM hardware module"
+    }
+    elseif ($hwStatus.TPMVersion -notmatch "2\.0") {
+        $actionItems += "- Upgrade TPM to version 2.0 or enable TPM 2.0 mode in UEFI"
+    }
+
+    if (!$hwStatus.VTxSupport) {
+        $actionItems += "- Enable VT-x (Intel) or AMD-V (AMD) virtualization in BIOS/UEFI"
+    }
+
+    if ($hwStatus.IOMMUSupport -notmatch "^Enabled") {
+        $actionItems += "- Enable VT-d (Intel) or AMD-Vi (AMD) IOMMU in BIOS/UEFI for DMA protection"
+    }
+
+    # Always include firmware update recommendation
+    $actionItems += "- Update system firmware/BIOS to latest version for security fixes"
+    $actionItems += "- Update CPU microcode through Windows Update or vendor tools"
+
+    if ($actionItems.Count -gt 0) {
+        Write-ColorOutput "`nRequired Actions for Optimal Security:" -Color Warning
+        foreach ($item in $actionItems) {
+            Write-ColorOutput $item -Color Warning
+        }
+    }
+    else {
+        Write-ColorOutput "`nHardware Security Status: All critical components properly configured!" -Color Good
+    }
+
+    Write-ColorOutput "`nManual Verification Steps:" -Color Info
+    Write-ColorOutput "- Boot into UEFI/BIOS setup to verify settings" -Color Info
+    Write-ColorOutput "- Run 'msinfo32.exe' and check 'System Summary' for Secure Boot State" -Color Info
+    Write-ColorOutput "- Use `'tpm.msc`' to verify TPM status and version" -Color Info
+    Write-ColorOutput "- Check Windows Event Logs for Hyper-V and VBS initialization" -Color Info
+
+    Write-ColorOutput "`nFirmware Requirements Status:" -Color Info
+
+    $IconCheck = Get-Icon -Name Check
+    $IconCross = Get-Icon -Name Cross
+    $IconQuestion = Get-Icon -Name Question
+
+    $uefiStatusText = if ($hwStatus.IsUEFI) { "$IconCheck Met" } else { "$IconCross Not Met" }
+    $uefiStatusColor = if ($hwStatus.IsUEFI) { "Good" } else { "Bad" }
+    Write-ColorOutput "- UEFI firmware (not legacy BIOS): $uefiStatusText" -Color $uefiStatusColor
+    $secureBootStatusText = if ($hwStatus.SecureBootCapable) { "$IconCheck Available" } else { "$IconCross Not Available" }
+    $secureBootStatusColor = if ($hwStatus.SecureBootCapable) { "Good" } else { "Bad" }
+    Write-ColorOutput "- Secure Boot capability: $secureBootStatusText" -Color $secureBootStatusColor
+    $tpmStatusText = if ($hwStatus.TPMPresent) { "$IconCheck Present" } else { "$IconCross Missing" }
+    $tpmStatusColor = if ($hwStatus.TPMPresent) { "Good" } else { "Bad" }
+    Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
     Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufacturer" -Color Warning
 
     # Show VMware Host Security Configuration if requested (only in detailed mode)
@@ -4737,52 +4737,52 @@ Write-ColorOutput "- TPM 2.0: $tpmStatusText" -Color $tpmStatusColor
         Write-ColorOutput "`nAdvanced Protections:" -Color Header
     
         if ($script:RuntimeState.RetpolineEnabled) {
-        $iconRetpoline = Get-Icon -Name Check
-        Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
-    }
-    
-    if ($script:RuntimeState.EnhancedIBRS) {
-        $iconEIBRS = Get-Icon -Name Check
-        Write-Host "  $iconEIBRS Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)" -ForegroundColor $Colors['Good']
-    }
-    
-    if ($script:RuntimeState.IBRSPreferred) {
-        $iconIBRS = Get-Icon -Name Check
-        Write-Host "  $iconIBRS IBRS Preferred: CPU recommends IBRS over retpoline" -ForegroundColor $Colors['Good']
-    }
-    
-    if ($script:RuntimeKVAState.APIAvailable -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
-        $iconPCID = Get-Icon -Name Check
-        Write-Host "  $iconPCID PCID Optimization: ACTIVE (reduces KPTI performance impact)" -ForegroundColor $Colors['Good']
-    }
-    
-    if ($script:RuntimeKVAState.L1TFFlushSupported) {
-        $iconL1TF = Get-Icon -Name Check
-        Write-Host "  $iconL1TF L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)" -ForegroundColor $Colors['Good']
-    }
-    
-    # CPU Vendor-specific immunities
-    Write-ColorOutput "`nHardware Immunity Status:" -Color Header
-    if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
-        $iconAMD = Get-Icon -Name Check
-        Write-Host "  $iconAMD AMD CPU Detected" -ForegroundColor $Colors['Good']
-        Write-Host "    - Immune to: Meltdown, L1TF, MDS, TAA" -ForegroundColor $Colors['Good']
-    }
-    elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
-        Write-Host "  Intel CPU Detected" -ForegroundColor $Colors['Info']
-        if ($script:RuntimeState.RDCLHardwareProtected) {
-            $iconRDCL = Get-Icon -Name Check
-            Write-Host "    $iconRDCL RDCL Protected: Hardware immunity to Meltdown" -ForegroundColor $Colors['Good']
+            $iconRetpoline = Get-Icon -Name Check
+            Write-Host "  $iconRetpoline Retpoline: ACTIVE (software Spectre v2 mitigation)" -ForegroundColor $Colors['Good']
         }
-        if ($script:RuntimeState.MDSHardwareProtected) {
-            $iconMDS = Get-Icon -Name Check
-            Write-Host "    $iconMDS MDS Protected: Hardware immunity to MDS" -ForegroundColor $Colors['Good']
+    
+        if ($script:RuntimeState.EnhancedIBRS) {
+            $iconEIBRS = Get-Icon -Name Check
+            Write-Host "  $iconEIBRS Enhanced IBRS: ACTIVE (hardware Spectre v2 protection)" -ForegroundColor $Colors['Good']
         }
-        if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
-            $iconTAA = Get-Icon -Name Check
-            Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
+    
+        if ($script:RuntimeState.IBRSPreferred) {
+            $iconIBRS = Get-Icon -Name Check
+            Write-Host "  $iconIBRS IBRS Preferred: CPU recommends IBRS over retpoline" -ForegroundColor $Colors['Good']
         }
-    }
+    
+        if ($script:RuntimeKVAState.APIAvailable -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
+            $iconPCID = Get-Icon -Name Check
+            Write-Host "  $iconPCID PCID Optimization: ACTIVE (reduces KPTI performance impact)" -ForegroundColor $Colors['Good']
+        }
+    
+        if ($script:RuntimeKVAState.L1TFFlushSupported) {
+            $iconL1TF = Get-Icon -Name Check
+            Write-Host "  $iconL1TF L1D Flush: SUPPORTED (L1TF/Foreshadow mitigation)" -ForegroundColor $Colors['Good']
+        }
+    
+        # CPU Vendor-specific immunities
+        Write-ColorOutput "`nHardware Immunity Status:" -Color Header
+        if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
+            $iconAMD = Get-Icon -Name Check
+            Write-Host "  $iconAMD AMD CPU Detected" -ForegroundColor $Colors['Good']
+            Write-Host "    - Immune to: Meltdown, L1TF, MDS, TAA" -ForegroundColor $Colors['Good']
+        }
+        elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
+            Write-Host "  Intel CPU Detected" -ForegroundColor $Colors['Info']
+            if ($script:RuntimeState.RDCLHardwareProtected) {
+                $iconRDCL = Get-Icon -Name Check
+                Write-Host "    $iconRDCL RDCL Protected: Hardware immunity to Meltdown" -ForegroundColor $Colors['Good']
+            }
+            if ($script:RuntimeState.MDSHardwareProtected) {
+                $iconMDS = Get-Icon -Name Check
+                Write-Host "    $iconMDS MDS Protected: Hardware immunity to MDS" -ForegroundColor $Colors['Good']
+            }
+            if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
+                $iconTAA = Get-Icon -Name Check
+                Write-Host "    $iconTAA TAA Protected: Hardware immunity to TAA" -ForegroundColor $Colors['Good']
+            }
+        }
     } # End of if ($script:RuntimeState.APIAvailable...)
 
     # Section 2: VBS/HVCI Detailed Status Analysis
