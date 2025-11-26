@@ -1,14 +1,84 @@
 # Side-Channel Vulnerability Configuration Checker
 
-A PowerShell tool for checking, applying, and reverting Windows side-channel vulnerability mitigations with VMware ESXi and Hyper-V integration.
+A comprehensive PowerShell tool for checking, applying, and reverting Windows side-channel vulnerability mitigations with **runtime kernel-level verification** and VMware ESXi/Hyper-V integration.
 
 ## 🎯 What This Tool Does
 
-- **Checks** your system for side-channel vulnerability protections (Spectre, Meltdown, L1TF, MDS)
+- **Checks** your system for side-channel vulnerability protections (Spectre, Meltdown, L1TF, MDS, TAA)
+- **Verifies runtime state** using NtQuerySystemInformation API (same as Microsoft's SpeculationControl module)
+- **Compares** registry configuration vs actual kernel-level protection state
+- **Detects** when reboots are required or Group Policy overrides are active
 - **Applies** missing security mitigations with interactive selection
 - **Reverts** problematic mitigations causing performance issues  
 - **Provides VMware ESXi** host security configuration guidance
 - **Exports results** to CSV for compliance reporting
+
+## ✨ What Makes This Tool Unique
+
+### Runtime State Verification (NEW!)
+Unlike registry-only tools, this script queries the **actual Windows kernel** to verify what mitigations are **currently active**:
+
+- ✅ **NtQuerySystemInformation API** - Same method used by Microsoft's official SpeculationControl module
+- ✅ **30+ Runtime Flags** - Detects Spectre v2 (BTI, Retpoline, Enhanced IBRS), Spectre v4 (SSBD), MDS, TAA, L1TF, and more
+- ✅ **Registry vs Runtime Comparison** - Identifies when configuration differs from active state
+- ✅ **Reboot Detection** - Warns when registry changes haven't taken effect yet
+- ✅ **Hardware Immunity Detection** - Detects CPUs with built-in protection (e.g., RDCL for Meltdown)
+- ✅ **PowerShell 5.1+ Compatible** - Works on Windows Server 2016+ without upgrades
+
+### Example Runtime Detection Output
+```
+[Runtime State Detection Active]
+NtQuerySystemInformation API available - will compare registry vs runtime state
+
+Runtime Mitigation Flags (from kernel):
+  BTI (Spectre v2): ✓ Active
+  Retpoline: ✓ Active
+  Enhanced IBRS: ✓ Active
+  SSBD System-Wide: ✓ Active
+  MBClear (MDS): ✓ Active
+  FBClear (TAA): ✗ Inactive
+
+Branch Target Injection Mitigation : ✓ ENABLED (Value: 0)
+     ✓ Runtime matches registry
+
+========================================
+Runtime Mitigation State Summary
+========================================
+
+Kernel-Level Protection Status (NtQuerySystemInformation):
+  ✓ Spectre v2 (BTI): ACTIVE
+    ✓ Retpoline: ACTIVE (software mitigation)
+    ✓ Enhanced IBRS: ACTIVE (hardware support)
+  ✓ Spectre v4 (SSBD): ACTIVE
+  ✓ MDS (Microarchitectural Data Sampling): IMMUNE (hardware)
+  ✗ TAA (TSX Async Abort): VULNERABLE
+  ✗ Meltdown (KVA Shadow): INACTIVE
+    ✓ L1D Flush: SUPPORTED (L1TF mitigation)
+
+  [Intel CPU: Hardware-protected against Meltdown (RDCL)]
+```
+
+### Comparison with Microsoft's SpeculationControl Module
+
+| Feature | Microsoft SpeculationControl | This Tool |
+|---------|------------------------------|-----------|
+| Runtime kernel state verification | ✅ | ✅ |
+| Registry configuration checking | ❌ | ✅ |
+| **Registry vs Runtime comparison** | ❌ | ✅ **UNIQUE** |
+| **Reboot required detection** | ❌ | ✅ **UNIQUE** |
+| **Actionable remediation** | ❌ | ✅ **UNIQUE** |
+| **Apply/Revert operations** | ❌ | ✅ **UNIQUE** |
+| **Hardware prerequisites validation** | ❌ | ✅ **UNIQUE** |
+| **Dependency matrix** | ❌ | ✅ **UNIQUE** |
+| **Interactive mitigation selection** | ❌ | ✅ **UNIQUE** |
+| **VMware ESXi integration** | ❌ | ✅ **UNIQUE** |
+| **CSV export for compliance** | ❌ | ✅ **UNIQUE** |
+| Retpoline detection | ✅ | ✅ |
+| Enhanced IBRS detection | ✅ | ✅ |
+| MBClear/FBClear detection | ✅ | ✅ |
+| CPU vulnerability database | ✅ | ✅ |
+
+**Bottom line**: This tool provides everything Microsoft's SpeculationControl does, **plus** actionable remediation and configuration management.
 
 ## 🚀 Quick Start
 
@@ -707,6 +777,36 @@ foreach ($VMHost in $VMHosts) {
 - **PowerShell 5.1+** (fully compatible with Windows Server defaults)
 - **Administrator privileges** required
 - **System restart** required after applying changes
+
+### Detection Capabilities
+
+**Registry-Based Detection** (Always Available):
+- Checks configured mitigation policy in Windows registry
+- Shows what *should* be applied after reboot
+
+**Runtime Kernel-Level Detection** (Recommended):
+- Uses NtQuerySystemInformation Win32 API
+- Shows what mitigations are *actually active* right now
+- Automatically enabled on Windows 10/11 and Server 2016+
+- Falls back gracefully to registry-only mode if API unavailable
+
+### Why Both Registry AND Runtime Detection?
+
+**Registry** shows your **configuration** (what you've set)  
+**Runtime** shows your **active state** (what's actually protecting you)
+
+**Example scenario**:
+```
+Registry: BTI Enabled ✓
+Runtime:  BTI Inactive ✗
+Warning:  ⚠️ Reboot required to activate registry changes
+```
+
+This dual-detection ensures you know:
+1. What you've configured
+2. What's currently active
+3. Whether a reboot is needed
+4. If Group Policy is overriding local settings
 
 ## 📋 Command Reference
 

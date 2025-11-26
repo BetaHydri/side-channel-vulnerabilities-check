@@ -572,6 +572,364 @@ function Show-ResultsTable {
     Write-ColorOutput ($Emojis.Wrench + " HARDWARE PREREQUISITES: Required hardware security capabilities") -Color Info
 }
 
+# ============================================================================
+# Runtime Mitigation State Detection (NtQuerySystemInformation API)
+# ============================================================================
+# This section adds Win32 API calls to query actual kernel runtime state
+# for speculation control mitigations, complementing registry-based detection
+
+function Initialize-NtQuerySystemAPI {
+    <#
+    .SYNOPSIS
+        Initializes the NtQuerySystemInformation Win32 API for runtime state queries
+    .DESCRIPTION
+        Adds the necessary P/Invoke signatures for querying Windows kernel speculation control state.
+        This provides more reliable detection than registry alone.
+        Compatible with PowerShell 5.1+
+    #>
+    
+    # Check if type is already loaded (avoid duplicate definition)
+    if (-not ([System.Management.Automation.PSTypeName]'NtQuery.SpeculationControl').Type) {
+        try {
+            Add-Type -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+
+namespace NtQuery
+{
+    public class SpeculationControl
+    {
+        [DllImport("ntdll.dll")]
+        public static extern int NtQuerySystemInformation(
+            uint SystemInformationClass,
+            IntPtr SystemInformation,
+            uint SystemInformationLength,
+            IntPtr ReturnLength);
+    }
+}
+"@ -ErrorAction Stop
+            return $true
+        }
+        catch {
+            Write-Verbose "Failed to initialize NtQuerySystemInformation API: $($_.Exception.Message)"
+            return $false
+        }
+    }
+    return $true
+}
+
+function Get-RuntimeSpeculationControlState {
+    <#
+    .SYNOPSIS
+        Queries runtime speculation control state from Windows kernel
+    .DESCRIPTION
+        Uses NtQuerySystemInformation to get actual active mitigation state,
+        which may differ from registry configuration if reboot is pending.
+        Returns hashtable with runtime flags or $null if API unavailable.
+    #>
+    
+    # Initialize API if not already done
+    if (-not (Initialize-NtQuerySystemAPI)) {
+        Write-Verbose "NtQuerySystemInformation API not available"
+        return $null
+    }
+    
+    $systemInfoPtr = [IntPtr]::Zero
+    $returnLengthPtr = [IntPtr]::Zero
+    
+    try {
+        # Allocate memory for system information structure
+        $systemInfoPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(8)
+        $returnLengthPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        
+        # SystemSpeculationControlInformation = 201
+        $result = [NtQuery.SpeculationControl]::NtQuerySystemInformation(201, $systemInfoPtr, 8, $returnLengthPtr)
+        
+        if ($result -eq 0) {
+            # Successfully queried - read flags
+            $flags = [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr)
+            
+            # Read flags2 if available (offset 4 bytes)
+            $returnLength = [System.Runtime.InteropServices.Marshal]::ReadInt32($returnLengthPtr)
+            $flags2 = if ($returnLength -gt 4) {
+                [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr, 4)
+            } else {
+                0
+            }
+            
+            # Parse flags into meaningful values (based on Microsoft SpeculationControl module)
+            return @{
+                RawFlags = $flags
+                RawFlags2 = $flags2
+                
+                # Spectre v2 (BTI) - CVE-2017-5715
+                BTIEnabled = ($flags -band 0x01) -ne 0
+                BTIDisabledBySystemPolicy = ($flags -band 0x02) -ne 0
+                BTIDisabledByNoHardwareSupport = ($flags -band 0x04) -ne 0
+                SpecCtrlEnumerated = ($flags -band 0x08) -ne 0
+                SpecCmdEnumerated = ($flags -band 0x10) -ne 0
+                IBRSPresent = ($flags -band 0x20) -ne 0
+                STIBPPresent = ($flags -band 0x40) -ne 0
+                
+                # Spectre v4 (SSB) - CVE-2018-3639
+                SSBDAvailable = ($flags -band 0x100) -ne 0
+                SSBDSupported = ($flags -band 0x200) -ne 0
+                SSBDSystemWide = ($flags -band 0x400) -ne 0
+                SSBDRequired = ($flags -band 0x1000) -ne 0
+                
+                # Retpoline & Import Optimization
+                RetpolineEnabled = ($flags -band 0x4000) -ne 0
+                ImportOptimizationEnabled = ($flags -band 0x8000) -ne 0
+                EnhancedIBRS = ($flags -band 0x10000) -ne 0
+                
+                # L1TF / Hypervisor flags
+                HvL1tfStatusAvailable = ($flags -band 0x20000) -ne 0
+                HvL1tfProcessorNotAffected = ($flags -band 0x40000) -ne 0
+                
+                # MDS - CVE-2018-11091, CVE-2018-12126, CVE-2018-12127, CVE-2018-12130
+                MDSHardwareProtected = ($flags -band 0x1000000) -ne 0
+                MBClearEnabled = ($flags -band 0x2000000) -ne 0
+                MBClearReported = ($flags -band 0x4000000) -ne 0
+                
+                # TAA / SBDR / FBSDP / PSDP (flags2)
+                SBDRSSDPHardwareProtected = ($flags2 -band 0x01) -ne 0
+                FBSDPHardwareProtected = ($flags2 -band 0x02) -ne 0
+                PSDPHardwareProtected = ($flags2 -band 0x04) -ne 0
+                FBClearEnabled = ($flags2 -band 0x08) -ne 0
+                FBClearReported = ($flags2 -band 0x10) -ne 0
+                
+                # BHB - CVE-2022-0001, CVE-2022-0002
+                BHBEnabled = ($flags2 -band 0x20) -ne 0
+                BHBDisabledSystemPolicy = ($flags2 -band 0x40) -ne 0
+                BHBDisabledNoHardwareSupport = ($flags2 -band 0x80) -ne 0
+                
+                # Retbleed / Branch Confusion
+                BranchConfusionReported = ($flags2 -band 0x400) -ne 0
+                BranchConfusionStatus = (($flags2 -band 0x300) -shr 8)
+                
+                # RDCL (Rogue Data Cache Load) - Enhanced Meltdown detection
+                RDCLHardwareProtectedReported = ($flags2 -band 0x800) -ne 0
+                RDCLHardwareProtected = ($flags2 -band 0x1000) -ne 0
+                
+                # GDS (Gather Data Sampling) - CVE-2022-40982
+                GDSReported = ($flags2 -band 0x2000) -ne 0
+                GDSStatus = (($flags2 -band 0x1C000) -shr 14)
+                
+                # SRSO (Speculative Return Stack Overflow) - CVE-2023-20569
+                SRSOReported = ($flags2 -band 0x20000) -ne 0
+                SRSOStatus = (($flags2 -band 0xC0000) -shr 18)
+                
+                # API Available
+                APIAvailable = $true
+                QueryTime = Get-Date
+            }
+        }
+        elseif ($result -eq 0xc0000003 -or $result -eq 0xc0000002) {
+            # STATUS_INVALID_INFO_CLASS or STATUS_NOT_IMPLEMENTED
+            Write-Verbose "NtQuerySystemInformation not supported on this OS version (result: 0x$($result.ToString('X8')))"
+            return $null
+        }
+        else {
+            Write-Verbose "NtQuerySystemInformation failed with error 0x$($result.ToString('X8'))"
+            return $null
+        }
+    }
+    catch {
+        Write-Verbose "Error querying runtime state: $($_.Exception.Message)"
+        return $null
+    }
+    finally {
+        # Free allocated memory
+        if ($systemInfoPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($systemInfoPtr)
+        }
+        if ($returnLengthPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($returnLengthPtr)
+        }
+    }
+}
+
+function Get-RuntimeKVAShadowState {
+    <#
+    .SYNOPSIS
+        Queries runtime KVA Shadow (KPTI/Meltdown) state
+    .DESCRIPTION
+        Uses NtQuerySystemInformation with class 196 to query KVA Shadow state
+    #>
+    
+    if (-not (Initialize-NtQuerySystemAPI)) {
+        return $null
+    }
+    
+    $systemInfoPtr = [IntPtr]::Zero
+    $returnLengthPtr = [IntPtr]::Zero
+    
+    try {
+        $systemInfoPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        $returnLengthPtr = [System.Runtime.InteropServices.Marshal]::AllocHGlobal(4)
+        
+        # SystemKernelVaShadowInformation = 196
+        $result = [NtQuery.SpeculationControl]::NtQuerySystemInformation(196, $systemInfoPtr, 4, $returnLengthPtr)
+        
+        if ($result -eq 0) {
+            $flags = [System.UInt32][System.Runtime.InteropServices.Marshal]::ReadInt32($systemInfoPtr)
+            
+            return @{
+                KVAShadowEnabled = ($flags -band 0x01) -ne 0
+                KVAShadowUserGlobal = ($flags -band 0x02) -ne 0
+                KVAShadowPcidEnabled = (($flags -band 0x04) -ne 0) -and (($flags -band 0x08) -ne 0)
+                KVAShadowRequired = ($flags -band 0x10) -ne 0
+                L1TFInvalidPteBit = [math]::Floor(($flags -band 0xfc0) * [math]::Pow(2, -6))
+                L1TFFlushSupported = ($flags -band 0x1000) -ne 0
+                L1TFMitigationPresent = ($flags -band 0x2000) -ne 0
+                APIAvailable = $true
+            }
+        }
+        else {
+            return $null
+        }
+    }
+    catch {
+        return $null
+    }
+    finally {
+        if ($systemInfoPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($systemInfoPtr)
+        }
+        if ($returnLengthPtr -ne [IntPtr]::Zero) {
+            [System.Runtime.InteropServices.Marshal]::FreeHGlobal($returnLengthPtr)
+        }
+    }
+}
+
+function Get-CPUVulnerabilityDatabase {
+    <#
+    .SYNOPSIS
+        Returns comprehensive CPU vulnerability database
+    .DESCRIPTION
+        Database of known vulnerable CPU models for L1TF, MDS, and other vulnerabilities.
+        Based on Intel/AMD documentation and Microsoft SpeculationControl module.
+    #>
+    
+    return @{
+        # L1TF (Foreshadow) vulnerable Intel CPUs - Family.Model.Stepping
+        L1TF = @(
+            @{Family=6; Model=26; Stepping=4}, @{Family=6; Model=26; Stepping=5},
+            @{Family=6; Model=30; Stepping=4}, @{Family=6; Model=30; Stepping=5},
+            @{Family=6; Model=37; Stepping=2}, @{Family=6; Model=37; Stepping=5},
+            @{Family=6; Model=42; Stepping=7}, @{Family=6; Model=44; Stepping=2},
+            @{Family=6; Model=45; Stepping=6}, @{Family=6; Model=45; Stepping=7},
+            @{Family=6; Model=46; Stepping=6}, @{Family=6; Model=47; Stepping=2},
+            @{Family=6; Model=58; Stepping=9}, @{Family=6; Model=60; Stepping=3},
+            @{Family=6; Model=61; Stepping=4}, @{Family=6; Model=62; Stepping=4},
+            @{Family=6; Model=62; Stepping=7}, @{Family=6; Model=63; Stepping=2},
+            @{Family=6; Model=63; Stepping=4}, @{Family=6; Model=69; Stepping=1},
+            @{Family=6; Model=70; Stepping=1}, @{Family=6; Model=78; Stepping=3},
+            @{Family=6; Model=79; Stepping=1}, @{Family=7; Model=69; Stepping=1},
+            @{Family=6; Model=85; Stepping=3}, @{Family=6; Model=85; Stepping=4},
+            @{Family=6; Model=86; Stepping=2}, @{Family=6; Model=86; Stepping=3},
+            @{Family=6; Model=86; Stepping=4}, @{Family=6; Model=86; Stepping=5},
+            @{Family=6; Model=94; Stepping=3}, @{Family=6; Model=102; Stepping=3},
+            @{Family=6; Model=142; Stepping=9}, @{Family=6; Model=142; Stepping=10},
+            @{Family=6; Model=142; Stepping=11}, @{Family=6; Model=158; Stepping=9},
+            @{Family=6; Model=158; Stepping=10}, @{Family=6; Model=158; Stepping=11},
+            @{Family=6; Model=158; Stepping=12}
+        )
+        
+        # MDS vulnerable Intel CPUs (general guideline - most pre-2019 Intel CPUs)
+        # Note: Hardware-level MDS immunity introduced in newer architectures
+        MDSVulnerableArchitectures = @(
+            'Nehalem', 'Westmere', 'Sandy Bridge', 'Ivy Bridge',
+            'Haswell', 'Broadwell', 'Skylake', 'Kaby Lake', 'Coffee Lake'
+        )
+        
+        # AMD CPUs are generally not vulnerable to Intel-specific attacks
+        AMDImmuneFrom = @('Meltdown', 'L1TF', 'MDS', 'TAA')
+    }
+}
+
+function Compare-RuntimeVsRegistryState {
+    <#
+    .SYNOPSIS
+        Compares runtime kernel state with registry configuration
+    .DESCRIPTION
+        Detects discrepancies between configured policy (registry) and actual runtime state.
+        Helps identify situations where a reboot is required or configuration didn't apply.
+    .PARAMETER MitigationName
+        Name of the mitigation to check (BTI, SSBD, KVAShadow, etc.)
+    .PARAMETER RegistryConfigured
+        Whether the mitigation is configured as enabled in registry
+    .PARAMETER RuntimeState
+        Hashtable from Get-RuntimeSpeculationControlState
+    #>
+    
+    param(
+        [string]$MitigationName,
+        [bool]$RegistryConfigured,
+        [hashtable]$RuntimeState
+    )
+    
+    if ($null -eq $RuntimeState -or -not $RuntimeState.APIAvailable) {
+        # Runtime API not available - can't compare
+        return @{
+            CanCompare = $false
+            ConfiguredState = $RegistryConfigured
+            RuntimeState = "Unknown"
+            Discrepancy = $false
+            RebootRequired = $false
+        }
+    }
+    
+    # Map mitigation names to runtime flags
+    $runtimeEnabled = switch ($MitigationName) {
+        "BTI" { $RuntimeState.BTIEnabled }
+        "SpectrV2" { $RuntimeState.BTIEnabled }
+        "SSBD" { $RuntimeState.SSBDSystemWide }
+        "SpectrV4" { $RuntimeState.SSBDSystemWide }
+        "Retpoline" { $RuntimeState.RetpolineEnabled }
+        "MBClear" { $RuntimeState.MBClearEnabled }
+        "FBClear" { $RuntimeState.FBClearEnabled }
+        default { $null }
+    }
+    
+    if ($null -eq $runtimeEnabled) {
+        return @{
+            CanCompare = $false
+            ConfiguredState = $RegistryConfigured
+            RuntimeState = "Unknown"
+            Discrepancy = $false
+            RebootRequired = $false
+        }
+    }
+    
+    $discrepancy = ($RegistryConfigured -ne $runtimeEnabled)
+    
+    return @{
+        CanCompare = $true
+        ConfiguredState = $RegistryConfigured
+        RuntimeState = $runtimeEnabled
+        Discrepancy = $discrepancy
+        RebootRequired = ($discrepancy -and $RegistryConfigured)  # Config says enabled but runtime says disabled
+        Message = if ($discrepancy) {
+            if ($RegistryConfigured -and -not $runtimeEnabled) {
+                $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+                "$iconWarning Mitigation configured but not active - reboot required"
+            }
+            elseif (-not $RegistryConfigured -and $runtimeEnabled) {
+                $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))
+                "$iconInfo Mitigation active but not configured (may be default or Group Policy)"
+            }
+        } else {
+            $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            "$iconCheck Configuration matches runtime state"
+        }
+    }
+}
+
+# ============================================================================
+# Registry and Configuration Functions
+# ============================================================================
+
 function Get-RegistryValue {
     param(
         [string]$Path,
@@ -759,6 +1117,51 @@ function Test-SideChannelMitigation {
         }
         else {
             Write-Host ""
+        }
+        
+        # Runtime state comparison (if available)
+        if ($script:RuntimeState.APIAvailable -and -not $Detailed) {
+            $comparison = $null
+            $runtimeMitigationName = switch ($Name) {
+                "Branch Target Injection Mitigation" { "BTI" }
+                "Speculative Store Bypass Disable" { "SSBD" }
+                "Kernel VA Shadow (Meltdown Protection)" { "KVAShadow" }
+                default { $null }
+            }
+            
+            if ($runtimeMitigationName) {
+                $registryEnabled = ($status -eq "Enabled")
+                $comparison = Compare-RuntimeVsRegistryState -MitigationName $runtimeMitigationName `
+                                                              -RegistryConfigured $registryEnabled `
+                                                              -RuntimeState $script:RuntimeState
+                
+                if ($comparison.CanCompare -and $comparison.Discrepancy) {
+                    $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))  # ⚠
+                    Write-Host "     $iconWarning Runtime: " -NoNewline -ForegroundColor Yellow
+                    if ($comparison.RuntimeState) {
+                        Write-Host "Active" -ForegroundColor Green -NoNewline
+                    } else {
+                        Write-Host "Inactive" -ForegroundColor Red -NoNewline
+                    }
+                    Write-Host " (differs from registry)" -ForegroundColor Yellow
+                    if ($comparison.RebootRequired) {
+                        Write-Host "     \u21BB Reboot required to apply registry changes" -ForegroundColor Cyan
+                    }
+                }
+                elseif ($comparison.CanCompare -and -not $comparison.Discrepancy) {
+                    # Only show runtime match in verbose/detailed mode to reduce clutter
+                    if ($PSBoundParameters['Verbose']) {
+                        $iconCheck = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))  # ✓
+                        Write-Host "     $iconCheck Runtime matches registry" -ForegroundColor DarkGray
+                    }
+                }
+            }
+            
+            # Show retpoline status for BTI
+            if ($Name -eq "Branch Target Injection Mitigation" -and $script:RuntimeState.RetpolineEnabled) {
+                $iconInfo = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2139", 16))  # ℹ
+                Write-Host "     $iconInfo Retpoline: Active (software mitigation)" -ForegroundColor Cyan
+            }
         }
     }
     
@@ -2156,6 +2559,39 @@ elseif ($virtInfo.HyperVStatus -eq "Enabled") {
 
 
 Write-ColorOutput "Checking Side-Channel Vulnerability Mitigations...`n" -Color Header
+
+# Query runtime kernel state for comparison with registry settings
+Write-Verbose "Querying runtime mitigation state via NtQuerySystemInformation API..."
+$script:RuntimeState = Get-RuntimeSpeculationControlState
+$script:RuntimeKVAState = Get-RuntimeKVAShadowState
+
+if ($null -ne $script:RuntimeState -and $script:RuntimeState.APIAvailable) {
+    Write-ColorOutput "`n[Runtime State Detection Active]" -Color Good
+    Write-Verbose "NtQuerySystemInformation API available - will compare registry vs runtime state"
+    
+    # Display key runtime flags if in detailed mode
+    if ($Detailed) {
+        Write-ColorOutput "`nRuntime Mitigation Flags (from kernel):" -Color Header
+        Write-ColorOutput "  BTI (Spectre v2): $(if ($script:RuntimeState.BTIEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.BTIEnabled) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  Retpoline: $(if ($script:RuntimeState.RetpolineEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.RetpolineEnabled) { 'Good' } else { 'Info' })
+        Write-ColorOutput "  Enhanced IBRS: $(if ($script:RuntimeState.EnhancedIBRS) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.EnhancedIBRS) { 'Good' } else { 'Info' })
+        Write-ColorOutput "  SSBD System-Wide: $(if ($script:RuntimeState.SSBDSystemWide) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.SSBDSystemWide) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  MBClear (MDS): $(if ($script:RuntimeState.MBClearEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.MBClearEnabled) { 'Good' } else { 'Warning' })
+        Write-ColorOutput "  FBClear (TAA): $(if ($script:RuntimeState.FBClearEnabled) { '✓ Active' } else { '✗ Inactive' })" -Color $(if ($script:RuntimeState.FBClearEnabled) { 'Good' } else { 'Warning' })
+        
+        # Check CPU vendor for immunity
+        if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
+            Write-ColorOutput "  [AMD CPU detected - immune to Intel-specific MDS/L1TF/TAA]" -Color Good
+        }
+        Write-ColorOutput ""
+    }
+}
+else {
+    Write-ColorOutput "`n[Registry-Only Detection]" -Color Warning
+    Write-Verbose "NtQuerySystemInformation API not available - using registry detection only"
+    Write-ColorOutput "  Note: Runtime state verification unavailable (API not supported on this OS)" -Color Warning
+    Write-ColorOutput "  Detection will rely on registry configuration only`n" -Color Info
+}
 
 # 1. Speculative Store Bypass Disable (SSBD)
 $Results += Test-SideChannelMitigation -Name "Speculative Store Bypass Disable" `
@@ -4071,6 +4507,139 @@ Write-ColorOutput "- Latest firmware updates: $IconQuestion Check with manufactu
 # Show VMware Host Security Configuration if requested
 if ($ShowVMwareHostSecurity) {
     Show-VMwareHostSecurity
+}
+
+# ============================================================================
+# Runtime State Summary (if NtQuerySystemInformation API is available)
+# ============================================================================
+if ($script:RuntimeState.APIAvailable -and -not $Apply -and -not $Revert) {
+    Write-ColorOutput "`n========================================" -Color Header
+    Write-ColorOutput "Runtime Mitigation State Summary" -Color Header
+    Write-ColorOutput "========================================" -Color Header
+    
+    Write-ColorOutput "`nKernel-Level Protection Status (NtQuerySystemInformation):" -Color Info
+    
+    # Spectre v2 (BTI)
+    $iconBTI = if ($script:RuntimeState.BTIEnabled) { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
+    } else { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
+    }
+    $btiColor = if ($script:RuntimeState.BTIEnabled) { 'Good' } else { 'Bad' }
+    Write-Host "  $iconBTI " -NoNewline -ForegroundColor $Colors[$btiColor]
+    Write-Host "Spectre v2 (BTI): " -NoNewline
+    Write-Host "$(if ($script:RuntimeState.BTIEnabled) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$btiColor]
+    
+    # Retpoline (software mitigation for Spectre v2)
+    if ($script:RuntimeState.RetpolineEnabled) {
+        $iconRetpoline = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "    $iconRetpoline Retpoline: ACTIVE (software mitigation)" -ForegroundColor $Colors['Good']
+    }
+    
+    # Enhanced IBRS
+    if ($script:RuntimeState.EnhancedIBRS) {
+        $iconEIBRS = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+        Write-Host "    $iconEIBRS Enhanced IBRS: ACTIVE (hardware support)" -ForegroundColor $Colors['Good']
+    }
+    
+    # Spectre v4 (SSBD)
+    $iconSSBD = if ($script:RuntimeState.SSBDSystemWide) { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
+    } else { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
+    }
+    $ssbdColor = if ($script:RuntimeState.SSBDSystemWide) { 'Good' } else { 'Warning' }
+    Write-Host "  $iconSSBD " -NoNewline -ForegroundColor $Colors[$ssbdColor]
+    Write-Host "Spectre v4 (SSBD): " -NoNewline
+    Write-Host "$(if ($script:RuntimeState.SSBDSystemWide) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$ssbdColor]
+    
+    # MDS
+    $iconMDS = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
+    } else { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
+    }
+    $mdsColor = if ($script:RuntimeState.MBClearEnabled -or $script:RuntimeState.MDSHardwareProtected) { 'Good' } else { 'Warning' }
+    Write-Host "  $iconMDS " -NoNewline -ForegroundColor $Colors[$mdsColor]
+    Write-Host "MDS (Microarchitectural Data Sampling): " -NoNewline
+    if ($script:RuntimeState.MDSHardwareProtected) {
+        Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
+    } elseif ($script:RuntimeState.MBClearEnabled) {
+        Write-Host "MITIGATED (MBClear active)" -ForegroundColor $Colors['Good']
+    } else {
+        Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
+    }
+    
+    # TAA
+    $iconTAA = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
+    } else { 
+        [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
+    }
+    $taaColor = if ($script:RuntimeState.FBClearEnabled -or $script:RuntimeState.SBDRSSDPHardwareProtected) { 'Good' } else { 'Warning' }
+    Write-Host "  $iconTAA " -NoNewline -ForegroundColor $Colors[$taaColor]
+    Write-Host "TAA (TSX Async Abort): " -NoNewline
+    if ($script:RuntimeState.SBDRSSDPHardwareProtected) {
+        Write-Host "IMMUNE (hardware)" -ForegroundColor $Colors['Good']
+    } elseif ($script:RuntimeState.FBClearEnabled) {
+        Write-Host "MITIGATED (FBClear active)" -ForegroundColor $Colors['Good']
+    } else {
+        Write-Host "VULNERABLE" -ForegroundColor $Colors['Warning']
+    }
+    
+    # Meltdown (KVA Shadow)
+    if ($script:RuntimeKVAState.APIAvailable) {
+        $iconKVA = if ($script:RuntimeKVAState.KVAShadowEnabled) { 
+            [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16)) 
+        } else { 
+            [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2717", 16)) 
+        }
+        $kvaColor = if ($script:RuntimeKVAState.KVAShadowEnabled) { 'Good' } else { 'Bad' }
+        Write-Host "  $iconKVA " -NoNewline -ForegroundColor $Colors[$kvaColor]
+        Write-Host "Meltdown (KVA Shadow): " -NoNewline
+        Write-Host "$(if ($script:RuntimeKVAState.KVAShadowEnabled) { 'ACTIVE' } else { 'INACTIVE' })" -ForegroundColor $Colors[$kvaColor]
+        
+        if ($script:RuntimeKVAState.KVAShadowEnabled -and $script:RuntimeKVAState.KVAShadowPcidEnabled) {
+            $iconPCID = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            Write-Host "    $iconPCID PCID optimization: ACTIVE (reduced performance impact)" -ForegroundColor $Colors['Good']
+        }
+        
+        if ($script:RuntimeKVAState.L1TFFlushSupported) {
+            $iconL1TF = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("2713", 16))
+            Write-Host "    $iconL1TF L1D Flush: SUPPORTED (L1TF mitigation)" -ForegroundColor $Colors['Good']
+        }
+    }
+    
+    # CPU Vendor-specific immunities
+    if ($cpuInfo.Manufacturer -eq "AuthenticAMD") {
+        Write-ColorOutput "`n  [AMD CPU: Immune to Meltdown, L1TF, MDS, TAA]" -Color Good
+    } elseif ($cpuInfo.Manufacturer -eq "GenuineIntel") {
+        # Check for newer Intel with hardware immunity
+        if ($script:RuntimeState.RDCLHardwareProtected) {
+            Write-ColorOutput "`n  [Intel CPU: Hardware-protected against Meltdown (RDCL)]" -Color Good
+        }
+    }
+    
+    # Warning about discrepancies
+    $btiRegistry = ($Results | Where-Object { $_.Name -eq "Branch Target Injection Mitigation" }).Status -eq "Enabled"
+    $ssbdRegistry = ($Results | Where-Object { $_.Name -eq "Speculative Store Bypass Disable" }).Status -eq "Enabled"
+    
+    $discrepancies = @()
+    if ($btiRegistry -ne $script:RuntimeState.BTIEnabled) {
+        $discrepancies += "BTI"
+    }
+    if ($ssbdRegistry -ne $script:RuntimeState.SSBDSystemWide) {
+        $discrepancies += "SSBD"
+    }
+    
+    if ($discrepancies.Count -gt 0) {
+        $iconWarning = [System.Char]::ConvertFromUtf32([System.Convert]::toInt32("26A0", 16))
+        Write-ColorOutput "`n$iconWarning WARNING: Registry configuration differs from runtime state for: $($discrepancies -join ', ')" -Color Warning
+        Write-ColorOutput "  This indicates a reboot may be required for changes to take effect." -Color Warning
+    }
+    
+    Write-ColorOutput "`nNote: Runtime state reflects actual kernel-level protections currently active." -Color Info
+    Write-ColorOutput "      Registry state shows configured policy (may require reboot to apply)." -Color Info
 }
 
 # Export results if requested
