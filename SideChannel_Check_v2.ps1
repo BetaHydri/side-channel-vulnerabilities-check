@@ -1838,7 +1838,7 @@ function Invoke-InteractiveRestore {
         Write-Host " = $valueDisplay" -ForegroundColor Gray
     }
     
-    Write-Host "`nEnter numbers (comma-separated), 'all', or 'Q' to quit: " -NoNewline -ForegroundColor Yellow
+    Write-Host "`nEnter numbers (e.g., '1,3,5' or '2-4,6-8'), 'all', or 'Q' to quit: " -NoNewline -ForegroundColor Yellow
     $selection = Read-Host
     
     if ($selection -eq 'Q' -or $selection -eq 'q') {
@@ -1852,11 +1852,34 @@ function Invoke-InteractiveRestore {
         $selectedItems = $restorableItems
     }
     else {
-        $numbers = $selection -split ',' | ForEach-Object { $_.Trim() }
-        $tempItems = foreach ($num in $numbers) {
-            $index = $null
-            if ([int]::TryParse($num, [ref]$index) -and $index -ge 1 -and $index -le $restorableItems.Count) {
-                $restorableItems[$index - 1]
+        # Parse selection supporting ranges (e.g., "2-4") and individual numbers (e.g., "1,5")
+        $parts = $selection -split ',' | ForEach-Object { $_.Trim() }
+        $expandedNumbers = @()
+        
+        foreach ($part in $parts) {
+            if ($part -match '^(\d+)-(\d+)$') {
+                # Range notation (e.g., "2-4")
+                $start = [int]$matches[1]
+                $end = [int]$matches[2]
+                if ($start -le $end) {
+                    $expandedNumbers += $start..$end
+                }
+                else {
+                    # Support reverse ranges (e.g., "4-2" becomes 4,3,2)
+                    $expandedNumbers += $start..$end
+                }
+            }
+            elseif ($part -match '^\d+$') {
+                # Single number
+                $expandedNumbers += [int]$part
+            }
+        }
+        
+        # Remove duplicates and get items
+        $uniqueNumbers = $expandedNumbers | Select-Object -Unique
+        $tempItems = foreach ($num in $uniqueNumbers) {
+            if ($num -ge 1 -and $num -le $restorableItems.Count) {
+                $restorableItems[$num - 1]
             }
         }
         $selectedItems = @($tempItems)
@@ -2004,7 +2027,7 @@ function Invoke-InteractiveApply {
     
     $bullet = Get-StatusIcon -Name Bullet
     Write-Host "`nSelection options:" -ForegroundColor Cyan
-    Write-Host "  $bullet Enter numbers (e.g., '1,2,5' or '1-3')" -ForegroundColor White
+    Write-Host "  $bullet Enter numbers (e.g., '1,2,5' or '2-4,6-8')" -ForegroundColor White
     Write-Host "  $bullet Type 'all' to select all shown mitigations" -ForegroundColor White
     Write-Host "  $bullet Type 'critical' to select only critical items" -ForegroundColor White
     Write-Host "  $bullet Type 'Q' to quit" -ForegroundColor White
