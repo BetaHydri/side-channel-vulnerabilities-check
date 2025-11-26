@@ -9,12 +9,14 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 
 Modern redesign with enhanced features:
 - ✨ **Simplified Mode Structure** - 5 dedicated modes (Assess, ApplyInteractive, RevertInteractive, Backup, Restore)
+- 🎯 **Selective Apply & Restore** - Choose [R]ecommended or [A]ll mitigations; restore [A]ll or [S]elective items
 - 🛡️ **Comprehensive Coverage** - 24 mitigations + 5 hardware prerequisites
 - 🔍 **Hardware Detection** - Automatic UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU detection
-- 📊 **Intelligent Scoring** - Visual security score with smart filtering
+- 📊 **Intelligent Scoring** - Visual security score bar (█░) with smart filtering
 - 🎯 **WhatIf Support** - Preview all changes before applying
-- 🔄 **Backup & Restore** - JSON-based configuration management
-- 📋 **Interactive Modes** - User-friendly selection interface
+- 🔄 **Backup & Restore** - JSON-based configuration management with selective restoration
+- 📋 **Interactive Modes** - User-friendly selection interface with detailed educational output
+- 🖥️ **PS 5.1 & 7.x Compatible** - Runtime Unicode generation for cross-version support
 - 🧪 **Automated Testing** - Comprehensive test suite included
 
 **Quick Start:**
@@ -64,14 +66,18 @@ cd v1
 |---------|------|--------|
 | **Core Mitigations** | 19 | 24 |
 | **Hardware Prerequisites** | ❌ | ✅ 5 checks |
-| **Interactive Apply** | ❌ | ✅ |
-| **WhatIf Preview** | ❌ | ✅ |
+| **Interactive Apply** | ❌ | ✅ [R]ecommended/[A]ll modes |
+| **Selective Restore** | ❌ | ✅ [A]ll/[S]elect options |
+| **WhatIf Preview** | ❌ | ✅ All modes |
 | **Backup/Restore** | ❌ | ✅ JSON-based |
+| **Detailed View** | ❌ | ✅ CVEs, Impact, Recommendations |
 | **Automated Tests** | ❌ | ✅ Full suite |
-| **Visual Security Score** | ❌ | ✅ Progress bar |
+| **Visual Security Score** | ❌ | ✅ Block characters (█░) |
 | **Intelligent Filtering** | ❌ | ✅ Platform-aware |
+| **Hardware-only Filtering** | ❌ | ✅ Auto-skips TPM/CPU/IOMMU |
 | **Detailed Logging** | Basic | Advanced |
-| **PowerShell Support** | 5.1 | 5.1 & 7.x |
+| **PowerShell Support** | 5.1 | 5.1 & 7.x optimized |
+| **Unicode Rendering** | BOM-dependent | ✅ Runtime generation |
 
 ---
 
@@ -116,17 +122,25 @@ cd v1
 # Basic assessment
 .\SideChannel_Check_v2.ps1
 
-# Preview changes (safe)
+# Detailed educational view (CVEs, descriptions, impacts)
+.\SideChannel_Check_v2.ps1 -ShowDetails
+
+# Preview changes (safe - no modifications made)
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 
-# Interactive apply with backup
+# Interactive apply with selective hardening
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
+# Choose [R]ecommended (quick) or [A]ll (selective after review)
 
 # Create backup only
 .\SideChannel_Check_v2.ps1 -Mode Backup
 
-# Restore from backup
+# Restore from backup with options
 .\SideChannel_Check_v2.ps1 -Mode Restore
+# Choose [A]ll (complete) or [S]elect (individual mitigations)
+
+# Revert to most recent backup
+.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
 
 # Export to CSV
 .\SideChannel_Check_v2.ps1 -ExportPath "report.csv"
