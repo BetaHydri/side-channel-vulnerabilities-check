@@ -2219,7 +2219,8 @@ if ($null -eq $exceptionChainValue -or $exceptionChainValue -eq 0) {
         Impact         = "Prevents SEH (Structured Exception Handler) exploitation techniques"
         CanBeEnabled   = $true
     }
-} else {
+}
+else {
     # Validation is disabled (insecure state)
     $Results += [PSCustomObject]@{
         Name           = "Exception Chain Validation"
