@@ -2783,8 +2783,8 @@ $dependencyMatrix = @(
 
 # Display dependency matrix in formatted table
 Write-ColorOutput "`n" -Color Info
-Write-Host ("{0,-40} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
-Write-Host ("{0,-40} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-46} {1,-12} {2}" -f "FEATURE", "FALLBACK", "HARDWARE REQUIREMENT") -ForegroundColor $Colors['Header']
+Write-Host ("{0,-46} {1,-12} {2}" -f "-------", "--------", "--------------------") -ForegroundColor $Colors['Header']
 
 foreach ($feature in $dependencyMatrix) {
     $fallbackSymbol = switch -Wildcard ($feature.SoftwareFallback) {
@@ -2803,7 +2803,7 @@ foreach ($feature in $dependencyMatrix) {
         default { $Colors['Info'] }
     }
     
-    Write-Host ("{0,-40}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
+    Write-Host ("{0,-46}" -f $feature.Feature) -NoNewline -ForegroundColor $Colors['Info']
     Write-Host (" {0,-12}" -f $fallbackSymbol) -NoNewline -ForegroundColor $fallbackColor
     Write-Host (" {0}" -f $feature.HardwareRequired) -ForegroundColor $Colors['Gray']
 }
