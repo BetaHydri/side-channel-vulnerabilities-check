@@ -49,9 +49,9 @@ param(
 
 # Test Results Tracking
 $script:TestResults = @{
-    Passed = 0
-    Failed = 0
-    Skipped = 0
+    Passed   = 0
+    Failed   = 0
+    Skipped  = 0
     Warnings = 0
 }
 
@@ -79,7 +79,7 @@ function Write-TestResult {
             Write-Host "❌ FAIL: $TestName" -ForegroundColor Red
             if ($Message) { Write-Host "   $Message" -ForegroundColor Red }
             $script:TestResults.Failed++
-            $script:FailedTests += @{Test = $TestName; Message = $Message}
+            $script:FailedTests += @{Test = $TestName; Message = $Message }
         }
         'Skip' {
             Write-Host "⏭️  SKIP: $TestName" -ForegroundColor Gray
@@ -101,7 +101,8 @@ function Test-ScriptExists {
     if (Test-Path $scriptPath) {
         Write-TestResult -TestName "Script file exists" -Result Pass
         return $true
-    } else {
+    }
+    else {
         Write-TestResult -TestName "Script file exists" -Result Fail -Message "SideChannel_Check_v2.ps1 not found"
         return $false
     }
@@ -115,10 +116,12 @@ function Test-BasicAssessment {
         
         if ($LASTEXITCODE -eq 0 -or $null -eq $LASTEXITCODE) {
             Write-TestResult -TestName "Basic Assessment" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Basic Assessment" -Result Fail -Message "Exit code: $LASTEXITCODE"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Basic Assessment" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -131,10 +134,12 @@ function Test-WhatIfMode {
         
         if ($result -match "WhatIf") {
             Write-TestResult -TestName "WhatIf Mode Indicator" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "WhatIf Mode Indicator" -Result Warn -Message "WhatIf text not found in output"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "WhatIf Mode" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -160,8 +165,8 @@ function Test-BackupCreation {
             
             # Verify backup format
             $latestBackup = Get-ChildItem ".\Backups\Backup_*.json" -ErrorAction SilentlyContinue | 
-                            Sort-Object LastWriteTime -Descending | 
-                            Select-Object -First 1
+            Sort-Object LastWriteTime -Descending | 
+            Select-Object -First 1
             
             if ($latestBackup) {
                 try {
@@ -169,17 +174,21 @@ function Test-BackupCreation {
                     
                     if ($backupData.Timestamp -and $backupData.Computer -and $backupData.Mitigations) {
                         Write-TestResult -TestName "Backup Format Validation" -Result Pass
-                    } else {
+                    }
+                    else {
                         Write-TestResult -TestName "Backup Format Validation" -Result Fail -Message "Missing required fields"
                     }
-                } catch {
+                }
+                catch {
                     Write-TestResult -TestName "Backup Format Validation" -Result Fail -Message "Invalid JSON format"
                 }
             }
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Backup Creation" -Result Fail -Message "Backup count did not increase"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Backup Creation" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -204,7 +213,8 @@ function Test-CSVExport {
             # Test 1: Verify semicolon delimiter (v2.1.0 feature)
             if ($csvContent -match ';') {
                 Write-TestResult -TestName "CSV Semicolon Delimiter" -Result Pass
-            } else {
+            }
+            else {
                 Write-TestResult -TestName "CSV Semicolon Delimiter" -Result Fail -Message "Expected semicolon delimiter not found"
             }
             
@@ -216,16 +226,17 @@ function Test-CSVExport {
                 
                 # Test 3: Verify v2.1.0 18-column structure
                 $requiredColumns = @('Id', 'Name', 'Category', 'Status', 'RegistryStatus', 'RuntimeStatus', 
-                                     'ActionNeeded', 'CVE', 'Platform', 'Impact', 'PrerequisiteFor', 
-                                     'CurrentValue', 'ExpectedValue', 'Description', 'Recommendation', 
-                                     'RegistryPath', 'RegistryName', 'URL')
+                    'ActionNeeded', 'CVE', 'Platform', 'Impact', 'PrerequisiteFor', 
+                    'CurrentValue', 'ExpectedValue', 'Description', 'Recommendation', 
+                    'RegistryPath', 'RegistryName', 'URL')
                 $csvColumns = $csv[0].PSObject.Properties.Name
                 
                 $missingColumns = $requiredColumns | Where-Object { $_ -notin $csvColumns }
                 
                 if ($missingColumns.Count -eq 0) {
                     Write-TestResult -TestName "CSV 18-Column Structure" -Result Pass
-                } else {
+                }
+                else {
                     Write-TestResult -TestName "CSV 18-Column Structure" -Result Fail -Message "Missing columns: $($missingColumns -join ', ')"
                 }
                 
@@ -233,7 +244,8 @@ function Test-CSVExport {
                 $prereqRow = $csv | Where-Object { $_.PrerequisiteFor -and $_.PrerequisiteFor -ne '-' } | Select-Object -First 1
                 if ($prereqRow -and $prereqRow.PrerequisiteFor -match ',') {
                     Write-TestResult -TestName "CSV Comma Preservation in PrerequisiteFor" -Result Pass -Message "Found: $($prereqRow.PrerequisiteFor)"
-                } else {
+                }
+                else {
                     Write-TestResult -TestName "CSV Comma Preservation in PrerequisiteFor" -Result Warn -Message "No comma-separated PrerequisiteFor found (may be valid)"
                 }
                 
@@ -241,19 +253,23 @@ function Test-CSVExport {
                 $urlRow = $csv | Where-Object { $_.URL -and $_.URL -ne '' } | Select-Object -First 1
                 if ($urlRow) {
                     Write-TestResult -TestName "CSV URL References" -Result Pass -Message "URLs populated"
-                } else {
+                }
+                else {
                     Write-TestResult -TestName "CSV URL References" -Result Warn -Message "No URLs found in export"
                 }
-            } else {
+            }
+            else {
                 Write-TestResult -TestName "CSV Export" -Result Fail -Message "CSV is empty"
             }
             
             # Cleanup
             Remove-Item $testCsvPath -Force -ErrorAction SilentlyContinue
-        } else {
+        }
+        else {
             Write-TestResult -TestName "CSV Export" -Result Fail -Message "CSV file not created"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "CSV Export" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -270,10 +286,12 @@ function Test-WhatIfSafety {
         
         if ($backupsAfter -eq $backupsBefore) {
             Write-TestResult -TestName "WhatIf Safety (No Changes)" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "WhatIf Safety (No Changes)" -Result Fail -Message "WhatIf created files (expected no changes)"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "WhatIf Safety" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -292,10 +310,12 @@ function Test-RestoreMode {
         
         if ($result -match "available backup" -or $result -match "Backup #") {
             Write-TestResult -TestName "Restore Mode" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Restore Mode" -Result Warn -Message "No backups found or unexpected output"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Restore Mode" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -309,10 +329,12 @@ function Test-ParameterValidation {
         
         if ($result -match "Cannot validate argument" -or $LASTEXITCODE -ne 0) {
             Write-TestResult -TestName "Invalid Mode Rejection" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Invalid Mode Rejection" -Result Fail -Message "Invalid mode was accepted"
         }
-    } catch {
+    }
+    catch {
         # Expected to throw error
         Write-TestResult -TestName "Invalid Mode Rejection" -Result Pass
     }
@@ -324,7 +346,8 @@ function Test-ParameterValidation {
         
         # Should either fail gracefully or create directory
         Write-TestResult -TestName "Invalid Path Handling" -Result Pass -Message "Handled gracefully"
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Invalid Path Handling" -Result Pass -Message "Error handled properly"
     }
 }
@@ -340,10 +363,12 @@ function Test-ModeCompatibility {
             
             if ($result -match "WhatIf" -or $result -match "What if") {
                 Write-TestResult -TestName "WhatIf on $mode mode" -Result Pass
-            } else {
+            }
+            else {
                 Write-TestResult -TestName "WhatIf on $mode mode" -Result Warn -Message "WhatIf indicator not clearly shown"
             }
-        } catch {
+        }
+        catch {
             Write-TestResult -TestName "WhatIf on $mode mode" -Result Fail -Message $_.Exception.Message
         }
     }
@@ -363,28 +388,33 @@ function Test-ShowDetailsMode {
         
         if ($foundCVE) {
             Write-TestResult -TestName "ShowDetails CVE Display" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "ShowDetails CVE Display" -Result Warn -Message "CVE numbers not found in output"
         }
         
         if ($foundURL) {
             Write-TestResult -TestName "ShowDetails URL References" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "ShowDetails URL References" -Result Warn -Message "URLs not found in output"
         }
         
         if ($foundImpact) {
             Write-TestResult -TestName "ShowDetails Impact Display" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "ShowDetails Impact Display" -Result Warn -Message "Impact info not found in output"
         }
         
         if ($foundPrereqFor) {
             Write-TestResult -TestName "ShowDetails PrerequisiteFor Display" -Result Pass
-        } else {
+        }
+        else {
             Write-TestResult -TestName "ShowDetails PrerequisiteFor Display" -Result Warn -Message "Prerequisite dependencies not found"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "ShowDetails Mode" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -406,7 +436,8 @@ function Test-HardwareDetection {
         
         if ($foundFirmware -and $foundSecureBoot -and $foundTPM -and $foundVTx -and $foundIOMMU -and $foundVBS -and $foundHVCI) {
             Write-TestResult -TestName "Hardware Security Features Display" -Result Pass -Message "All 7 features detected"
-        } else {
+        }
+        else {
             $missing = @()
             if (-not $foundFirmware) { $missing += 'Firmware' }
             if (-not $foundSecureBoot) { $missing += 'Secure Boot' }
@@ -417,7 +448,8 @@ function Test-HardwareDetection {
             if (-not $foundHVCI) { $missing += 'HVCI' }
             Write-TestResult -TestName "Hardware Security Features Display" -Result Fail -Message "Missing: $($missing -join ', ')"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Hardware Security Features" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -433,17 +465,20 @@ function Test-SelectionRangeNotation {
         # Check for range notation parsing logic (v2.1.0 feature)
         if ($scriptContent -match '\$part -match ''\^\\d\+-\\d\+\$''') {
             Write-TestResult -TestName "Range Notation Parser Present" -Result Pass -Message "Code for '1-4' range parsing found"
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Range Notation Parser Present" -Result Warn -Message "Range parsing code not detected"
         }
         
         # Check for selection examples in help/comments
         if ($scriptContent -match '1-3,5,7-9' -or $scriptContent -match '2-4,6-8') {
             Write-TestResult -TestName "Range Notation Documentation" -Result Pass -Message "Range examples found in code"
-        } else {
+        }
+        else {
             Write-TestResult -TestName "Range Notation Documentation" -Result Warn -Message "Range examples not found"
         }
-    } catch {
+    }
+    catch {
         Write-TestResult -TestName "Selection Range Notation" -Result Fail -Message $_.Exception.Message
     }
 }
@@ -503,6 +538,7 @@ Write-Host "`n=== Test Suite Complete ===" -ForegroundColor Cyan
 # Exit with error code if any tests failed
 if ($script:TestResults.Failed -gt 0) {
     exit 1
-} else {
+}
+else {
     exit 0
 }
