@@ -31,8 +31,9 @@
 
 .NOTES
     Author: Jan Tiedemann
-    Version: 1.0.0
+    Version: 2.1.0
     Requires: Administrator privileges
+    Updated: 2025-11-27
 #>
 
 #Requires -RunAsAdministrator
@@ -198,21 +199,50 @@ function Test-CSVExport {
         & ".\SideChannel_Check_v2.ps1" -ExportPath $testCsvPath | Out-Null
         
         if (Test-Path $testCsvPath) {
-            $csv = Import-Csv $testCsvPath
+            $csvContent = Get-Content $testCsvPath -Raw
+            
+            # Test 1: Verify semicolon delimiter (v2.1.0 feature)
+            if ($csvContent -match ';') {
+                Write-TestResult -TestName "CSV Semicolon Delimiter" -Result Pass
+            } else {
+                Write-TestResult -TestName "CSV Semicolon Delimiter" -Result Fail -Message "Expected semicolon delimiter not found"
+            }
+            
+            # Test 2: Import and verify structure
+            $csv = Import-Csv $testCsvPath -Delimiter ';'
             
             if ($csv.Count -gt 0) {
-                Write-TestResult -TestName "CSV Export" -Result Pass -Message "$($csv.Count) rows exported"
+                Write-TestResult -TestName "CSV Export Row Count" -Result Pass -Message "$($csv.Count) rows exported"
                 
-                # Verify CSV structure
-                $requiredColumns = @('Name', 'Status', 'RegistryState', 'RuntimeState', 'Recommendation')
+                # Test 3: Verify v2.1.0 18-column structure
+                $requiredColumns = @('Id', 'Name', 'Category', 'Status', 'RegistryStatus', 'RuntimeStatus', 
+                                     'ActionNeeded', 'CVE', 'Platform', 'Impact', 'PrerequisiteFor', 
+                                     'CurrentValue', 'ExpectedValue', 'Description', 'Recommendation', 
+                                     'RegistryPath', 'RegistryName', 'URL')
                 $csvColumns = $csv[0].PSObject.Properties.Name
                 
                 $missingColumns = $requiredColumns | Where-Object { $_ -notin $csvColumns }
                 
                 if ($missingColumns.Count -eq 0) {
-                    Write-TestResult -TestName "CSV Structure Validation" -Result Pass
+                    Write-TestResult -TestName "CSV 18-Column Structure" -Result Pass
                 } else {
-                    Write-TestResult -TestName "CSV Structure Validation" -Result Fail -Message "Missing columns: $($missingColumns -join ', ')"
+                    Write-TestResult -TestName "CSV 18-Column Structure" -Result Fail -Message "Missing columns: $($missingColumns -join ', ')"
+                }
+                
+                # Test 4: Verify PrerequisiteFor field preserves commas (v2.1.0)
+                $prereqRow = $csv | Where-Object { $_.PrerequisiteFor -and $_.PrerequisiteFor -ne '-' } | Select-Object -First 1
+                if ($prereqRow -and $prereqRow.PrerequisiteFor -match ',') {
+                    Write-TestResult -TestName "CSV Comma Preservation in PrerequisiteFor" -Result Pass -Message "Found: $($prereqRow.PrerequisiteFor)"
+                } else {
+                    Write-TestResult -TestName "CSV Comma Preservation in PrerequisiteFor" -Result Warn -Message "No comma-separated PrerequisiteFor found (may be valid)"
+                }
+                
+                # Test 5: Verify URL field is populated (v2.1.0)
+                $urlRow = $csv | Where-Object { $_.URL -and $_.URL -ne '' } | Select-Object -First 1
+                if ($urlRow) {
+                    Write-TestResult -TestName "CSV URL References" -Result Pass -Message "URLs populated"
+                } else {
+                    Write-TestResult -TestName "CSV URL References" -Result Warn -Message "No URLs found in export"
                 }
             } else {
                 Write-TestResult -TestName "CSV Export" -Result Fail -Message "CSV is empty"
@@ -319,6 +349,105 @@ function Test-ModeCompatibility {
     }
 }
 
+function Test-ShowDetailsMode {
+    Write-Host "`n[Test 9] ShowDetails Mode..." -ForegroundColor Yellow
+    
+    try {
+        $result = & ".\SideChannel_Check_v2.ps1" -ShowDetails 2>&1
+        
+        # Test for v2.1.0 features in detailed output
+        $foundCVE = $result -match 'CVE-\d{4}-\d+'
+        $foundURL = $result -match 'https?://'
+        $foundImpact = $result -match 'Impact:\s+(Low|Medium|High|None)'
+        $foundPrereqFor = $result -match 'Required For:'
+        
+        if ($foundCVE) {
+            Write-TestResult -TestName "ShowDetails CVE Display" -Result Pass
+        } else {
+            Write-TestResult -TestName "ShowDetails CVE Display" -Result Warn -Message "CVE numbers not found in output"
+        }
+        
+        if ($foundURL) {
+            Write-TestResult -TestName "ShowDetails URL References" -Result Pass
+        } else {
+            Write-TestResult -TestName "ShowDetails URL References" -Result Warn -Message "URLs not found in output"
+        }
+        
+        if ($foundImpact) {
+            Write-TestResult -TestName "ShowDetails Impact Display" -Result Pass
+        } else {
+            Write-TestResult -TestName "ShowDetails Impact Display" -Result Warn -Message "Impact info not found in output"
+        }
+        
+        if ($foundPrereqFor) {
+            Write-TestResult -TestName "ShowDetails PrerequisiteFor Display" -Result Pass
+        } else {
+            Write-TestResult -TestName "ShowDetails PrerequisiteFor Display" -Result Warn -Message "Prerequisite dependencies not found"
+        }
+    } catch {
+        Write-TestResult -TestName "ShowDetails Mode" -Result Fail -Message $_.Exception.Message
+    }
+}
+
+function Test-HardwareDetection {
+    Write-Host "`n[Test 10] Hardware Security Features Detection..." -ForegroundColor Yellow
+    
+    try {
+        $result = & ".\SideChannel_Check_v2.ps1" 2>&1
+        
+        # Test for v2.1.0 hardware detection output
+        $foundFirmware = $result -match 'Firmware:\s+(UEFI|Legacy BIOS)'
+        $foundSecureBoot = $result -match 'Secure Boot:'
+        $foundTPM = $result -match 'TPM:'
+        $foundVTx = $result -match 'VT-x/AMD-V:'
+        $foundIOMMU = $result -match 'IOMMU/VT-d:'
+        $foundVBS = $result -match 'VBS Capable:'
+        $foundHVCI = $result -match 'HVCI Capable:'
+        
+        if ($foundFirmware -and $foundSecureBoot -and $foundTPM -and $foundVTx -and $foundIOMMU -and $foundVBS -and $foundHVCI) {
+            Write-TestResult -TestName "Hardware Security Features Display" -Result Pass -Message "All 7 features detected"
+        } else {
+            $missing = @()
+            if (-not $foundFirmware) { $missing += 'Firmware' }
+            if (-not $foundSecureBoot) { $missing += 'Secure Boot' }
+            if (-not $foundTPM) { $missing += 'TPM' }
+            if (-not $foundVTx) { $missing += 'VT-x' }
+            if (-not $foundIOMMU) { $missing += 'IOMMU' }
+            if (-not $foundVBS) { $missing += 'VBS' }
+            if (-not $foundHVCI) { $missing += 'HVCI' }
+            Write-TestResult -TestName "Hardware Security Features Display" -Result Fail -Message "Missing: $($missing -join ', ')"
+        }
+    } catch {
+        Write-TestResult -TestName "Hardware Security Features" -Result Fail -Message $_.Exception.Message
+    }
+}
+
+function Test-SelectionRangeNotation {
+    Write-Host "`n[Test 11] Selection Range Notation Support..." -ForegroundColor Yellow
+    
+    # This is a behavioral test - we can't easily automate interactive input
+    # But we can verify the function exists by checking the script content
+    try {
+        $scriptContent = Get-Content ".\SideChannel_Check_v2.ps1" -Raw
+        
+        # Check for range notation parsing logic (v2.1.0 feature)
+        if ($scriptContent -match '\$part -match ''\^\\d\+-\\d\+\$''') {
+            Write-TestResult -TestName "Range Notation Parser Present" -Result Pass -Message "Code for '1-4' range parsing found"
+        } else {
+            Write-TestResult -TestName "Range Notation Parser Present" -Result Warn -Message "Range parsing code not detected"
+        }
+        
+        # Check for selection examples in help/comments
+        if ($scriptContent -match '1-3,5,7-9' -or $scriptContent -match '2-4,6-8') {
+            Write-TestResult -TestName "Range Notation Documentation" -Result Pass -Message "Range examples found in code"
+        } else {
+            Write-TestResult -TestName "Range Notation Documentation" -Result Warn -Message "Range examples not found"
+        }
+    } catch {
+        Write-TestResult -TestName "Selection Range Notation" -Result Fail -Message $_.Exception.Message
+    }
+}
+
 # Main Test Execution
 Write-Host "=================================================================================" -ForegroundColor Cyan
 Write-Host "  Side-Channel Tool v2 - Automated Test Suite" -ForegroundColor Cyan
@@ -340,6 +469,9 @@ Test-WhatIfSafety
 Test-RestoreMode
 Test-ParameterValidation
 Test-ModeCompatibility
+Test-ShowDetailsMode
+Test-HardwareDetection
+Test-SelectionRangeNotation
 
 # Summary
 Write-Host "`n=================================================================================" -ForegroundColor Cyan
