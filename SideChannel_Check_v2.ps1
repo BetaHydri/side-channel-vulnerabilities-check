@@ -1713,7 +1713,7 @@ function Show-Recommendations {
     }
     
     Write-Host "`nTo apply mitigations, run:" -ForegroundColor Cyan
-    Write-Host "   .\SideChannel_Check_v2.ps1 -Mode Apply -Interactive" -ForegroundColor White
+    Write-Host "   .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive" -ForegroundColor White
 }
 
 # ============================================================================
