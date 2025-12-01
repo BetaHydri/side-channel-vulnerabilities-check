@@ -655,11 +655,11 @@ function Get-MitigationDefinitions {
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'MitigationOptions'
             EnabledValue     = 0x2000000000000000
-            Description      = 'Core hardware-based security features'
+            Description      = 'Core hardware-based security features (requires CPU support)'
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable core hardware mitigation features'
+            Recommendation   = 'Enable core hardware mitigation features (Note: VMs may show Vulnerable if CPU features not exposed by hypervisor)'
         },
         
         # Additional Side-Channel Mitigations (2022+)
