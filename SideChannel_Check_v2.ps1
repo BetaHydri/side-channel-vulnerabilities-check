@@ -1475,10 +1475,41 @@ function Show-MitigationTable {
                     Write-Host $result.Description -ForegroundColor Cyan
                 }
                 
-                # Show Runtime vs Registry Status
+                # Show Runtime vs Registry Status with icons and color coding
                 if ($result.RuntimeStatus -and $result.RuntimeStatus -ne 'N/A') {
                     Write-Host "  Runtime:      " -NoNewline -ForegroundColor Gray
-                    Write-Host $result.RuntimeStatus -ForegroundColor Cyan
+                    
+                    # Determine icon and color based on runtime status
+                    if ($result.RuntimeStatus -match '^Active') {
+                        # Active, Active (Enhanced IBRS), Active (Retpoline), etc.
+                        Write-Host "$(Get-StatusIcon -Name Success) " -NoNewline -ForegroundColor Green
+                        Write-Host $result.RuntimeStatus -ForegroundColor Green
+                    }
+                    elseif ($result.RuntimeStatus -eq 'Inactive') {
+                        Write-Host "$(Get-StatusIcon -Name Cross) " -NoNewline -ForegroundColor Red
+                        Write-Host $result.RuntimeStatus -ForegroundColor Red
+                    }
+                    elseif ($result.RuntimeStatus -match 'Not Needed|Immune') {
+                        Write-Host "$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
+                        Write-Host $result.RuntimeStatus -ForegroundColor Cyan
+                    }
+                    elseif ($result.RuntimeStatus -eq 'Supported') {
+                        Write-Host "$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
+                        Write-Host $result.RuntimeStatus -ForegroundColor Cyan
+                    }
+                    elseif ($result.RuntimeStatus -match 'Not Present|Disabled or Not Supported') {
+                        Write-Host "$(Get-StatusIcon -Name Cross) " -NoNewline -ForegroundColor Red
+                        Write-Host $result.RuntimeStatus -ForegroundColor Red
+                    }
+                    elseif ($result.RuntimeStatus -eq 'Enabled') {
+                        # For prerequisites like Secure Boot
+                        Write-Host "$(Get-StatusIcon -Name Success) " -NoNewline -ForegroundColor Green
+                        Write-Host $result.RuntimeStatus -ForegroundColor Green
+                    }
+                    else {
+                        # Default fallback
+                        Write-Host $result.RuntimeStatus -ForegroundColor Gray
+                    }
                 }
                 
                 if ($result.RegistryStatus -and $result.RegistryStatus -ne 'N/A') {
