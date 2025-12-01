@@ -97,7 +97,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.0'
+$script:Version = '2.1.1'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -1507,14 +1507,16 @@ function Show-MitigationTable {
             if ($script:RuntimeState.APIAvailable) {
                 Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
                 Write-Host "Runtime Status Guide:" -ForegroundColor White
-                Write-Host "  $(Get-StatusIcon -Name Success) Active" -ForegroundColor Green -NoNewline
+                Write-Host "  $(Get-StatusIcon -Name Success) Active / Active (method)" -ForegroundColor Green -NoNewline
                 Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
                 Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
-                Write-Host "  $(Get-StatusIcon -Name Info) Not Needed" -ForegroundColor Cyan -NoNewline
-                Write-Host " - Hardware protection supersedes software mitigation" -ForegroundColor Gray
-                Write-Host "  $(Get-StatusIcon -Name Info) HW Immune" -ForegroundColor Cyan -NoNewline
-                Write-Host " - CPU has hardware immunity (no mitigation needed)" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) Not Needed (HW Immune)" -ForegroundColor Cyan -NoNewline
+                Write-Host " - Hardware immunity (no software mitigation needed)" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) Supported" -ForegroundColor Cyan -NoNewline
+                Write-Host " - Hardware feature available for use" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) N/A" -ForegroundColor Gray -NoNewline
+                Write-Host " - No runtime detection available (check registry status)" -ForegroundColor Gray
             }
         }
         

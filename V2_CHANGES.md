@@ -222,6 +222,33 @@ Config/                                      # Reserved for future use
 5. **Flexibility**: Multiple modes, detailed/simplified views
 6. **Maintainability**: Clear structure, comprehensive documentation
 
+## v2.1.1 Enhancements (2025-12-01)
+
+### Enhanced Runtime Status Guide
+- **Expanded from 4 to 5 comprehensive state descriptions**
+  * **Active / Active (method)** - Protection is running (covers "Active (Enhanced IBRS)", "Active (Retpoline)")
+  * **Inactive** - Protection is NOT running (you are vulnerable)
+  * **Not Needed (HW Immune)** - Hardware immunity, no software mitigation needed (consolidated entry)
+  * **Supported** - Hardware feature available for use (e.g., L1TF hardware support)
+  * **N/A** - No runtime detection available (check registry status instead)
+
+- **Implementation Details**:
+  * Updated Show-MitigationTable Bullets format (lines 1504-1521)
+  * Guide now accurately reflects all runtime states from Get-RuntimeMitigationStatus
+  * Helps users understand what each runtime status means for their security posture
+  * Color-coded icons: ✓ (green) for Active, ✗ (red) for Inactive, ℹ (cyan/gray) for informational states
+
+### Fixed Recommendation Syntax
+- **Updated Show-Recommendations function (line 1718)**
+  * Changed from: `.\.SideChannel_Check_v2.ps1 -Mode Apply -Interactive`
+  * Changed to: `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive`
+  * Reflects current parameter structure (single `-Mode ApplyInteractive` parameter)
+
+### Documentation Updates
+- Updated all sample outputs to reflect v2.1.1
+- Enhanced Runtime Status Guide descriptions for user clarity
+- Updated version references across README.md, QUICKSTART.md, and V2_CHANGES.md
+
 ## v2.1.0 Enhancements (2025-11-26)
 
 ### Enhanced Platform Information Display
@@ -455,7 +482,7 @@ Version 2.0 represents a significant evolution in functionality, usability, and 
 The modular architecture, simplified interface, and enhanced safety features (backup/revert) make v2.0 the recommended version for production use, especially in environments where configuration changes need to be applied safely and tracked comprehensively.
 
 ---
-**Version**: 2.1.0  
-**Date**: November 26, 2025  
+**Version**: 2.1.1  
+**Date**: December 1, 2025  
 **Author**: Jan Tiede  
-**Branch**: main (merged from feature/v2-redesign)
+**Branch**: main

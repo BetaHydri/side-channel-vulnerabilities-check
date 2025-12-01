@@ -1,6 +1,6 @@
-# Quick Start Guide - v2.1.0
+# Quick Start Guide - v2.1.1
 
-> **Note:** v2.1.0 is now the main version in the repository root. Legacy v1 has been archived to `archive/v1/`.
+> **Note:** v2.1.1 is now the main version in the repository root. Legacy v1 has been archived to `archive/v1/`.
 
 ---
 
@@ -220,6 +220,7 @@ cd archive\v1
 - ✅ **Selective Apply & Restore** - Choose [R]ecommended/[A]ll or [A]ll/[S]elect options
 - ✅ **WhatIf Support** - Preview all changes before applying
 - ✅ **Educational View** - CVEs, descriptions, impacts, recommendations
+- ✅ **Enhanced Runtime Status Guide** - 5 comprehensive states (Active, Inactive, Not Needed, Supported, N/A)
 - ✅ **PowerShell 5.1 & 7.x** - Full compatibility with runtime Unicode generation
 - ✅ **Hardware Detection** - UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU
 - ✅ **Intelligent Scoring** - Visual progress bar excludes N/A items

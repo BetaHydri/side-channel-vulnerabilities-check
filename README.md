@@ -1,10 +1,10 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.0
+# Side-Channel Vulnerability Mitigation Tool v2.1.1
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
-> **Note:** This is version 2.1.0 - the production-ready version with enhanced features. The legacy v1.x version has been archived to `archive/v1/` for reference.
+> **Note:** This is version 2.1.1 - the production-ready version with enhanced features. The legacy v1.x version has been archived to `archive/v1/` for reference.
 
-## 🎯 What's New in v2.1.0
+## 🎯 What's New in v2.1.1
 
 ### Major Enhancements
 - **✨ Simplified Mode Structure** - Dedicated modes replace parameter combinations
@@ -20,7 +20,7 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 
 ### Version Comparison
 
-| Feature | v1 (Archived) | v2.1.0 (Current) |
+| Feature | v1 (Archived) | v2.1.1 (Current) |
 |---------|---------------|------------------|
 | Mitigations Covered | 28 checks | 24 checks (streamlined) |
 | Architecture | Monolithic | Modular functions |
@@ -43,7 +43,7 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 - Administrator privileges
 - Execution policy allowing script execution
 
-**Note:** v2.1.0 uses runtime Unicode generation for full compatibility across PowerShell versions without requiring UTF-8 BOM encoding.
+**Note:** v2.1.1 uses runtime Unicode generation for full compatibility across PowerShell versions without requiring UTF-8 BOM encoding.
 
 ```powershell
 # Set execution policy (if needed)
@@ -326,11 +326,11 @@ Skipped (hardware-only): 3
 
 ## 🔍 Comprehensive Assessment Output
 
-### Sample Output - v2.1.0
+### Sample Output - v2.1.1
 
 ```
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
 ================================================================================
 
 [Debug] Detecting platform type...
@@ -434,6 +434,10 @@ IOMMU/VT-d Support             Prerequisite Protected    DMA Protection         
 ### Sample Output - ApplyInteractive Mode
 
 ```
+================================================================================
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
+================================================================================
+
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
 
 === Interactive Mitigation Application ===
@@ -472,6 +476,10 @@ Backup saved: C:\...\Backups\Backup_20251126_153045.json
 ### Sample Output - WhatIf Mode
 
 ```
+================================================================================
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
+================================================================================
+
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 
 === Interactive Mitigation Application ===
@@ -509,7 +517,7 @@ System restart would be required: Yes
 .\SideChannel_Check_v2.ps1 -Mode Backup
 
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
 ================================================================================
 
 [Debug] Detecting platform type...
@@ -560,7 +568,7 @@ Would save to: C:\...\Backups\Backup_<timestamp>.json
 .\SideChannel_Check_v2.ps1 -Mode Restore
 
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
 ================================================================================
 
 --- Platform Information ---
@@ -619,7 +627,7 @@ Skipped (hardware-only): 3
 .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
 
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
 ================================================================================
 
 --- Platform Information ---
@@ -656,7 +664,7 @@ Skipped (hardware-only): 3
 .\SideChannel_Check_v2.ps1 -ExportPath "security_assessment.csv"
 
 ================================================================================
-  Side-Channel Vulnerability Mitigation Tool - Version 2.1.0
+  Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
 ================================================================================
 
 [Assessment runs normally...]
@@ -962,7 +970,7 @@ Get-Help about_Functions_CmdletBindingAttribute
 ```
 
 ### Unicode characters not displaying correctly
-**Solution:** v2.1.0 uses runtime Unicode generation for full compatibility.
+**Solution:** v2.1.1 uses runtime Unicode generation for full compatibility.
 
 The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) at runtime using `[System.Char]::ConvertFromUtf32()`, ensuring consistent display across PowerShell 5.1 and 7.x without requiring specific file encoding.
 
@@ -980,6 +988,21 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ---
 
 ## 📝 Changelog
+
+### v2.1.1 (2025-12-01)
+- 📚 **Enhanced Runtime Status Guide**
+  * Updated from 4 to 5 comprehensive state descriptions in Bullets format
+  * Added "Active / Active (method)" - covers Enhanced IBRS, Retpoline variants
+  * Added "Supported" - for L1TF and similar hardware features
+  * Added "N/A" - when no runtime detection available
+  * Consolidated "Not Needed (HW Immune)" entry
+  * Guide now accurately reflects all possible states from 24 side-channel checks
+- 🐛 **Fixed recommendation syntax**
+  * Changed from `-Mode Apply -Interactive` to `-Mode ApplyInteractive`
+  * Updated line 1718 in Show-Recommendations function
+- 📖 **Documentation updates**
+  * Updated all sample outputs to reflect v2.1.1
+  * Enhanced Runtime Status Guide descriptions for clarity
 
 ### v2.1.0 (2025-11-26)
 - ✨ Enhanced interactive modes with selective apply & restore
@@ -1186,7 +1209,7 @@ MIT License
 
 ---
 
-**Version:** 2.1.0  
-**Last Updated:** 2025-11-26  
+**Version:** 2.1.1  
+**Last Updated:** 2025-12-01  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
