@@ -1836,6 +1836,13 @@ function Set-MitigationValue {
         [hashtable]$Mitigation
     )
     
+    # Check if this is a hardware-only prerequisite (no registry path)
+    if ([string]::IsNullOrEmpty($Mitigation.RegistryPath) -or [string]::IsNullOrEmpty($Mitigation.RegistryName)) {
+        Write-Log "Skipped: $($Mitigation.Name) (hardware-only, configure in BIOS/UEFI)" -Level Info
+        Write-Host "  [Info] Skipped: $($Mitigation.Name) - Configure in BIOS/UEFI firmware" -ForegroundColor Gray
+        return $null  # Return null to indicate skip (not success/failure)
+    }
+    
     if ($WhatIfPreference) {
         Write-Log "[WhatIf] Would apply: $($Mitigation.Name)" -Level Info
         Write-Host "  [WhatIf] Would set: $($Mitigation.RegistryPath)\$($Mitigation.RegistryName) = $($Mitigation.EnabledValue)" -ForegroundColor Cyan
@@ -2246,15 +2253,21 @@ function Invoke-InteractiveApply {
     
     $success = 0
     $failed = 0
+    $skipped = 0
     
     foreach ($item in $selectedItems) {
         $mitigation = $mitigations | Where-Object { $_.Id -eq $item.Id }
         if ($mitigation) {
-            if (Set-MitigationValue -Mitigation $mitigation) {
+            $result = Set-MitigationValue -Mitigation $mitigation
+            if ($result -eq $true) {
                 $success++
             }
-            else {
+            elseif ($result -eq $false) {
                 $failed++
+            }
+            else {
+                # $null means skipped (hardware-only)
+                $skipped++
             }
         }
     }
@@ -2263,6 +2276,9 @@ function Invoke-InteractiveApply {
     Write-Host "Successfully applied: $success" -ForegroundColor Green
     if ($failed -gt 0) {
         Write-Host "Failed: $failed" -ForegroundColor Red
+    }
+    if ($skipped -gt 0) {
+        Write-Host "Skipped (hardware-only): $skipped" -ForegroundColor Gray
     }
     Write-Host "Backup saved: $backupFile" -ForegroundColor Gray
     
