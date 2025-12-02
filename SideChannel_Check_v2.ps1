@@ -375,6 +375,14 @@ function Get-RuntimeMitigationStatus {
         'MDS' {
             if ($script:RuntimeState.Flags['MDSHardwareProtected']) { return 'Not Needed (HW Immune)' }
             if ($script:RuntimeState.Flags['MBClearEnabled']) { return 'Active' }
+            # Check if registry is set but mitigation still inactive (missing microcode)
+            try {
+                $regValue = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel' -Name MDSMitigationLevel -ErrorAction SilentlyContinue
+                if ($regValue -and $regValue.MDSMitigationLevel -eq 1) {
+                    return 'Inactive (Microcode Update Required)'
+                }
+            }
+            catch { }
             return 'Inactive'
         }
         'L1TF' {
@@ -407,6 +415,15 @@ function Get-RuntimeMitigationStatus {
             if ($script:RuntimeState.Flags['FBClearEnabled']) { 
                 return 'Active' 
             }
+            # Check if registry is set but mitigation still inactive (missing microcode)
+            # FBSDP uses the same SBDRMitigationLevel registry value as SBDR
+            try {
+                $regValue = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel' -Name SBDRMitigationLevel -ErrorAction SilentlyContinue
+                if ($regValue -and $regValue.SBDRMitigationLevel -eq 1) {
+                    return 'Inactive (Microcode Update Required)'
+                }
+            }
+            catch { }
             return 'Inactive'
         }
         'PSDP' {
