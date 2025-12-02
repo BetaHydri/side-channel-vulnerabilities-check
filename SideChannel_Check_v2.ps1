@@ -1211,9 +1211,26 @@ function Compare-MitigationValue {
     
     if ($null -eq $Current) { return $false }
     
+    # Handle REG_BINARY type (byte array) - convert to uint64
+    # This happens after reboot when Windows converts MitigationOptions to REG_BINARY
+    if ($Current -is [byte[]]) {
+        if ($Current.Length -eq 8) {
+            # Convert 8-byte array to uint64 (little-endian)
+            $Current = [BitConverter]::ToUInt64($Current, 0)
+        }
+        elseif ($Current.Length -eq 4) {
+            # Convert 4-byte array to uint32
+            $Current = [BitConverter]::ToUInt32($Current, 0)
+        }
+        else {
+            # Unsupported byte array length
+            return $false
+        }
+    }
+    
     # Handle hex string comparisons for large values
     if ($Expected -is [long] -or $Expected -is [uint64]) {
-        # For MitigationOptions, check if core flag is set
+        # For MitigationOptions, check if core flag is set (bitwise AND)
         if ($RegistryName -eq 'MitigationOptions' -and $Current -is [uint64]) {
             $coreFlagPresent = ($Current -band $Expected) -eq $Expected
             return $coreFlagPresent
