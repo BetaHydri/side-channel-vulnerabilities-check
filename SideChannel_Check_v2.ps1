@@ -1214,12 +1214,13 @@ function Compare-MitigationValue {
     # Handle REG_BINARY type (byte array) - convert to uint64
     # This happens after reboot when Windows converts MitigationOptions to REG_BINARY
     if ($Current -is [byte[]]) {
-        if ($Current.Length -eq 8) {
-            # Convert 8-byte array to uint64 (little-endian)
+        if ($Current.Length -ge 8) {
+            # Convert first 8 bytes to uint64 (little-endian)
+            # Windows stores MitigationOptions as variable-length binary, we only need first 8 bytes
             $Current = [BitConverter]::ToUInt64($Current, 0)
         }
-        elseif ($Current.Length -eq 4) {
-            # Convert 4-byte array to uint32
+        elseif ($Current.Length -ge 4) {
+            # Convert first 4 bytes to uint32
             $Current = [BitConverter]::ToUInt32($Current, 0)
         }
         else {
