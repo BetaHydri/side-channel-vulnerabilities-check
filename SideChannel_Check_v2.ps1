@@ -389,7 +389,14 @@ function Get-RuntimeMitigationStatus {
             if ($script:RuntimeState.Flags['FBClearEnabled']) { 
                 return 'Active' 
             }
-            # Registry might be set but kernel hasn't enabled it (missing microcode/prerequisites)
+            # Check if registry is set but mitigation still inactive (missing microcode)
+            try {
+                $regValue = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel' -Name SBDRMitigationLevel -ErrorAction SilentlyContinue
+                if ($regValue -and $regValue.SBDRMitigationLevel -eq 1) {
+                    return 'Inactive (Microcode Update Required)'
+                }
+            }
+            catch { }
             return 'Inactive'
         }
         'FBSDP' {
@@ -408,6 +415,14 @@ function Get-RuntimeMitigationStatus {
             if ($script:RuntimeState.Flags['FBClearEnabled']) { 
                 return 'Active' 
             }
+            # Check if registry is set but mitigation still inactive (missing microcode)
+            try {
+                $regValue = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel' -Name PredictiveStoreForwardingDisable -ErrorAction SilentlyContinue
+                if ($regValue -and $regValue.PredictiveStoreForwardingDisable -eq 1) {
+                    return 'Inactive (Microcode Update Required)'
+                }
+            }
+            catch { }
             return 'Inactive'
         }
         default { return 'N/A' }
@@ -816,7 +831,7 @@ function Get-MitigationDefinitions {
             Id               = 'SBDR'
             Name             = 'SBDR/SBDS Mitigation'
             CVE              = 'CVE-2022-21123, CVE-2022-21125'
-            Category         = 'Recommended'
+            Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'SBDRMitigationLevel'
             EnabledValue     = 1
@@ -876,7 +891,7 @@ function Get-MitigationDefinitions {
             Id               = 'PSDP'
             Name             = 'Predictive Store Forwarding Disable'
             CVE              = 'CVE-2022-0001, CVE-2022-0002 (Branch History Injection)'
-            Category         = 'Recommended'
+            Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
             RegistryName     = 'PredictiveStoreForwardingDisable'
             EnabledValue     = 1
@@ -1960,16 +1975,26 @@ function Show-MitigationTable {
                 $ansiReset = "`e[0m"
                 $ansiGreen = "`e[32m"
                 $ansiRed = "`e[31m"
+                $ansiBrightRed = "`e[91m"  # Bright red for critical vulnerabilities
                 $ansiCyan = "`e[36m"
                 $ansiYellow = "`e[33m"
                 $ansiGray = "`e[90m"
                 
                 foreach ($result in $Results) {
-                    # Determine ANSI color for entire line based on status
+                    # Determine ANSI color based on status AND category
+                    # Critical vulnerabilities get bright red, Recommended vulnerabilities get regular red
                     $lineAnsi = switch ($result.OverallStatus) {
                         'Protected' { $ansiGreen }
-                        'Vulnerable' { $ansiRed }
+                        'Vulnerable' { 
+                            if ($result.Category -eq 'Critical') { 
+                                $ansiBrightRed  # Bright red for critical vulnerabilities
+                            } 
+                            else { 
+                                $ansiRed  # Regular red for recommended vulnerabilities
+                            }
+                        }
                         'Active' { $ansiCyan }
+                        'Unknown' { $ansiYellow }
                         default { $ansiGray }
                     }
                     
@@ -1986,11 +2011,13 @@ function Show-MitigationTable {
                     # Format the entire line as a single string
                     $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
                     
-                    # Determine color for the line based on status
+                    # Determine color based on status AND category
+                    # Note: PowerShell 5.1 doesn't support bright colors well, so both use Red
                     $lineColor = switch ($result.OverallStatus) {
                         'Protected' { 'Green' }
-                        'Vulnerable' { 'Red' }
+                        'Vulnerable' { 'Red' }  # All vulnerabilities show in red
                         'Active' { 'Cyan' }
+                        'Unknown' { 'Yellow' }
                         default { 'Gray' }
                     }
                     
@@ -2041,6 +2068,24 @@ function Show-Recommendations {
         foreach ($item in $optional) {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+        }
+    }
+    
+    # Check if any items show "Inactive (Microcode Update Required)" status
+    $microcodeRequired = @($Results | Where-Object { $_.RuntimeStatus -match 'Microcode Update Required' })
+    if ($microcodeRequired.Count -gt 0) {
+        Write-Host "`n$(Get-StatusIcon -Name Warning) MICROCODE UPDATE REQUIRED:" -ForegroundColor Yellow
+        Write-Host "   The following mitigations have registry values set but are still inactive:" -ForegroundColor Gray
+        foreach ($item in $microcodeRequired) {
+            Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name) - Registry configured but kernel mitigation inactive" -ForegroundColor Yellow
+        }
+        Write-Host "`n   This typically means:" -ForegroundColor Cyan
+        Write-Host "   • CPU microcode update is missing or outdated" -ForegroundColor Gray
+        Write-Host "   • Update BIOS/UEFI firmware to latest version" -ForegroundColor Gray
+        Write-Host "   • Check with your hardware vendor for microcode updates" -ForegroundColor Gray
+        Write-Host "   • Some older CPUs may not receive microcode updates" -ForegroundColor DarkGray
+        if ($script:PlatformInfo.Type -eq 'VM' -or $script:PlatformInfo.Type -eq 'HyperVGuest' -or $script:PlatformInfo.Type -eq 'VMwareGuest') {
+            Write-Host "`n   $(Get-StatusIcon -Name Info) VM Note: Hypervisor host must have microcode updates and mitigations enabled first" -ForegroundColor Cyan
         }
     }
     
