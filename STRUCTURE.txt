@@ -1,35 +1,23 @@
 side-channel-vulnerabilities-check/
+├── .git/                               # Git repository metadata
+├── .gitignore                          # Git ignore rules
+│
 ├── README.md                           # Main documentation (v2.3.0)
 ├── QUICKSTART.md                       # Quick reference guide (v2.3.0)
 ├── STRUCTURE.txt                       # This file - repository structure
 ├── LICENSE                             # MIT License
-├── .gitignore                          # Git ignore rules
+├── HYPERVISOR_CONFIGURATION.md        # Hypervisor hardening guide
 │
 ├── SideChannel_Check_v2.ps1           # Main tool - v2.3.0 (CURRENT)
 ├── Test-SideChannelTool.ps1           # Automated test suite
 ├── Check-HyperVHostMitigations.ps1    # Hyper-V host-specific checker
-├── HYPERVISOR_CONFIGURATION.md        # Hypervisor hardening guide
 │
 ├── docs/                               # Documentation assets
 │   └── sample-output.png              # Screenshot of tool output with color coding
 │
-├── Backups/                            # Configuration backups (ignored by git)
-│   └── Backup_YYYYMMDD_HHMMSS.json   # Timestamped backup files
-│
-├── Logs/                               # Execution logs (ignored by git)
-│   └── SideChannel_Check_*.log       # Dated log files
-│
-├── Config/                             # Tool configuration (ignored by git)
-│   └── settings.json                  # User preferences
-│
-└── archive/                            # Archived legacy versions
-    ├── README.md                       # Archive documentation
-    └── v1/                             # Version 1.x (Legacy - No longer maintained)
-        ├── README.md                   # v1 documentation
-        ├── SideChannel_Check.ps1      # v1 script (archived)
-        ├── Backups/                    # v1 backup storage
-        ├── Logs/                       # v1 log files
-        └── Config/                     # v1 configuration
+├── Backups/                            # Configuration backups (*.json files)
+├── Logs/                               # Execution logs (created at runtime)
+└── Config/                             # Tool configuration (created at runtime)
 
 ================================================================================
 CURRENT VERSION: v2.3.0 (Breaking Change Release)
@@ -83,11 +71,11 @@ PLATFORM SUPPORT:
   ❌ ESXi/vSphere hosts (Linux-based - see HYPERVISOR_CONFIGURATION.md)
 
 DIRECTORY STRUCTURE NOTES:
-  - Backups/, Logs/, Config/ are created at runtime
+  - No archive/ directory - all v1 code has been removed
+  - Backups/ contains actual backup JSON files (not ignored by git in this repo)
+  - Logs/ and Config/ are empty (created at runtime as needed)
   - docs/ contains documentation assets (screenshots, diagrams)
-  - v2/ directory should NOT exist (moved to root in v2.0.0)
-  - archive/v1/ is read-only legacy reference
-  - HYPERVISOR_CONFIGURATION.md provides ESXi/vSphere hardening guidance
+  - .git/ contains repository metadata
 
 TESTING:
   Run test suite: .\Test-SideChannelTool.ps1
