@@ -1,12 +1,19 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.5
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.6
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
     mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs).
     
-    Version 2.1.2 features a redesigned architecture with:
+    Version 2.1.6 features hardware-based detection for SBDR/FBSDP/PSDP mitigations:
+    - Aligned detection logic with Microsoft's SpeculationControl module
+    - Reads flags2 from NtQuerySystemInformation API for hardware protection status
+    - Correctly identifies hardware immunity for AMD/ARM processors
+    - Added FBSDP mitigation definition (Fill Buffer Stale Data Propagator)
+    - Runtime detection now matches Microsoft's API-based hardware checking approach
+    
+    Core features:
     - Modular function-based design (PowerShell 5.1 & 7.x compatible)
     - Kernel runtime state detection via native Windows API  
     - Platform-aware recommendations (Physical/Hyper-V/VMware)
@@ -58,10 +65,19 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.5
+    Version:        2.1.6
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
+    
+    Changelog v2.1.6:
+    - Fixed SBDR/FBSDP/PSDP detection to align with Microsoft SpeculationControl module
+    - Added flags2 reading from NtQuerySystemInformation API (offset 4)
+    - Added hardware protection status detection for SBDR (0x01), FBSDP (0x02), PSDP (0x04)
+    - Added FBSDP mitigation definition (Fill Buffer Stale Data Propagator)
+    - AMD/ARM CPUs now correctly marked as hardware immune to these Intel vulnerabilities
+    - Runtime detection now checks hardware capability, not just registry values
+    - Fixed discrepancy where registry values could be set but hardware doesn't support feature
 #>
 
 [CmdletBinding(DefaultParameterSetName = 'Assess', SupportsShouldProcess)]
@@ -97,7 +113,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.5'
+$script:Version = '2.1.6'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -241,10 +257,10 @@ public static extern int NtQuerySystemInformation(
             )
             
             if ($result -eq 0) {
-                # Parse the returned structure
+                # Parse the returned structure (8 bytes: flags + flags2)
                 $flags = [System.Runtime.InteropServices.Marshal]::ReadInt32($infoPtr, 0)
                 
-                # Extract individual mitigation states
+                # Extract individual mitigation states from flags (first DWORD)
                 $script:RuntimeState.Flags['BTIEnabled'] = ($flags -band 0x01) -ne 0
                 $script:RuntimeState.Flags['SSBDSystemWide'] = ($flags -band 0x10) -ne 0
                 $script:RuntimeState.Flags['EnhancedIBRS'] = ($flags -band 0x100) -ne 0
@@ -253,6 +269,33 @@ public static extern int NtQuerySystemInformation(
                 $script:RuntimeState.Flags['L1DFlushSupported'] = ($flags -band 0x2000) -ne 0
                 $script:RuntimeState.Flags['RDCLHardwareProtected'] = ($flags -band 0x4000) -ne 0
                 $script:RuntimeState.Flags['MDSHardwareProtected'] = ($flags -band 0x8000) -ne 0
+                
+                # Read flags2 (second DWORD at offset 4) for newer mitigations
+                if ($returnLength -gt 4) {
+                    $flags2 = [System.Runtime.InteropServices.Marshal]::ReadInt32($infoPtr, 4)
+                    
+                    # Extract hardware protection flags (aligned with Microsoft SpeculationControl module)
+                    $script:RuntimeState.Flags['SBDRHardwareProtected'] = ($flags2 -band 0x01) -ne 0
+                    $script:RuntimeState.Flags['FBSDPHardwareProtected'] = ($flags2 -band 0x02) -ne 0
+                    $script:RuntimeState.Flags['PSDPHardwareProtected'] = ($flags2 -band 0x04) -ne 0
+                    $script:RuntimeState.Flags['FBClearEnabled'] = ($flags2 -band 0x08) -ne 0
+                    $script:RuntimeState.Flags['FBClearReported'] = ($flags2 -band 0x10) -ne 0
+                    
+                    # AMD and ARM CPUs are hardware immune to these Intel vulnerabilities
+                    try {
+                        $cpu = Get-CimInstance -ClassName Win32_Processor -ErrorAction SilentlyContinue | Select-Object -First 1
+                        $isAmdOrArm = ($cpu.Manufacturer -like '*AMD*') -or ($cpu.Architecture -eq 5) -or ($cpu.Architecture -eq 12)
+                        
+                        if ($isAmdOrArm) {
+                            $script:RuntimeState.Flags['SBDRHardwareProtected'] = $true
+                            $script:RuntimeState.Flags['FBSDPHardwareProtected'] = $true
+                            $script:RuntimeState.Flags['PSDPHardwareProtected'] = $true
+                        }
+                    }
+                    catch {
+                        # Continue with values from flags2 if CPU detection fails
+                    }
+                }
                 
                 # KVAS detection
                 $kvasReg = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
@@ -311,6 +354,36 @@ function Get-RuntimeMitigationStatus {
         'L1TF' {
             if ($script:RuntimeState.Flags['L1DFlushSupported']) { return 'Supported' }
             return 'Not Supported'
+        }
+        'SBDR' {
+            # Check hardware vulnerability first
+            if ($script:RuntimeState.Flags['SBDRHardwareProtected']) { 
+                return 'Not Needed (HW Immune)' 
+            }
+            # Hardware is vulnerable - check if mitigation is active
+            if ($script:RuntimeState.Flags['FBClearEnabled']) { 
+                return 'Active' 
+            }
+            # Registry might be set but kernel hasn't enabled it (missing microcode/prerequisites)
+            return 'Inactive'
+        }
+        'FBSDP' {
+            if ($script:RuntimeState.Flags['FBSDPHardwareProtected']) { 
+                return 'Not Needed (HW Immune)' 
+            }
+            if ($script:RuntimeState.Flags['FBClearEnabled']) { 
+                return 'Active' 
+            }
+            return 'Inactive'
+        }
+        'PSDP' {
+            if ($script:RuntimeState.Flags['PSDPHardwareProtected']) { 
+                return 'Not Needed (HW Immune)' 
+            }
+            if ($script:RuntimeState.Flags['FBClearEnabled']) { 
+                return 'Active' 
+            }
+            return 'Inactive'
         }
         default { return 'N/A' }
     }
@@ -725,9 +798,24 @@ function Get-MitigationDefinitions {
             Description      = 'Shared Buffer Data Read/Sampling protection'
             Impact           = 'Low'
             Platform         = 'All'
-            RuntimeDetection = $null
+            RuntimeDetection = 'SBDR'
             Recommendation   = 'Enable to protect against SBDR/SBDS attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21123'
+        },
+        @{
+            Id               = 'FBSDP'
+            Name             = 'FBSDP Mitigation'
+            CVE              = 'CVE-2022-21123 (Fill Buffer Variant)'
+            Category         = 'Recommended'
+            RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName     = 'SBDRMitigationLevel'
+            EnabledValue     = 1
+            Description      = 'Fill Buffer Stale Data Propagator protection'
+            Impact           = 'Low'
+            Platform         = 'All'
+            RuntimeDetection = 'FBSDP'
+            Recommendation   = 'Enable to protect against FBSDP attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/processor-mmio-stale-data-vulnerabilities.html'
         },
         @{
             Id               = 'SRBDS'
@@ -770,7 +858,7 @@ function Get-MitigationDefinitions {
             Description      = 'Prevents Branch History Injection (BHI/Spectre-BHB) attacks'
             Impact           = 'Low'
             Platform         = 'All'
-            RuntimeDetection = $null
+            RuntimeDetection = 'PSDP'
             Recommendation   = 'Enable to protect against Branch History Injection vulnerabilities (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/branch-history-injection.html'
         },
@@ -1301,7 +1389,8 @@ function Get-OverallStatus {
     
     # Priority: Runtime status > Registry status
     if ($RuntimeStatus -ne 'N/A') {
-        if ($RuntimeStatus -match 'Active|Immune|Supported|Not Needed') {
+        # Use word boundaries to avoid "Inactive" matching "Active"
+        if ($RuntimeStatus -match '^(Active|Immune|Supported|Not Needed)') {
             return 'Protected'
         }
         else {

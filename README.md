@@ -1,13 +1,15 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.5
+# Side-Channel Vulnerability Mitigation Tool v2.1.6
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
 ## 🎯 Features
 
-### Major Enhancements
+### Major Enhancements (v2.1.6)
+- **🔬 Hardware-Based Detection** - Reads flags2 from Windows kernel API for SBDR/FBSDP/PSDP
+- **🎯 Microsoft SpeculationControl Alignment** - Detection logic matches Microsoft's official module
+- **🛡️ Comprehensive Coverage** - 31 mitigations (added FBSDP) + 5 hardware prerequisites
 - **✨ Simplified Mode Structure** - Dedicated modes replace parameter combinations
 - **🎯 Selective Apply & Restore** - Choose [R]ecommended or [A]ll mitigations; restore [A]ll or [S]elective items
-- **🛡️ Comprehensive Coverage** - 30 mitigations + 5 hardware prerequisites
 - **🔍 Hardware Detection** - Automatic detection of UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU
 - **📊 Intelligent Scoring** - Visual security score bar (█░) with smart filtering
 - **💾 Advanced Backup System** - Selective restoration with hardware-only filtering
@@ -1137,6 +1139,61 @@ When running as a VMware guest, the tool provides GUI-based instructions to enab
 - VM processor settings
 - Verification procedures
 
+## Troubleshooting
+
+### Why do SBDR/PSDP show as "Vulnerable" even though registry values are set?
+
+**Symptom:** Your tool shows SBDR, FBSDP, or PSDP as "Vulnerable" despite registry values being set to `1`.
+
+**Root Cause:** These mitigations require **hardware support** and **microcode updates**. Setting registry values alone is insufficient.
+
+**Detection Logic (v2.1.6+):**
+- The tool reads **flags2** from the Windows kernel API (NtQuerySystemInformation)
+- Checks if hardware is protected via bits: SBDR (0x01), FBSDP (0x02), PSDP (0x04)
+- Checks if mitigation is **actually active** via FBClear bit (0x08)
+- **Registry values alone don't enable protection if hardware doesn't support the feature**
+
+**This aligns with Microsoft's SpeculationControl module v1.0.19**, which also reports these as "False" when:
+1. Hardware is vulnerable (flags2 bit = 0)
+2. FBClear mitigation is not enabled (flags2 bit 0x08 = 0)
+
+**Solution:**
+```powershell
+# Compare with Microsoft's official tool
+Get-SpeculationControlSettings
+
+# Check for missing microcode updates
+Get-HotFix | Where-Object { $_.Description -match 'Update' } | Sort-Object InstalledOn -Descending | Select-Object -First 10
+
+# Install latest Windows Updates and CPU microcode
+Windows Update → Check for updates → Install all available updates
+# Or use Windows Update Catalog for specific CPU microcode package
+```
+
+**Why this happens:**
+- **Intel CPUs**: May need microcode updates from Windows Update or BIOS updates
+- **Older CPUs**: Some CPUs don't support these newer mitigations (hardware limitation)
+- **Virtual Machines**: Host must have mitigations enabled first (see HYPERVISOR_CONFIGURATION.md)
+- **AMD/ARM CPUs**: Automatically marked as "Hardware Immune" (Intel-specific vulnerabilities)
+
+**Verification:**
+If Microsoft's `Get-SpeculationControlSettings` also shows "Windows OS support is enabled: **False**", then your hardware genuinely doesn't support these features or is missing required updates.
+
+### Why does my security score differ from Microsoft's SpeculationControl module?
+
+**This tool (v2.1.6+):**
+- Performs **hardware-based detection** using Windows kernel APIs
+- Checks if mitigations are **actually active** in the kernel
+- Aligns detection logic with Microsoft's SpeculationControl module
+- Shows 30 mitigations including prerequisites (UEFI, Secure Boot, TPM)
+
+**Microsoft SpeculationControl:**
+- Focuses on CPU speculation vulnerabilities only (10-15 mitigations)
+- Does not include VBS, HVCI, Credential Guard
+- Uses same kernel API detection (NtQuerySystemInformation)
+
+**Both tools should agree on CPU mitigations (BTI, KVAS, MDS, SBDR, FBSDP, PSDP)**. If they differ, please report an issue.
+
 ##### Hyper-V VM Configuration for Hardware Prerequisites
 When running as a Hyper-V guest, the tool provides PowerShell commands to enable missing hardware prerequisites:
 
@@ -1191,7 +1248,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.5  
+**Version:** 2.1.6  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
