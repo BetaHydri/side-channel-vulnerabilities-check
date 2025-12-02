@@ -178,10 +178,12 @@ The tool uses intelligent color coding based on **mitigation category** and **se
 
 ### 🖥️ Platform Applicability Matrix
 
-The tool automatically detects your platform and only evaluates **applicable mitigations** for fair scoring:
+The tool automatically detects your platform and only evaluates **applicable mitigations** for fair scoring.
 
-| Mitigation | Physical | Hyper-V Host | Hyper-V Guest | VMware Guest | Notes |
-|------------|----------|--------------|---------------|--------------|-------|
+#### Platform Support Matrix
+
+| Mitigation | Physical | Hyper-V<br>Host | Hyper-V<br>Guest | VMware<br>Guest | Notes |
+|:-----------|:--------:|:---------------:|:----------------:|:---------------:|:------|
 | **SSBD** (Speculative Store Bypass) | ✅ | ✅ | ✅ | ✅ | All platforms |
 | **BTI** (Branch Target Injection) | ✅ | ✅ | ✅ | ✅ | All platforms |
 | **KVAS** (Kernel VA Shadowing) | ✅ | ✅ | ✅ | ✅ | All platforms |
