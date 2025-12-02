@@ -708,13 +708,34 @@ UEFI;UEFI Firmware;Prerequisite;Active;N/A;Active;No;Boot Security Prerequisite;
 
 ## 🛡️ Mitigation Coverage
 
+### Understanding BTI Protection Hierarchy
+
+The tool detects BTI (Branch Target Injection / Spectre v2) protection in this order of preference:
+1. **Enhanced IBRS** - Hardware-based protection (best performance, preferred when available)
+2. **Retpoline** - Software-based protection (fallback for CPUs without Enhanced IBRS)
+3. **BTI Basic** - Minimal protection
+
+When the runtime status shows:
+- `"Active (Enhanced IBRS)"` - Modern CPUs with hardware mitigation (Intel 8th gen+, AMD Zen 2+)
+- `"Active (Retpoline)"` - Older CPUs using software-based mitigation
+- `"Active"` - Basic BTI mitigation only
+
+**Intel Guidance:** Enhanced IBRS should be used instead of Retpoline on supported processors. It provides the same protection with lower performance impact.
+
 ### Critical Mitigations (6)
 - **SSBD** (Speculative Store Bypass Disable) - CVE-2018-3639
 - **SSBD Mask** (Required companion setting)
 - **BTI** (Branch Target Injection) - CVE-2017-5715 (Spectre v2)
 - **KVAS** (Kernel VA Shadow) - CVE-2017-5754 (Meltdown)
-- **Enhanced IBRS** - Hardware Spectre v2 protection
+- **Enhanced IBRS** - Hardware-based Spectre v2 protection (replaces Retpoline on supported CPUs)
 - **Hardware Security Mitigations** - Core CPU protections
+
+**Important:** Enhanced IBRS **only protects against Spectre v2/BTI** (indirect branch speculation). It does NOT protect against:
+- Spectre v4 (SSBD) - requires separate SSBD mitigation
+- Meltdown (KVAS) - requires page table isolation  
+- MDS, SBDR, PSDP, L1TF, TAA, MMIO - each requires its own specific mitigation
+
+When Enhanced IBRS shows "Active," only the BTI/Spectre v2 vulnerability is protected. All other vulnerabilities still need their respective mitigations enabled.
 
 ### Recommended Mitigations (11)
 - **TSX Disable** - Prevents TAA vulnerabilities
@@ -1115,11 +1136,11 @@ MIT License
 
 #### Intel Security Advisories
 - **[Spectre & Meltdown (CVE-2017-5753/5715/5754)](https://www.intel.com/content/www/us/en/developer/topic-technology/software-security-guidance/overview.html)** - Original side-channel vulnerabilities
-- **[Retpoline: Branch Target Injection Mitigation](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/retpoline-branch-target-injection-mitigation.html)** - Software mitigation technique
+- **[Retpoline: Branch Target Injection Mitigation](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/retpoline-branch-target-injection-mitigation.html)** - Software mitigation technique for Spectre v2
+- **[Enhanced IBRS](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/indirect-branch-restricted-speculation.html)** - Hardware-based Spectre v2 mitigation (supersedes Retpoline when available)
 - **[L1 Terminal Fault (L1TF) - CVE-2018-3620/3646](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/l1-terminal-fault.html)** - L1 cache attacks
 - **[Microarchitectural Data Sampling (MDS)](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/microarchitectural-data-sampling.html)** - Multiple CVEs (2018-11091 through 12130)
 - **[TAA - CVE-2019-11135](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/intel-tsx-asynchronous-abort.html)** - TSX Asynchronous Abort
-- **[Enhanced IBRS](https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/indirect-branch-restricted-speculation.html)** - Hardware-based Spectre v2 mitigation
 - **[Intel VT-x and VT-d](https://www.intel.com/content/www/us/en/virtualization/virtualization-technology/intel-virtualization-technology.html)** - Virtualization and IOMMU technology
 
 #### AMD Security Documentation
