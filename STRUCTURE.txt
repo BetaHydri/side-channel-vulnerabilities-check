@@ -1,51 +1,108 @@
 side-channel-vulnerabilities-check/
-├── README.md                        # Main documentation (v2.1.0)
-├── QUICKSTART.md                    # Quick reference guide
-├── STRUCTURE.txt                    # This file - repository structure
-├── V2_CHANGES.md                    # Version 2 changelog
-├── LICENSE                          # MIT License
-├── .gitignore                       # Git ignore rules
+├── README.md                           # Main documentation (v2.3.0)
+├── QUICKSTART.md                       # Quick reference guide (v2.3.0)
+├── STRUCTURE.txt                       # This file - repository structure
+├── LICENSE                             # MIT License
+├── .gitignore                          # Git ignore rules
 │
-├── SideChannel_Check_v2.ps1        # Main tool - v2.1.0 (CURRENT)
-├── Test-SideChannelTool.ps1        # Automated test suite
+├── SideChannel_Check_v2.ps1           # Main tool - v2.3.0 (CURRENT)
+├── Test-SideChannelTool.ps1           # Automated test suite
+├── Check-HyperVHostMitigations.ps1    # Hyper-V host-specific checker
+├── HYPERVISOR_CONFIGURATION.md        # Hypervisor hardening guide
 │
-├── Backups/                         # Configuration backups (ignored by git)
-├── Logs/                            # Execution logs (ignored by git)
-├── Config/                          # Tool configuration (ignored by git)
+├── docs/                               # Documentation assets
+│   └── sample-output.png              # Screenshot of tool output with color coding
 │
-└── archive/                         # Archived legacy versions
-    ├── README.md                    # Archive documentation
-    └── v1/                          # Version 1.x (Legacy - No longer maintained)
-        ├── README.md                # v1 documentation
-        ├── SideChannel_Check.ps1   # v1 script (archived)
-        ├── Backups/                 # v1 backup storage
-        ├── Logs/                    # v1 log files
-        └── Config/                  # v1 configuration
+├── Backups/                            # Configuration backups (ignored by git)
+│   └── Backup_YYYYMMDD_HHMMSS.json   # Timestamped backup files
+│
+├── Logs/                               # Execution logs (ignored by git)
+│   └── SideChannel_Check_*.log       # Dated log files
+│
+├── Config/                             # Tool configuration (ignored by git)
+│   └── settings.json                  # User preferences
+│
+└── archive/                            # Archived legacy versions
+    ├── README.md                       # Archive documentation
+    └── v1/                             # Version 1.x (Legacy - No longer maintained)
+        ├── README.md                   # v1 documentation
+        ├── SideChannel_Check.ps1      # v1 script (archived)
+        ├── Backups/                    # v1 backup storage
+        ├── Logs/                       # v1 log files
+        └── Config/                     # v1 configuration
 
 ================================================================================
-CURRENT VERSION: v2.1.0 (Main branch)
+CURRENT VERSION: v2.3.0 (Breaking Change Release)
 ================================================================================
 
 USAGE:
-  Run from root: .\SideChannel_Check_v2.ps1
+  Run from root: .\SideChannel_Check_v2.ps1 [-Mode <mode>] [-ShowDetails] [-WhatIf]
   Legacy v1 available in: archive\v1\
 
-KEY CHANGES FROM OLD STRUCTURE:
-  ✓ v2 files moved to repository root (main version)
-  ✓ v1 archived to archive/v1/ directory
-  ✓ Simplified structure - no more v2/ subdirectory
-  ✓ All new development happens in root directory
+BREAKING CHANGES IN v2.3.0:
+  ⚠️  Mode names changed for clarity (Interactive = user makes choices):
+      • RevertInteractive → Revert (quick undo last backup)
+      • Restore → RestoreInteractive (browse all backups, select, restore)
+  
+  Migration: Update any scripts/automation calling these modes.
 
-FEATURES (v2.1.0):
-  • 5 dedicated modes (Assess, ApplyInteractive, RevertInteractive, Backup, Restore)
+KEY IMPROVEMENTS IN v2.3.0:
+  ✓ Fixed backup/restore switch statement cases
+  ✓ Fixed L1TF runtime detection (shows "Inactive" not "Supported")
+  ✓ Color coding logic considers Category + ActionNeeded (not just status)
+  ✓ "Not Configured" status now returns "Vulnerable" (not "Unknown")
+  ✓ Platform-aware fair scoring (skips non-applicable mitigations)
+  ✓ Comprehensive documentation with color coding explanations
+  ✓ Screenshot added to README.md showing correct color implementation
+  ✓ Platform Applicability Matrix showing all 20 mitigations by platform
+  ✓ ESXi/vSphere administrator guidance with PowerCLI examples
+
+FEATURES (v2.3.0):
+  • 5 dedicated modes (Assess, ApplyInteractive, Revert, Backup, RestoreInteractive)
+  • Platform detection (Physical, HyperVHost, HyperVGuest, VMwareGuest)
+  • 20 side-channel mitigations (19 for VMs, all 20 for Hyper-V hosts)
+  • Color-coded output based on criticality:
+    - Green = Protected/Active
+    - Red = Critical vulnerabilities (ActionNeeded = "Yes - Critical")
+    - Yellow = Optional/Consider (Category = "Optional" OR ActionNeeded = "Consider")
+    - Gray = Informational/Not Applicable
+  • Hardware detection (UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU, VBS/HVCI capable)
+  • Intelligent security scoring with visual progress bar (platform-aware)
+  • Runtime status detection via SpeculationControl module (when available)
   • Selective apply & restore ([R]ecommended/[A]ll, [A]ll/[S]elect)
-  • Hardware detection (UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU)
-  • Intelligent security scoring with visual progress bar
   • WhatIf support for all modification modes
   • PowerShell 5.1 & 7.x compatible (runtime Unicode generation)
   • Comprehensive educational detailed view (-ShowDetails)
+  • Educational output with CVE numbers, descriptions, URLs
+
+PLATFORM SUPPORT:
+  ✅ Windows 10/11 (Physical)
+  ✅ Windows Server 2016/2019/2022 (Physical & Hyper-V Host)
+  ✅ Windows VMs on Hyper-V (Guest)
+  ✅ Windows VMs on VMware ESXi/vSphere (Guest)
+  ❌ ESXi/vSphere hosts (Linux-based - see HYPERVISOR_CONFIGURATION.md)
 
 DIRECTORY STRUCTURE NOTES:
   - Backups/, Logs/, Config/ are created at runtime
-  - v2/ directory should NOT exist (moved to root)
+  - docs/ contains documentation assets (screenshots, diagrams)
+  - v2/ directory should NOT exist (moved to root in v2.0.0)
   - archive/v1/ is read-only legacy reference
+  - HYPERVISOR_CONFIGURATION.md provides ESXi/vSphere hardening guidance
+
+TESTING:
+  Run test suite: .\Test-SideChannelTool.ps1
+  Tests parameter validation, mode selection, backup/restore logic
+
+DOCUMENTATION FILES:
+  - README.md: Full feature documentation, color coding guide, platform matrix
+  - QUICKSTART.md: Quick reference for common tasks
+  - HYPERVISOR_CONFIGURATION.md: ESXi/vSphere/Hyper-V host guidance
+  - LICENSE: MIT License terms
+
+VERSION HISTORY:
+  v2.3.0 (2024-12-02): Breaking change - mode renaming + UX improvements
+  v2.2.0: Platform detection, fair scoring, runtime status
+  v2.1.0: Hardware detection, selective operations
+  v2.0.0: Complete rewrite with dedicated modes
+  v1.x:   Legacy version (archived)
+
