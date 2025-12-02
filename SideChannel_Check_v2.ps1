@@ -1037,11 +1037,11 @@ function Test-Prerequisite {
         }
         'SecureBoot' {
             if ($script:HardwareInfo.SecureBootEnabled) {
-                $status = 'Enabled'
+                $status = 'Active'
                 $overallStatus = 'Protected'
             }
             elseif ($script:HardwareInfo.SecureBootCapable) {
-                $status = 'Disabled (Capable)'
+                $status = 'Inactive (Capable)'
                 $overallStatus = 'Vulnerable'
             }
             else {
@@ -1063,11 +1063,11 @@ function Test-Prerequisite {
         }
         'VTx' {
             if ($script:HardwareInfo.VTxEnabled) {
-                $status = 'Enabled'
+                $status = 'Active'
                 $overallStatus = 'Protected'
             }
             else {
-                $status = 'Disabled or Not Supported'
+                $status = 'Not Supported'
                 $overallStatus = 'Missing'
             }
             $currentValue = $script:HardwareInfo.VTxEnabled
@@ -1078,7 +1078,7 @@ function Test-Prerequisite {
                 $overallStatus = 'Protected'
             }
             else {
-                $status = 'Not Detected'
+                $status = 'Not Supported'
                 $overallStatus = 'Missing'
             }
             $currentValue = $script:HardwareInfo.IOMMUSupport
@@ -1497,17 +1497,12 @@ function Show-MitigationTable {
                         Write-Host "$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
                         Write-Host $result.RuntimeStatus -ForegroundColor Cyan
                     }
-                    elseif ($result.RuntimeStatus -match 'Not Present|Disabled or Not Supported') {
+                    elseif ($result.RuntimeStatus -match 'Not Present|Not Supported') {
                         Write-Host "$(Get-StatusIcon -Name Cross) " -NoNewline -ForegroundColor Red
                         Write-Host $result.RuntimeStatus -ForegroundColor Red
                     }
-                    elseif ($result.RuntimeStatus -eq 'Enabled') {
-                        # For prerequisites like Secure Boot
-                        Write-Host "$(Get-StatusIcon -Name Success) " -NoNewline -ForegroundColor Green
-                        Write-Host $result.RuntimeStatus -ForegroundColor Green
-                    }
                     else {
-                        # Default fallback
+                        Write-Host "$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Gray
                         Write-Host $result.RuntimeStatus -ForegroundColor Gray
                     }
                 }
@@ -1539,15 +1534,15 @@ function Show-MitigationTable {
                 Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
                 Write-Host "Runtime Status Guide:" -ForegroundColor White
                 Write-Host "  $(Get-StatusIcon -Name Success) Active / Active (method)" -ForegroundColor Green -NoNewline
-                Write-Host " - Protection is running (you are protected)" -ForegroundColor Gray
+                Write-Host " - Protection is running (protected)" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
-                Write-Host " - Protection is NOT running (you are vulnerable)" -ForegroundColor Gray
+                Write-Host " - Protection is NOT running (vulnerable)" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Info) Not Needed (HW Immune)" -ForegroundColor Cyan -NoNewline
-                Write-Host " - Hardware immunity (no software mitigation needed)" -ForegroundColor Gray
-                Write-Host "  $(Get-StatusIcon -Name Info) Supported" -ForegroundColor Cyan -NoNewline
-                Write-Host " - Hardware feature available for use" -ForegroundColor Gray
+                Write-Host " - Hardware immunity (no mitigation needed)" -ForegroundColor Gray
+                Write-Host "  $(Get-StatusIcon -Name Info) Not Supported" -ForegroundColor Gray -NoNewline
+                Write-Host " - Feature not available on this hardware" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Info) N/A" -ForegroundColor Gray -NoNewline
-                Write-Host " - No runtime detection available (check registry status)" -ForegroundColor Gray
+                Write-Host " - No runtime detection (check registry)" -ForegroundColor Gray
             }
         }
         
