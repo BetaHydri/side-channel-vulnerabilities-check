@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.7
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.8
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
@@ -69,10 +69,16 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.7
+    Version:        2.1.8
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
+    
+    Changelog v2.1.8:
+    - Fixed SSBD (Speculative Store Bypass Disable) detection
+    - Corrected SSBD EnabledValue: 72 → 0 (FeatureSettingsOverride=0 enables all mitigations)
+    - Added special handling for FeatureSettingsOverride (DISABLE mask, 0=enable, missing=vulnerable)
+    - SSBD now correctly shows "Vulnerable" when FeatureSettingsOverride is not set
     
     Changelog v2.1.7:
     - CRITICAL FIX: Corrected all kernel API flag bitmasks (v2.1.6 had wrong values)
@@ -130,7 +136,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.7'
+$script:Version = '2.1.8'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -658,12 +664,12 @@ function Get-MitigationDefinitions {
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
             RegistryName     = 'FeatureSettingsOverride'
-            EnabledValue     = 72
+            EnabledValue     = 0
             Description      = 'Prevents Speculative Store Bypass (Variant 4) attacks'
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = 'SSBD'
-            Recommendation   = 'Enable to protect against speculative execution vulnerabilities'
+            Recommendation   = 'Enable SSBD system-wide (FeatureSettingsOverride=0 enables ALL mitigations including SSBD)'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-3639'
         },
         @{
@@ -1364,6 +1370,15 @@ function Compare-MitigationValue {
         [object]$Expected,
         [string]$RegistryName
     )
+    
+    # Special handling for FeatureSettingsOverride
+    # This registry value is a DISABLE mask: 0 = enable all, missing = not configured
+    if ($RegistryName -eq 'FeatureSettingsOverride') {
+        # If value doesn't exist, mitigations are NOT enabled system-wide
+        if ($null -eq $Current) { return $false }
+        # Expected value is 0 (enable all mitigations)
+        return $Current -eq 0
+    }
     
     if ($null -eq $Current) { return $false }
     

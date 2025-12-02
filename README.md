@@ -1,4 +1,4 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.7
+# Side-Channel Vulnerability Mitigation Tool v2.1.8
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
@@ -1253,7 +1253,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.7  
+**Version:** 2.1.8  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
