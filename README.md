@@ -1,4 +1,4 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.4
+# Side-Channel Vulnerability Mitigation Tool v2.1.5
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
@@ -900,6 +900,14 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 
 ## 📝 Changelog
 
+### v2.1.5 (2025-12-02)
+- 📚 **Enhanced VM configuration guidance**
+  * Added hypervisor prerequisite notes to SBDR, SRBDS, and DRPW mitigations
+  * All CPU-specific mitigations now clearly indicate VM requirements
+  * Clarifies why Microsoft's SpeculationControl module may show "Windows OS support: False" on VMs
+  * Comprehensive guidance: PSDP, Retbleed, MMIO, SBDR, SRBDS, DRPW all require host-level configuration
+  * Helps administrators understand VM limitations and proper deployment sequence
+
 ### v2.1.4 (2025-12-02)
 - 🐛 **Enhanced OS compatibility for hardware detection**
   * Removed dependency on `Get-WindowsOptionalFeature` which causes errors on Windows Server and some client builds
@@ -1183,7 +1191,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.4  
+**Version:** 2.1.5  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+

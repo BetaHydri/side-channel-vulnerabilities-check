@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.4
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.5
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
@@ -58,7 +58,7 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.4
+    Version:        2.1.5
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
@@ -97,7 +97,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.4'
+$script:Version = '2.1.5'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -726,7 +726,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against SBDR/SBDS attacks'
+            Recommendation   = 'Enable to protect against SBDR/SBDS attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21123'
         },
         @{
@@ -741,7 +741,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against SRBDS attacks'
+            Recommendation   = 'Enable to protect against SRBDS attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21127'
         },
         @{
@@ -756,7 +756,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against DRPW attacks'
+            Recommendation   = 'Enable to protect against DRPW attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21166'
         },
         @{
