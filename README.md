@@ -182,39 +182,110 @@ The tool automatically detects your platform and only evaluates **applicable mit
 
 #### Platform Support Matrix
 
-| Mitigation | Physical | Hyper-V<br>Host | Hyper-V<br>Guest | VMware<br>Guest | Notes |
-|:-----------|:--------:|:---------------:|:----------------:|:---------------:|:------|
-| **SSBD** (Speculative Store Bypass) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **BTI** (Branch Target Injection) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **KVAS** (Kernel VA Shadowing) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **MDS** (Microarchitectural Data Sampling) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **TAA** (TSX Asynchronous Abort) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **SBDR** (SRBDS) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **Retbleed** | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **MMIO Stale Data** | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **PSDP** (Predictive Store Forwarding) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **BHI** (Branch History Injection) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **SBDS** (SRBDS) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **Enhanced IBRS** | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **Control Flow Guard** | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **SMAP** (Supervisor Mode Access Prevention) | ✅ | ✅ | ✅ | ✅ | All platforms |
-| **VBS** (Virtualization Based Security) | ✅ | ✅ | ✅ | ✅ | All platforms (requires hardware) |
-| **HVCI** (Hypervisor Code Integrity) | ✅ | ✅ | ✅ | ✅ | All platforms (requires VBS) |
-| **Credential Guard** | ✅ | ✅ | ✅ | ✅ | All platforms (requires VBS) |
-| **L1TF** (L1 Terminal Fault) | ❌ | ✅ | ❌ | ❌ | **Hyper-V hosts only** (multi-tenant) |
-| **Hyper-V Core Scheduler** | ❌ | ✅ | ❌ | ❌ | **Hyper-V hosts only** (SMT protection) |
-| **Disable SMT** | ✅ | ✅ | ✅ | ✅ | All platforms (optional, high impact) |
+| Mitigation | Physical | Hyper-V<br>Host | Hyper-V<br>Guest | VMware<br>Guest | ESXi/vSphere<br>Host | Notes |
+|:-----------|:--------:|:---------------:|:----------------:|:---------------:|:--------------------:|:------|
+| **SSBD** (Speculative Store Bypass) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **BTI** (Branch Target Injection) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **KVAS** (Kernel VA Shadowing) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **MDS** (Microarchitectural Data Sampling) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **TAA** (TSX Asynchronous Abort) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **SBDR** (SRBDS) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **Retbleed** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **MMIO Stale Data** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **PSDP** (Predictive Store Forwarding) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **BHI** (Branch History Injection) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **SBDS** (SRBDS) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **Enhanced IBRS** | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **Control Flow Guard** | ✅ | ✅ | ✅ | ✅ | ❌ | Windows feature only |
+| **SMAP** (Supervisor Mode Access Prevention) | ✅ | ✅ | ✅ | ✅ | ⚠️ | Windows only; ESXi via vSphere |
+| **VBS** (Virtualization Based Security) | ✅ | ✅ | ✅ | ✅ | ❌ | Windows feature only |
+| **HVCI** (Hypervisor Code Integrity) | ✅ | ✅ | ✅ | ✅ | ❌ | Windows feature only |
+| **Credential Guard** | ✅ | ✅ | ✅ | ✅ | ❌ | Windows feature only |
+| **L1TF** (L1 Terminal Fault) | ❌ | ✅ | ❌ | ❌ | ⚠️ | Hyper-V hosts only; ESXi via vSphere |
+| **Hyper-V Core Scheduler** | ❌ | ✅ | ❌ | ❌ | ❌ | Hyper-V feature only |
+| **Disable SMT** | ✅ | ✅ | ✅ | ✅ | ⚠️ | All platforms; ESXi via vSphere |
+
+**Legend:**
+- ✅ = Supported and assessed by this tool
+- ❌ = Not applicable to this platform
+- ⚠️ = Cannot run PowerShell script (configure via vSphere client)
 
 **Platform-Specific Behavior:**
+- **Windows platforms** (Physical, Hyper-V, VMware Guest): Script runs directly and assesses applicable mitigations
 - **VMware Guest**: L1TF and Hyper-V Core Scheduler are **skipped** (not counted in score)
 - **Hyper-V Host**: All mitigations evaluated, L1TF shows as **yellow** (optional for multi-tenant only)
-- **Physical Desktop**: Hyper-V-specific mitigations are **skipped**
+- **ESXi/vSphere Hosts**: Linux-based hypervisor - **cannot run PowerShell scripts**
+  - Configure side-channel mitigations via vSphere Client or ESXCLI
+  - L1TF mitigation: Configure via Advanced Settings (VMkernel.Boot.hyperthreadingMitigation)
+  - See VMware KB articles for ESXi-specific hardening
 - **Score is always fair**: Only counts mitigations that make sense for your platform!
 
 **Example Scores:**
 - VMware VM: 17/19 mitigations (L1TF & Core Scheduler skipped)
 - Hyper-V Host: 19/19 mitigations (all applicable)
 - Physical Desktop: 17/19 mitigations (hypervisor-only skipped)
+
+---
+
+### 🔧 ESXi/vSphere Administrator Guidance
+
+**This tool is for Windows systems only.** If you manage VMware ESXi/vSphere hosts, use the following VMware-native approaches:
+
+#### Checking ESXi Side-Channel Mitigations
+
+**Option 1: vSphere Client (GUI)**
+1. Select ESXi host → Configure → System → Advanced System Settings
+2. Search for relevant parameters:
+   - `VMkernel.Boot.hyperthreadingMitigation` - L1TF/MDS protection
+   - `VMkernel.Boot.speculativeStoreBypassDisable` - SSBD (CVE-2018-3639)
+   - `VMkernel.Boot.ibpbEnabled` - IBPB for Spectre v2
+
+**Option 2: ESXCLI (Command Line)**
+```bash
+# Check current side-channel mitigation status
+esxcli system settings kernel list -o hyperthreadingMitigation
+esxcli system settings kernel list -o speculativeStoreBypassDisable
+esxcli system settings kernel list -o ibpbEnabled
+
+# Check CPU microcode version
+esxcli hardware cpu global get | grep -i microcode
+
+# List all security-related kernel settings
+esxcli system settings kernel list | grep -i specul
+```
+
+**Option 3: PowerCLI (from Windows/Linux management station)**
+```powershell
+# Connect to vCenter/ESXi
+Connect-VIServer -Server vcenter.domain.com
+
+# Check all hosts for L1TF mitigation
+Get-VMHost | Select Name, @{N="L1TF";E={($_ | Get-AdvancedSetting -Name "VMkernel.Boot.hyperthreadingMitigation").Value}}
+
+# Check SSBD status
+Get-VMHost | Select Name, @{N="SSBD";E={($_ | Get-AdvancedSetting -Name "VMkernel.Boot.speculativeStoreBypassDisable").Value}}
+
+# Check microcode version
+Get-VMHost | Select Name, @{N="Microcode";E={$_.ExtensionData.Hardware.CpuPkg[0].MicrocodeVersion}}
+```
+
+#### Key VMware KB Articles
+
+- **KB79832** - Side-channel mitigations for ESXi 7.0 and later
+- **KB55636** - Spectre and Meltdown mitigations for ESXi
+- **KB52245** - L1 Terminal Fault (L1TF) mitigation
+- **KB79832** - MDS (Microarchitectural Data Sampling) mitigation
+- **VMware Security Advisories**: https://www.vmware.com/security/advisories
+
+#### Recommended ESXi Hardening Steps
+
+1. **Update ESXi and microcode** - Install latest patches from VMware
+2. **Enable hypervisor-assisted mitigations** - Configure VMkernel parameters
+3. **Disable SMT if necessary** - For highly sensitive multi-tenant environments
+4. **Harden Windows VMs** - Use this tool on Windows VMs running on ESXi
+5. **Regular audits** - Use PowerCLI scripts to audit entire vSphere environment
+
+---
 
 **Detailed Output** (`-ShowDetails` flag):
 When using `-ShowDetails`, each mitigation displays comprehensive educational information:
