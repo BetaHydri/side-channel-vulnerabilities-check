@@ -31,7 +31,7 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 > **⚠️ Virtual Machine Users:** If running on a VM, the **hypervisor host must also have mitigations enabled**
 > and restarted before CPU-specific features (PSDP, Retbleed, MMIO) will work in the guest VM.
-> See `HYPERVISOR_CONFIGURATION.md` for complete setup instructions.
+> See [`HYPERVISOR_CONFIGURATION.md`](HYPERVISOR_CONFIGURATION.md) for complete setup instructions.
 
 ### Basic Usage
 
