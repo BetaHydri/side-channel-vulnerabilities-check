@@ -1995,7 +1995,7 @@ function Show-MitigationTable {
                 $ansiRed = "`e[31m"
                 $ansiBrightRed = "`e[91m"  # Bright red for critical vulnerabilities
                 $ansiCyan = "`e[36m"
-                $ansiYellow = "`e[33m"
+                $ansiYellow = "`e[93m"  # Bright yellow for better visibility
                 $ansiGray = "`e[90m"
                 
                 foreach ($result in $Results) {
