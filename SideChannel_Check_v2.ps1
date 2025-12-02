@@ -1500,6 +1500,7 @@ function Get-OverallStatus {
     switch ($RegistryStatus) {
         'Enabled' { return 'Protected' }
         'Disabled' { return 'Vulnerable' }
+        'Not Configured' { return 'Vulnerable' }  # Not configured = not protected
         default { return 'Unknown' }
     }
 }
