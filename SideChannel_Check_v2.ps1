@@ -392,8 +392,21 @@ function Get-RuntimeMitigationStatus {
             return 'Inactive'
         }
         'L1TF' {
-            if ($script:RuntimeState.Flags['L1DFlushSupported']) { return 'Supported' }
-            return 'Not Supported'
+            # L1DFlushSupported means hardware has the capability
+            # But we need to check if mitigation is actually enabled via registry
+            if (-not $script:RuntimeState.Flags['L1DFlushSupported']) { 
+                return 'Not Supported' 
+            }
+            # Hardware supports it - check if mitigation is configured
+            try {
+                $regValue = Get-ItemProperty -Path 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel' -Name L1TFMitigationLevel -ErrorAction SilentlyContinue
+                if ($regValue -and $regValue.L1TFMitigationLevel -eq 1) {
+                    return 'Active'
+                }
+            }
+            catch { }
+            # Hardware supports mitigation but registry not configured = Vulnerable
+            return 'Inactive'
         }
         'SBDR' {
             # Check hardware vulnerability first
