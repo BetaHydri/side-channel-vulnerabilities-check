@@ -1917,11 +1917,21 @@ function Show-MitigationTable {
                 $ansiGray = "`e[90m"
                 
                 foreach ($result in $Results) {
-                    $lineAnsi = switch ($result.OverallStatus) {
-                        'Protected' { $ansiGreen }
-                        'Vulnerable' { $ansiRed }
-                        'Active' { $ansiCyan }
-                        default { $ansiGray }
+                    # Color based on Category + ActionNeeded, not just status
+                    $lineAnsi = if ($result.OverallStatus -in @('Protected', 'Active')) {
+                        $ansiGreen
+                    }
+                    elseif ($result.ActionNeeded -match 'Yes - Critical') {
+                        $ansiRed  # Critical vulnerability
+                    }
+                    elseif ($result.ActionNeeded -eq 'Consider' -or $result.Category -eq 'Optional') {
+                        $ansiYellow  # Optional or recommended
+                    }
+                    elseif ($result.OverallStatus -eq 'Vulnerable') {
+                        $ansiRed  # Vulnerable but not optional
+                    }
+                    else {
+                        $ansiGray
                     }
                     
                     # Truncate mitigation name if too long
@@ -1960,11 +1970,21 @@ function Show-MitigationTable {
             else {
                 # PowerShell 5.1 fallback
                 foreach ($result in $Results) {
-                    $lineColor = switch ($result.OverallStatus) {
-                        'Protected' { 'Green' }
-                        'Vulnerable' { 'Red' }
-                        'Active' { 'Cyan' }
-                        default { 'Gray' }
+                    # Color based on Category + ActionNeeded, not just status
+                    $lineColor = if ($result.OverallStatus -in @('Protected', 'Active')) {
+                        'Green'
+                    }
+                    elseif ($result.ActionNeeded -match 'Yes - Critical') {
+                        'Red'  # Critical vulnerability
+                    }
+                    elseif ($result.ActionNeeded -eq 'Consider' -or $result.Category -eq 'Optional') {
+                        'Yellow'  # Optional or recommended
+                    }
+                    elseif ($result.OverallStatus -eq 'Vulnerable') {
+                        'Red'  # Vulnerable but not optional
+                    }
+                    else {
+                        'Gray'
                     }
                     
                     # Truncate mitigation name if too long
