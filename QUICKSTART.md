@@ -51,7 +51,7 @@ Selectively apply mitigations with two view modes.
 
 **Selection Modes:**
 - **[R] Recommended** - Shows only actionable mitigations (quick hardening)
-- **[A] All Mitigations** - Shows all 24+ mitigations (selective hardening after review)
+- **[A] All Mitigations** - Shows all 30+ mitigations (selective hardening after review)
 
 **Recommended Workflow:**
 1. `.\SideChannel_Check_v2.ps1 -ShowDetails` - Review CVEs and impacts
@@ -59,6 +59,7 @@ Selectively apply mitigations with two view modes.
 3. `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive` - Choose [A] mode
 4. Select specific mitigations based on your requirements
 5. Restart system to activate changes
+6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
 6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
 
 ---

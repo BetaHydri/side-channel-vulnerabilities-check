@@ -9,7 +9,7 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 ### Major Enhancements
 - **✨ Simplified Mode Structure** - Dedicated modes replace parameter combinations
 - **🎯 Selective Apply & Restore** - Choose [R]ecommended or [A]ll mitigations; restore [A]ll or [S]elective items
-- **🛡️ Comprehensive Coverage** - 24 mitigations + 5 hardware prerequisites
+- **🛡️ Comprehensive Coverage** - 30 mitigations + 5 hardware prerequisites
 - **🔍 Hardware Detection** - Automatic detection of UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU
 - **📊 Intelligent Scoring** - Visual security score bar (█░) with smart filtering
 - **💾 Advanced Backup System** - Selective restoration with hardware-only filtering
@@ -22,7 +22,7 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 
 | Feature | v1 (Archived) | v2.1.1 (Current) |
 |---------|---------------|------------------|
-| Mitigations Covered | 28 checks | 24 checks (streamlined) |
+| Mitigations Covered | 28 checks | 30 checks (comprehensive) |
 | Architecture | Monolithic | Modular functions |
 | Hardware Detection | Basic | Comprehensive (5 prerequisites) |
 | Scoring | All-inclusive | Intelligent (excludes N/A) |
@@ -365,11 +365,11 @@ IOMMU/VT-d:  Detected
 VBS Capable: Yes
 HVCI Capable:Yes
 [Info] Starting mitigation assessment...
-[Success] Assessment complete: 24 mitigations evaluated
+[Success] Assessment complete: 30 mitigations evaluated
 
 --- Security Assessment Summary ---
-Total Mitigations Evaluated:  19
-Protected:                    19 (100%)
+Total Mitigations Evaluated:  23
+Protected:                    23 (100%)
 
 Security Score: [████████████████████████████████████████] 100%
 Security Level: Excellent
@@ -714,22 +714,26 @@ UEFI;UEFI Firmware;Prerequisite;Active;N/A;Active;No;Boot Security Prerequisite;
 - **Enhanced IBRS** - Hardware Spectre v2 protection
 - **Hardware Security Mitigations** - Core CPU protections
 
-### Recommended Mitigations (8)
+### Recommended Mitigations (11)
 - **TSX Disable** - Prevents TAA vulnerabilities
 - **MDS** (Microarchitectural Data Sampling) - CVE-2018-12130
 - **TAA** (TSX Asynchronous Abort) - CVE-2019-11135
 - **SBDR/SBDS** - CVE-2022-21123, CVE-2022-21125
 - **SRBDS** - CVE-2022-21127
 - **DRPW** - CVE-2022-21166
+- **PSDP** (Predictive Store Forwarding Disable) - CVE-2022-0001, CVE-2022-0002
+- **Retbleed** - CVE-2022-29900, CVE-2022-29901
+- **MMIO Stale Data** - Processor MMIO vulnerabilities
 - **Exception Chain Validation** - SEH protection
 - **SMAP** (Supervisor Mode Access Prevention)
 
-### Optional Mitigations (5)
+### Optional Mitigations (6)
 - **L1TF** (L1 Terminal Fault) - High performance impact
 - **VBS** (Virtualization Based Security) - Requires hardware
 - **HVCI** (Hypervisor-protected Code Integrity) - Requires VBS
 - **Credential Guard** - Requires VBS + TPM
 - **Hyper-V Core Scheduler** - For Hyper-V hosts
+- **Disable SMT/Hyperthreading** - Maximum security (very high performance cost)
 
 ### Hardware Prerequisites (5)
 - **UEFI Firmware** - Required for modern security
@@ -831,7 +835,7 @@ UEFI;UEFI Firmware;Prerequisite;Active;N/A;Active;No;Boot Security Prerequisite;
 3. **Backup** → `.\SideChannel_Check_v2.ps1 -Mode Backup`
 4. **Apply** → `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive`
 5. **Validate** → Restart system, re-run assessment
-6. **Rollback** → `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` (if issues)
+6. **Restore** → `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` (latest) or `-Mode Restore` (browse backups)
 
 ### Enterprise Deployment
 
@@ -1036,10 +1040,14 @@ MIT License
 - **[CVE-2018-12127 (MLPDS)](https://nvd.nist.gov/vuln/detail/CVE-2018-12127)** - Microarchitectural Load Port Data Sampling
 - **[CVE-2018-12130 (MSBDS)](https://nvd.nist.gov/vuln/detail/CVE-2018-12130)** - Microarchitectural Store Buffer Data Sampling
 - **[CVE-2019-11135 (TAA)](https://nvd.nist.gov/vuln/detail/CVE-2019-11135)** - TSX Asynchronous Abort
+- **[CVE-2022-0001 (BHI)](https://nvd.nist.gov/vuln/detail/CVE-2022-0001)** - Branch History Injection
+- **[CVE-2022-0002 (BHI)](https://nvd.nist.gov/vuln/detail/CVE-2022-0002)** - Intra-Mode Branch Target Injection
 - **[CVE-2022-21123 (SBDR)](https://nvd.nist.gov/vuln/detail/CVE-2022-21123)** - Shared Buffers Data Read
 - **[CVE-2022-21125 (SBDS)](https://nvd.nist.gov/vuln/detail/CVE-2022-21125)** - Shared Buffers Data Sampling
 - **[CVE-2022-21127 (SRBDS)](https://nvd.nist.gov/vuln/detail/CVE-2022-21127)** - Special Register Buffer Data Sampling
 - **[CVE-2022-21166 (DRPW)](https://nvd.nist.gov/vuln/detail/CVE-2022-21166)** - Device Register Partial Write
+- **[CVE-2022-29900 (Retbleed)](https://nvd.nist.gov/vuln/detail/CVE-2022-29900)** - Return Instruction Speculation (AMD)
+- **[CVE-2022-29901 (Retbleed)](https://nvd.nist.gov/vuln/detail/CVE-2022-29901)** - Return Instruction Speculation (Intel)
 
 ### Research Papers & Technical Analysis
 

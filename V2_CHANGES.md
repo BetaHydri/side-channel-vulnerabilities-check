@@ -224,6 +224,47 @@ Config/                                      # Reserved for future use
 
 ## v2.1.1 Enhancements (2025-12-01)
 
+### Extended Mitigation Coverage (30 Total Mitigations)
+- **Added 4 New Critical Mitigations**:
+  * **PSDP (Predictive Store Forwarding Disable)** - CVE-2022-0001, CVE-2022-0002
+    - Prevents Branch History Injection (BHI/Spectre-BHB) attacks
+    - Registry: `PredictiveStoreForwardingDisable`
+    - Impact: Low
+    - Category: Recommended
+  
+  * **Retbleed Mitigation** - CVE-2022-29900, CVE-2022-29901
+    - Mitigates return instruction speculation vulnerability
+    - Registry: `RetpolineConfiguration`
+    - Impact: Low
+    - Category: Recommended
+    - Affects both AMD and Intel CPUs
+  
+  * **MMIO Stale Data Mitigation** - CVE-2022-21166, CVE-2022-21127 (MMIO variants)
+    - Protects against processor MMIO stale data vulnerabilities
+    - Registry: `MmioStaleDataMitigationLevel`
+    - Impact: Low
+    - Category: Recommended
+  
+  * **Disable SMT/Hyperthreading** - Maximum side-channel protection
+    - Disables Simultaneous Multithreading for highest security
+    - Registry: `DisableHyperthreading`
+    - Impact: Very High (~50% performance loss)
+    - Category: Optional
+    - Only recommended for ultra-high security environments
+
+- **Updated Mitigation Counts**:
+  * Critical: 6 mitigations (SSBD, SSBD_Mask, BTI, KVAS, Enhanced IBRS, Hardware Mitigations)
+  * Recommended: 11 mitigations (MDS, TAA, SBDR, SRBDS, DRPW, **PSDP**, **Retbleed**, **MMIO**, Exception Chain, SMAP, TSX Disable)
+  * Optional: 6 mitigations (L1TF, VBS, HVCI, Credential Guard, Hyper-V Core Scheduler, **Disable SMT**)
+  * Prerequisites: 5 (UEFI, Secure Boot, TPM, VT-x, IOMMU)
+  * **Total: 30 mitigations** (increased from 24)
+
+- **Documentation Updates**:
+  * Updated README.md mitigation coverage section
+  * Updated QUICKSTART.md mitigation counts
+  * Added CVE references to external resources section
+  * Updated sample outputs to reflect new counts (23 applicable on fully-capable system)
+
 ### Enhanced Runtime Status Guide
 - **Expanded from 4 to 5 comprehensive state descriptions**
   * **Active / Active (method)** - Protection is running (covers "Active (Enhanced IBRS)", "Active (Retpoline)")

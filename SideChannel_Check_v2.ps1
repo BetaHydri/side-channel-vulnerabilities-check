@@ -708,6 +708,51 @@ function Get-MitigationDefinitions {
             Recommendation   = 'Enable to protect against DRPW attacks'
             URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2022-21166'
         },
+        @{
+            Id               = 'PSDP'
+            Name             = 'Predictive Store Forwarding Disable'
+            CVE              = 'CVE-2022-0001, CVE-2022-0002 (Branch History Injection)'
+            Category         = 'Recommended'
+            RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName     = 'PredictiveStoreForwardingDisable'
+            EnabledValue     = 1
+            Description      = 'Prevents Branch History Injection (BHI/Spectre-BHB) attacks'
+            Impact           = 'Low'
+            Platform         = 'All'
+            RuntimeDetection = $null
+            Recommendation   = 'Enable to protect against Branch History Injection vulnerabilities'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/branch-history-injection.html'
+        },
+        @{
+            Id               = 'Retbleed'
+            Name             = 'Retbleed Mitigation'
+            CVE              = 'CVE-2022-29900, CVE-2022-29901'
+            Category         = 'Recommended'
+            RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName     = 'RetpolineConfiguration'
+            EnabledValue     = 1
+            Description      = 'Mitigates return instruction speculation vulnerability (Retbleed)'
+            Impact           = 'Low'
+            Platform         = 'All'
+            RuntimeDetection = $null
+            Recommendation   = 'Enable to protect against Retbleed attacks on AMD and Intel CPUs'
+            URL              = 'https://www.amd.com/en/corporate/product-security/bulletin/amd-sb-1037'
+        },
+        @{
+            Id               = 'MMIO'
+            Name             = 'MMIO Stale Data Mitigation'
+            CVE              = 'CVE-2022-21166, CVE-2022-21127 (MMIO variants)'
+            Category         = 'Recommended'
+            RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName     = 'MmioStaleDataMitigationLevel'
+            EnabledValue     = 1
+            Description      = 'Protects against processor MMIO stale data vulnerabilities'
+            Impact           = 'Low'
+            Platform         = 'All'
+            RuntimeDetection = $null
+            Recommendation   = 'Enable to protect against MMIO stale data attacks'
+            URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/processor-mmio-stale-data-vulnerabilities.html'
+        },
         
         # Security Features
         @{
@@ -802,6 +847,21 @@ function Get-MitigationDefinitions {
             Platform         = 'HyperVHost'
             RuntimeDetection = $null
             Recommendation   = 'Enable on Hyper-V hosts for multi-tenant environments'
+            URL              = 'https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types'
+        },
+        @{
+            Id               = 'DisableSMT'
+            Name             = 'Disable Simultaneous Multithreading'
+            CVE              = 'SMT/Hyperthreading Side-Channel Protection'
+            Category         = 'Optional'
+            RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+            RegistryName     = 'DisableHyperthreading'
+            EnabledValue     = 1
+            Description      = 'Disables SMT/Hyperthreading for maximum side-channel protection'
+            Impact           = 'Very High'
+            Platform         = 'All'
+            RuntimeDetection = $null
+            Recommendation   = 'Only for highest security environments - causes ~50% performance loss. Consider Hyper-V Core Scheduler instead for VMs.'
             URL              = 'https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types'
         },
         
