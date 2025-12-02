@@ -2106,7 +2106,7 @@ function Show-Recommendations {
     }
     
     if ($optional.Count -gt 0) {
-        Write-Host "`n$(Get-StatusIcon -Name GreenCircle) OPTIONAL - Evaluate based on environment:" -ForegroundColor Green
+        Write-Host "`n$(Get-StatusIcon -Name YellowCircle) OPTIONAL - Evaluate based on environment:" -ForegroundColor Yellow
         foreach ($item in $optional) {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
