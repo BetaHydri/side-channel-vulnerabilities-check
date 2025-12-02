@@ -29,10 +29,10 @@
     - Comprehensive change tracking and audit logging
 
 .PARAMETER Mode
-    Operation mode: 'Assess' (default), 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore'
+    Operation mode: 'Assess' (default), 'ApplyInteractive', 'Revert', 'Backup', 'RestoreInteractive'
 
 .PARAMETER WhatIf
-    Preview changes without applying them (available with ApplyInteractive, RevertInteractive, and Backup modes)
+    Preview changes without applying them (available with ApplyInteractive, Revert, and Backup modes)
 
 .PARAMETER ShowDetails
     Display detailed technical information
@@ -56,26 +56,32 @@
     Preview mitigation changes without applying them
 
 .EXAMPLE
-    .\SideChannel_Check_v2.ps1 -Mode RevertInteractive
-    Interactively restore most recent backup
+    .\SideChannel_Check_v2.ps1 -Mode Revert
+    Quickly restore most recent backup (all settings)
 
 .EXAMPLE
     .\SideChannel_Check_v2.ps1 -Mode Backup
     Create a backup of current mitigation settings
 
 .EXAMPLE
-    .\SideChannel_Check_v2.ps1 -Mode Restore
-    Interactively select and restore from available backups
+    .\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
+    Browse backups and selectively restore specific mitigations
 
 .EXAMPLE
     .\SideChannel_Check_v2.ps1 -ExportPath "results.csv"
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.8
+    Version:        2.3.0
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
+    
+    Changelog v2.3.0:
+    - BREAKING CHANGE: Renamed modes for clarity
+    - RevertInteractive → Revert (quick restore of latest backup)
+    - Restore → RestoreInteractive (browse and selectively restore)
+    - Mode names now match their behavior: "Interactive" means you make choices
     
     Changelog v2.1.8:
     - Fixed SSBD (Speculative Store Bypass Disable) detection
@@ -109,7 +115,7 @@
 [CmdletBinding(DefaultParameterSetName = 'Assess', SupportsShouldProcess)]
 param(
     [Parameter()]
-    [ValidateSet('Assess', 'ApplyInteractive', 'RevertInteractive', 'Backup', 'Restore')]
+    [ValidateSet('Assess', 'ApplyInteractive', 'Revert', 'Backup', 'RestoreInteractive')]
     [string]$Mode = 'Assess',
     
     [Parameter()]
@@ -139,7 +145,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.2.0'
+$script:Version = '2.3.0'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 

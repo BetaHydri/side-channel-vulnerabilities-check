@@ -1,10 +1,16 @@
-# Side-Channel Vulnerability Mitigation Tool v2.2.0
+# Side-Channel Vulnerability Mitigation Tool v2.3.0
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
 ## 🎯 Features
 
-### New in v2.2.0
+### New in v2.3.0
+- **🔄 BREAKING CHANGE: Intuitive Mode Names** - Renamed modes to match their behavior
+- **`RevertInteractive` → `Revert`** - Quick restore of latest backup (no interaction needed)
+- **`Restore` → `RestoreInteractive`** - Browse backups and selectively restore (full interaction)
+- **✨ Clearer Workflow** - "Interactive" now means you make choices, not just confirm
+
+### Previous Update (v2.2.0)
 - **⚠️ Microcode Detection** - Automatically detects when registry is set but CPU microcode updates are missing
 - **🔴 Critical Highlighting** - SBDR and PSDP upgraded to Critical category with bright red alerts
 - **📊 Enhanced Status** - "Inactive (Microcode Update Required)" status shows exact issue
@@ -68,10 +74,10 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive -WhatIf
 
 # 5. Quick undo - Revert to most recent backup instantly
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+.\SideChannel_Check_v2.ps1 -Mode Revert
 
 # 6. Advanced recovery - Browse backups, restore selectively
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 
 # 7. Manual backup - Create checkpoint before risky changes
 .\SideChannel_Check_v2.ps1 -Mode Backup
@@ -81,8 +87,8 @@ Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 - **Assess** → Checking security status, generating reports
 - **ShowDetails** → Learning about vulnerabilities and recommendations
 - **ApplyInteractive** → Hardening system (backup auto-created)
-- **RevertInteractive** → Undo recent changes quickly
-- **Restore** → Need older backup or selective restore
+- **Revert** → Undo recent changes quickly (latest backup only)
+- **RestoreInteractive** → Browse all backups, selective restore, choose what to restore
 - **Backup** → Creating manual checkpoint (optional, ApplyInteractive auto-creates one)
 
 ---
@@ -191,7 +197,7 @@ Interactively select and apply security mitigations with two selection modes.
 4. Use ApplyInteractive with mode [A] to selectively enable mitigations
 5. Make informed decisions based on your security requirements
 6. Restart system to activate changes
-7. **If needed, restore from backup:** `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
+7. **If needed, restore from backup:** `.\.\SideChannel_Check_v2.ps1 -Mode Revert` (latest) or `-Mode RestoreInteractive` (browse backups)
 
 **Features:**
 - ✅ Automatic backup creation before changes (ApplyInteractive mode)
@@ -219,15 +225,15 @@ Your selection: all          # Selects all items
 Your selection: critical     # Selects only critical items
 ```
 
-### 3. **RevertInteractive**
+### 3. **Revert**
 **Quick undo:** Instantly revert to your most recent backup.
 
 ```powershell
 # Revert to last backup
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+.\SideChannel_Check_v2.ps1 -Mode Revert
 
 # Preview revert operation
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive -WhatIf
+.\SideChannel_Check_v2.ps1 -Mode Revert -WhatIf
 ```
 
 **When to use:**
@@ -272,12 +278,12 @@ Your selection: critical     # Selects only critical items
 
 **Note:** ApplyInteractive mode **automatically creates a backup** before applying changes, so manual backup is optional in that workflow.
 
-### 5. **Restore**
+### 5. **RestoreInteractive**
 **Advanced recovery:** Browse all backups and choose what to restore (selective or complete).
 
 ```powershell
 # Interactive restore
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 ```
 
 **When to use:**
@@ -307,9 +313,9 @@ Enter numbers: 1-3,5,7-9    # Restores items 1, 2, 3, 5, 7, 8, and 9
 Enter numbers: all          # Restores all items
 ```
 
-**Difference from RevertInteractive:**
-- **RevertInteractive** = Quick undo to latest backup (one command, no choices)
-- **Restore** = Browse all backups, choose which one, choose what to restore (flexible)
+**Difference from Revert:**
+- **Revert** = Quick undo to latest backup (one command, no choices)
+- **RestoreInteractive** = Browse all backups, choose which one, choose what to restore (flexible)
 
 **Features:**
 - ✅ Lists all available backups with age and metadata
@@ -575,10 +581,10 @@ Mitigations: 21
 Would save to: C:\...\Backups\Backup_<timestamp>.json
 ```
 
-### Sample Output - Restore Mode
+### Sample Output - RestoreInteractive Mode
 
 ```
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 
 ================================================================================
   Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
@@ -634,10 +640,10 @@ Skipped (hardware-only): 3
 
 **Note:** Hardware-only features like TPM 2.0, CPU Virtualization, and IOMMU are automatically skipped as they are firmware/BIOS settings, not registry values.
 
-### Sample Output - RevertInteractive Mode
+### Sample Output - Revert Mode
 
 ```
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+.\SideChannel_Check_v2.ps1 -Mode Revert
 
 ================================================================================
   Side-Channel Vulnerability Mitigation Tool - Version 2.1.1
@@ -878,7 +884,7 @@ When Enhanced IBRS shows "Active," only the BTI/Spectre v2 vulnerability is prot
 3. **Backup** → `.\SideChannel_Check_v2.ps1 -Mode Backup`
 4. **Apply** → `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive`
 5. **Validate** → Restart system, re-run assessment
-6. **Restore** → `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` (latest) or `-Mode Restore` (browse backups)
+6. **Restore** → `.\SideChannel_Check_v2.ps1 -Mode Revert` (latest) or `-Mode RestoreInteractive` (browse backups)
 
 ### Enterprise Deployment
 
@@ -959,6 +965,14 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ---
 
 ## 📝 Changelog
+
+### v2.3.0 (2025-12-02)
+- 🔄 **BREAKING CHANGE: Intuitive Mode Names**
+  * Renamed modes to match their behavior - "Interactive" now means you make choices
+  * `RevertInteractive` → `Revert` - Quick restore of latest backup (no interaction needed)
+  * `Restore` → `RestoreInteractive` - Browse backups and selectively restore (full interaction)
+  * Updated all documentation, examples, and command references
+  * **Migration:** Update scripts using `-Mode RevertInteractive` to `-Mode Revert` and `-Mode Restore` to `-Mode RestoreInteractive`
 
 ### v2.2.0 (2025-12-02)
 - ⚠️ **NEW: Intelligent microcode detection**
@@ -1356,7 +1370,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.8  
+**Version:** 2.3.0  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
