@@ -174,7 +174,7 @@ The tool uses intelligent color coding based on **mitigation category** and **se
 
 ![Tool Output Example](docs/sample-output.png)
 
-*Example output showing the color-coded security assessment: Green protected mitigations, Yellow optional mitigations (L1TF, Hyper-V Core Scheduler, Disable SMT), and Red critical vulnerabilities (SBDR/SBDS, PSDP) requiring immediate attention.*
+*Example output from a **production Hyper-V host** showing realistic security hardening: Green (protected mitigations), Yellow (optional/high-impact mitigations like L1TF, Core Scheduler, Disable SMT), and Red (vulnerabilities requiring attention). This configuration achieves **maximum security without extreme performance penalties** by applying Low/Medium impact mitigations while leaving High/Very High impact settings as optional (yellow).*
 
 ### 🖥️ Platform Applicability Matrix
 
