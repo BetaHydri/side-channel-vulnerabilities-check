@@ -170,6 +170,12 @@ The tool uses intelligent color coding based on **mitigation category** and **se
 - **SBDR/PSDP showing Red?** → Correct! These are Critical vulnerabilities requiring immediate action
 - **MDS showing Green?** → CPU has hardware immunity (modern Intel CPUs like Tiger Lake+)
 
+### 📸 Sample Output
+
+![Tool Output Example](docs/sample-output.png)
+
+*Example output showing the color-coded security assessment: Green protected mitigations, Yellow optional mitigations (L1TF, Hyper-V Core Scheduler, Disable SMT), and Red critical vulnerabilities (SBDR/SBDS, PSDP) requiring immediate attention.*
+
 **Detailed Output** (`-ShowDetails` flag):
 When using `-ShowDetails`, each mitigation displays comprehensive educational information:
 - **CVE Numbers** - Associated vulnerability identifiers
