@@ -8,8 +8,9 @@
     
     Version 2.1.9 fixes SSBD detection to align with Microsoft KB4072698:
     - FIXED: FeatureSettingsOverride detection now accepts Microsoft documented values
-    - Accepts: 0 (Windows defaults), 0x2048 (basic), 0x800000 (BHI), 0x802048 (combined)
-    - Also validates bit 3 (SSBD disable) is clear for any other value
+    - Accepts: 0x2048 (basic), 0x800000 (BHI only), 0x802048 (basic+BHI combined)
+    - RECOMMENDED for Intel CPUs: 0x802048 (combines basic mitigations with BHI via bitwise OR)
+    - Validates bit 3 (SSBD disable) is clear for any other value
     - FIXED: BTI, SSBD, Retpoline, Enhanced IBRS now use correct bit positions
     - FIXED: MDS hardware protection now uses correct bitmask (0x1000000)
     - Aligned detection logic with Microsoft's SpeculationControl module
@@ -665,12 +666,12 @@ function Get-MitigationDefinitions {
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
             RegistryName     = 'FeatureSettingsOverride'
-            EnabledValue     = 0x2048  # Microsoft KB4072698: 0x2048 (8264) = Basic mitigations system-wide, 0x802048 (8396872) = Basic+BHI
+            EnabledValue     = 0x802048  # Microsoft KB4072698: 0x2048 (8264) = Basic only, 0x802048 (8396872) = Basic+BHI (RECOMMENDED for Intel)
             Description      = 'Prevents Speculative Store Bypass (Variant 4) attacks'
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = 'SSBD'
-            Recommendation   = 'Set to 0x2048 (8264) for Microsoft recommended configuration per KB4072698 to enable system-wide mitigations. Value 0 does NOT enable system-wide.'
+            Recommendation   = 'Intel CPUs: Set to 0x802048 (8396872) for Basic+BHI mitigations. AMD CPUs: Set to 0x2048 (8264) for Basic mitigations. Use bitwise OR (0x2048 | 0x800000 = 0x802048) to combine. Value 0 does NOT enable system-wide.'
             URL              = 'https://support.microsoft.com/en-us/topic/kb4072698-windows-server-and-azure-stack-hci-guidance-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-2f965763-00e2-8f98-b632-0d96f30c8c8e'
         },
         @{
