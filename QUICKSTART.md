@@ -1,6 +1,8 @@
-# Quick Start Guide - v2.2.0
+# Quick Start Guide - v2.3.0
 
-> **Note:** v2.2.0 adds intelligent microcode detection and upgrades SBDR/PSDP to Critical category. See README.md changelog for details.
+> **⚠️ BREAKING CHANGE in v2.3.0:** Modes renamed for clarity: `RevertInteractive` → `Revert`, `Restore` → `RestoreInteractive`. See README.md changelog for migration.
+>
+> **Note:** v2.3.0 adds intelligent microcode detection and upgrades SBDR/PSDP to Critical category. See README.md changelog for details.
 
 ---
 
@@ -59,20 +61,19 @@ Selectively apply mitigations with two view modes.
 3. `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive` - Choose [A] mode
 4. Select specific mitigations based on your requirements
 5. Restart system to activate changes
-6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
-6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
+6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode Revert` or `-Mode RestoreInteractive`
 
 ---
 
-### 3️⃣ **RevertInteractive**
+### 3️⃣ **Revert**
 **Quick undo:** Instantly revert to your most recent backup.
 
 ```powershell
 # Preview revert
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive -WhatIf
+.\SideChannel_Check_v2.ps1 -Mode Revert -WhatIf
 
 # Revert to latest backup
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+.\SideChannel_Check_v2.ps1 -Mode Revert
 ```
 
 **When to use:**
@@ -104,12 +105,12 @@ Selectively apply mitigations with two view modes.
 
 ---
 
-### 5️⃣ **Restore**
+### 5️⃣ **RestoreInteractive**
 **Advanced recovery:** Browse all backups and choose what to restore (selective or complete).
 
 ```powershell
 # Interactive restore
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 ```
 
 **When to use:**
@@ -123,9 +124,9 @@ Selectively apply mitigations with two view modes.
 - **[S] Select** - Choose individual mitigations to restore (granular recovery)
 - **[Q] Cancel** - Exit without changes
 
-**Difference from RevertInteractive:**
-- **RevertInteractive** = Quick undo to latest backup (one command, no choices)
-- **Restore** = Browse all backups, choose which one, choose what to restore (flexible)
+**Difference from Revert:**
+- **Revert** = Quick undo to latest backup (one command, no choices)
+- **RestoreInteractive** = Browse all backups, choose which one, choose what to restore (flexible)
 
 ---
 
@@ -133,14 +134,14 @@ Selectively apply mitigations with two view modes.
 
 | Mode | Purpose | Backup Selection | Restore Options | Use Case |
 |------|---------|------------------|-----------------|----------|
-| **RevertInteractive** | Quick undo | Latest only (automatic) | Complete only | "Oops, undo that!" |
-| **Restore** | Advanced recovery | Choose any backup | Complete or Selective | "I need that setting from 3 days ago" |
+| **Revert** | Quick undo | Latest only (automatic) | Complete only | "Oops, undo that!" |
+| **RestoreInteractive** | Advanced recovery | Choose any backup | Complete or Selective | "I need that setting from 3 days ago" |
 | **Backup** | Create snapshot | N/A | N/A | "Checkpoint before changes" |
 | **ApplyInteractive** | Apply mitigations | Auto-creates backup | N/A | "Harden my system" |
 
 **Decision Tree:**
-- Need to **undo recent changes**? → Use **RevertInteractive** (fastest)
-- Need **older backup** or **specific settings**? → Use **Restore** (flexible)
+- Need to **undo recent changes**? → Use **Revert** (fastest)
+- Need **older backup** or **specific settings**? → Use **RestoreInteractive** (flexible)
 - About to **test something risky**? → Use **Backup** first (safety net)
 - Want to **harden system**? → Use **ApplyInteractive** (auto-backup included)
 
@@ -166,7 +167,7 @@ Selectively apply mitigations with two view modes.
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
 
 # Step 4 (if problems): Quick undo
-.\SideChannel_Check_v2.ps1 -Mode RevertInteractive
+.\SideChannel_Check_v2.ps1 -Mode Revert
 ```
 
 ### Manual Backup Before Changes
@@ -178,13 +179,13 @@ Selectively apply mitigations with two view modes.
 .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive
 
 # If needed: Restore from specific backup
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 ```
 
 ### Selective Recovery
 ```powershell
 # Browse all backups and restore only specific mitigations
-.\SideChannel_Check_v2.ps1 -Mode Restore
+.\SideChannel_Check_v2.ps1 -Mode RestoreInteractive
 # Choose backup, then select [S] for selective restore
 ```
 
@@ -209,13 +210,13 @@ cd archive\v1
 .\SideChannel_Check.ps1
 ```
 
-**Note:** v1 is no longer actively maintained. Please use v2.1.0 for latest features and support.
+**Note:** v1 is no longer actively maintained. Please use v2.3.0 for latest features and support.
 
 ---
 
 ## 💡 Key Features
 
-- ✅ **5 Dedicated Modes** - Assess, ApplyInteractive, RevertInteractive, Backup, Restore
+- ✅ **5 Dedicated Modes** - Assess, ApplyInteractive, Revert, Backup, RestoreInteractive
 - ✅ **Selective Apply & Restore** - Choose [R]ecommended/[A]ll or [A]ll/[S]elect options
 - ✅ **WhatIf Support** - Preview all changes before applying
 - ✅ **Educational View** - CVEs, descriptions, impacts, recommendations
@@ -248,7 +249,7 @@ cd archive\v1
 
 | Parameter | Values | Description |
 |-----------|--------|-------------|
-| `-Mode` | Assess, ApplyInteractive, RevertInteractive, Backup, Restore | Operation mode (default: Assess) |
+| `-Mode` | Assess, ApplyInteractive, Revert, Backup, RestoreInteractive | Operation mode (default: Assess) |
 | `-ShowDetails` | Switch | Show CVEs, descriptions, impacts, recommendations |
 | `-WhatIf` | Switch | Preview changes without applying |
 | `-ExportPath` | Path | **Export assessment results** to CSV (mitigation status table) |
