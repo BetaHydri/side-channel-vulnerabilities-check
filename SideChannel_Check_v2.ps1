@@ -720,7 +720,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against Branch History Injection vulnerabilities'
+            Recommendation   = 'Enable to protect against Branch History Injection vulnerabilities (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/branch-history-injection.html'
         },
         @{
@@ -735,7 +735,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against Retbleed attacks on AMD and Intel CPUs'
+            Recommendation   = 'Enable to protect against Retbleed attacks on AMD and Intel CPUs (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://www.amd.com/en/corporate/product-security/bulletin/amd-sb-1037'
         },
         @{
@@ -750,7 +750,7 @@ function Get-MitigationDefinitions {
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = $null
-            Recommendation   = 'Enable to protect against MMIO stale data attacks'
+            Recommendation   = 'Enable to protect against MMIO stale data attacks (VM Note: Hypervisor host must have this mitigation enabled and restarted first - see HYPERVISOR_CONFIGURATION.md)'
             URL              = 'https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/technical-documentation/processor-mmio-stale-data-vulnerabilities.html'
         },
         

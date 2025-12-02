@@ -50,6 +50,10 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
 ```
 
+> **⚠️ Virtual Machine Users:** If running on a VM, the **hypervisor host must also have mitigations enabled**
+> and restarted before CPU-specific features (PSDP, Retbleed, MMIO) will work in the guest VM.
+> See `HYPERVISOR_CONFIGURATION.md` for complete setup instructions.
+
 ### Basic Usage
 
 ```powershell
@@ -1086,6 +1090,23 @@ When running as a VMware guest, the tool provides GUI-based instructions to enab
 - **[Hyper-V Core Scheduler](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types)** - SMT security improvements
 - **[Shielded VMs](https://learn.microsoft.com/en-us/windows-server/security/guarded-fabric-shielded-vm/guarded-fabric-and-shielded-vms)** - Hardware-based VM isolation
 - **[Nested Virtualization Security](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization)** - Nested VM considerations
+
+##### ⚠️ CRITICAL: Virtual Machine Configuration Requirements
+
+**For CPU-specific mitigations (PSDP, Retbleed, MMIO, Enhanced IBRS) to work in VMs:**
+
+1. **The Hyper-V/ESXi host MUST have these mitigations enabled and active first**
+2. The hypervisor host must be **restarted** after applying mitigations
+3. Only then can the hypervisor expose these CPU features to guest VMs
+4. VM processor compatibility mode must be disabled (Hyper-V) or CPUID masking removed (VMware)
+
+**Registry settings alone in the VM are insufficient** - the physical CPU features must be active on the host first.
+
+**Complete Configuration Guide:** See `HYPERVISOR_CONFIGURATION.md` for detailed step-by-step instructions for:
+- Hyper-V host configuration
+- VMware ESXi/Workstation configuration
+- VM processor settings
+- Verification procedures
 
 ##### Hyper-V VM Configuration for Hardware Prerequisites
 When running as a Hyper-V guest, the tool provides PowerShell commands to enable missing hardware prerequisites:
