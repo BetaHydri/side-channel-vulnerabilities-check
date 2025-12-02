@@ -24,6 +24,28 @@
 
 ## 📋 Available Modes
 
+### 🎨 Understanding Color Coding
+
+The tool uses intelligent color coding based on **mitigation category** and **severity**:
+
+- 🟢 **Green** = Protected/Active (working correctly)
+- 🔴 **Red** = Critical vulnerability (immediate action required)
+- 🟡 **Yellow** = Optional/Consider (evaluate for your environment)
+- ⚪ **Gray** = Informational (prerequisites, hardware status)
+
+**Categories:**
+- **Critical** → Red when vulnerable (SSBD, BTI, KVAS, SBDR, PSDP)
+- **Recommended** → Red when vulnerable (MDS, TSX Disable, SRBDS, Retbleed)
+- **Optional** → Yellow when not enabled (L1TF, Hyper-V Core Scheduler, Disable SMT)
+- **Prerequisite** → Gray (UEFI, Secure Boot, TPM, VT-x, IOMMU)
+
+**Examples:**
+- **L1TF showing Yellow?** ✅ Correct - Optional, High performance impact, multi-tenant Hyper-V only
+- **SBDR showing Red?** ✅ Correct - Critical vulnerability requiring immediate action
+- **MDS showing Green?** ✅ Correct - CPU has hardware immunity
+
+---
+
 ### 1️⃣ **Assess** (Default)
 Evaluate security posture without making changes.
 

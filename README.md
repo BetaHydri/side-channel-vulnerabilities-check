@@ -140,6 +140,36 @@ The platform information section now includes comprehensive hardware capability 
 
 Color coding helps quickly identify missing security prerequisites and provides contextual hints for missing requirements (e.g., "Requires: UEFI" when VBS is not capable).
 
+**Color Coding & Category System:**
+
+The tool uses intelligent color coding based on **mitigation category** and **severity**, not just status:
+
+- 🟢 **Green (Protected)** - Mitigation is active and working correctly
+- 🔴 **Red (Critical Vulnerability)** - Critical mitigation is missing or inactive (requires immediate action)
+- 🟡 **Yellow (Optional/Consider)** - Optional or high-impact mitigation not enabled (evaluate based on your environment)
+- ⚪ **Gray (Informational)** - Prerequisites, hardware status, or other informational items
+
+**Mitigation Categories:**
+- **Critical** - Must be enabled for baseline security (Red when vulnerable)
+  * Examples: SSBD, BTI, KVAS, SBDR, PSDP
+  * Action: Apply immediately
+- **Recommended** - Should be enabled for comprehensive protection (Red when vulnerable)
+  * Examples: MDS, TSX Disable, SRBDS, Retbleed, MMIO
+  * Action: Apply unless specific reason not to
+- **Optional** - Consider based on environment and threat model (Yellow when not enabled)
+  * Examples: L1TF (high performance impact, Hyper-V multi-tenant only)
+  * Examples: Hyper-V Core Scheduler (Hyper-V hosts only)
+  * Examples: Disable SMT (extreme ~50% performance loss)
+  * Action: Evaluate if benefits outweigh performance impact
+- **Prerequisite** - Hardware/firmware features (informational)
+  * Examples: UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU
+  * Action: Configure in BIOS/UEFI if missing
+
+**Understanding Color Decisions:**
+- **L1TF showing Yellow?** → Correct! It's Optional with High performance impact (~40% loss), only for multi-tenant Hyper-V
+- **SBDR/PSDP showing Red?** → Correct! These are Critical vulnerabilities requiring immediate action
+- **MDS showing Green?** → CPU has hardware immunity (modern Intel CPUs like Tiger Lake+)
+
 **Detailed Output** (`-ShowDetails` flag):
 When using `-ShowDetails`, each mitigation displays comprehensive educational information:
 - **CVE Numbers** - Associated vulnerability identifiers
