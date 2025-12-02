@@ -296,6 +296,27 @@ Config/                                      # Reserved for future use
   - PowerShell 5.1: Write-Host with -ForegroundColor fallback
   - Automatic version detection via `$PSVersionTable.PSVersion.Major`
 
+### Platform-Aware VM Configuration Recommendations
+- **Automatic Platform Detection**:
+  - Detects VMware Guest, Hyper-V Guest, Hyper-V Host, Physical platforms
+  - Customizes hardware prerequisite recommendations based on detected platform
+  
+- **Hyper-V Guest Recommendations** (PowerShell-based):
+  - **Secure Boot**: `Set-VMFirmware -VMName '<vmname>' -EnableSecureBoot On` (requires Generation 2)
+  - **TPM**: `Enable-VMTPM -VMName '<vmname>'` (requires Generation 2, Key Protector)
+  - **VTx**: `Set-VMProcessor -VMName '<vmname>' -ExposeVirtualizationExtensions $true`
+  - **IOMMU**: Automatically available for Generation 2 VMs with nested virtualization
+  
+- **VMware Guest Recommendations** (GUI-based):
+  - **Secure Boot**: Power off VM → Edit Settings → VM Options → Boot Options → Enable Secure Boot (requires EFI)
+  - **TPM (vTPM)**: Power off VM → Edit Settings → Add New Device → Trusted Platform Module → Add
+  - **VTx**: Power off VM → Edit Settings → CPU → Enable 'Expose hardware assisted virtualization to the guest OS'
+  - **IOMMU**: Power off VM → Edit Settings → VM Options → Advanced → Enable 'Enable IOMMU'
+  
+- **Physical/BIOS/UEFI Fallback**:
+  - Generic firmware/BIOS configuration guidance when not running in a VM
+  - Example: "Enable in UEFI firmware settings for boot security"
+
 ### Dependency Mapping with PrerequisiteFor
 - **Hardware Prerequisites** (firmware/BIOS settings):
   * **UEFI** → Secure Boot, VBS, HVCI, Credential Guard

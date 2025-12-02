@@ -1162,6 +1162,16 @@ MIT License
 - **[VMware Security Advisories](https://www.vmware.com/security/advisories.html)** - vSphere security bulletins
 - **[VMSA-2018-0004: Spectre/Meltdown](https://www.vmware.com/security/advisories/VMSA-2018-0004.html)** - VMware response
 - **[Side-Channel Aware Scheduler (SCAS)](https://kb.vmware.com/s/article/55806)** - ESXi scheduler hardening
+
+##### VMware VM Configuration for Hardware Prerequisites
+When running as a VMware guest, the tool provides GUI-based instructions to enable missing hardware prerequisites:
+
+- **Secure Boot**: Power off VM → Edit Settings → VM Options → Boot Options → Enable Secure Boot (requires EFI firmware)
+- **TPM 2.0 (vTPM)**: Power off VM → Edit Settings → Add New Device → Trusted Platform Module → Add
+- **CPU Virtualization**: Power off VM → Edit Settings → CPU → Enable 'Expose hardware assisted virtualization to the guest OS'
+- **IOMMU**: Power off VM → Edit Settings → VM Options → Advanced → Enable 'Enable IOMMU'
+
+**Note**: These settings require the VM to be powered off and may require ESXi/vSphere host-level configuration.
 - **[ESXi Patch Tracker](https://esxi-patches.v-front.de/)** - Community patch database
 
 #### Microsoft Hyper-V
@@ -1169,6 +1179,14 @@ MIT License
 - **[Hyper-V Core Scheduler](https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/manage/manage-hyper-v-scheduler-types)** - SMT security improvements
 - **[Shielded VMs](https://learn.microsoft.com/en-us/windows-server/security/guarded-fabric-shielded-vm/guarded-fabric-and-shielded-vms)** - Hardware-based VM isolation
 - **[Nested Virtualization Security](https://learn.microsoft.com/en-us/virtualization/hyper-v-on-windows/user-guide/nested-virtualization)** - Nested VM considerations
+
+##### Hyper-V VM Configuration for Hardware Prerequisites
+When running as a Hyper-V guest, the tool provides PowerShell commands to enable missing hardware prerequisites:
+
+- **Secure Boot**: `Set-VMFirmware -VMName '<vmname>' -EnableSecureBoot On` (requires Generation 2 VM)
+- **TPM 2.0**: `Enable-VMTPM -VMName '<vmname>'` (requires Generation 2 VM and Key Protector)
+- **CPU Virtualization**: `Set-VMProcessor -VMName '<vmname>' -ExposeVirtualizationExtensions $true`
+- **IOMMU**: Automatically available for Generation 2 VMs with nested virtualization enabled
 
 ### Tools & Validation
 
