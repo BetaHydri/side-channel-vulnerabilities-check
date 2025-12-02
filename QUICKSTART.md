@@ -1,6 +1,6 @@
-# Quick Start Guide - v2.1.1
+# Quick Start Guide - v2.1.9
 
-> **Note:** v2.1.1 is now the main version in the repository root. Legacy v1 has been archived to `archive/v1/`.
+> **Note:** v2.1.9 includes critical fixes for FeatureSettingsOverride detection per Microsoft KB4072698. See README.md changelog for details.
 
 ---
 

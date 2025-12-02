@@ -1,10 +1,16 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.8
+# Side-Channel Vulnerability Mitigation Tool v2.1.9
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
 ## 🎯 Features
 
-### Critical Fixes (v2.1.7)
+### Critical Fixes (v2.1.9)
+- **🔧 SSBD Detection Fixed** - FeatureSettingsOverride now uses Microsoft KB4072698 documented values
+- **✅ Intel CPU Support** - Recommends 0x802048 (Basic + BHI combined) for Intel CPUs
+- **✅ AMD CPU Support** - Recommends 0x2048 (Basic only) for AMD CPUs
+- **🎯 Microsoft Alignment** - Accepts only documented values: 0x2048, 0x800000, 0x802048
+
+### Previous Fixes (v2.1.7-v2.1.8)
 - **🔧 CRITICAL BUG FIX** - Corrected all kernel API flag bitmasks (v2.1.6 had completely wrong values)
 - **✅ KVAS Detection Fixed** - Now correctly shows "Not Needed (HW Immune)" for Meltdown-immune CPUs (Tiger Lake, Ice Lake, etc.)
 - **🎯 Microsoft Alignment** - All flag detection now matches Microsoft's SpeculationControl module exactly
@@ -684,7 +690,7 @@ Skipped (hardware-only): 3
 **CSV Content Preview:**
 ```csv
 Id;Name;Category;Status;RegistryStatus;RuntimeStatus;ActionNeeded;CVE;Platform;Impact;PrerequisiteFor;CurrentValue;ExpectedValue;Description;Recommendation;RegistryPath;RegistryName;URL
-SSBD;Speculative Store Bypass Disable;Critical;Protected;Enabled;Active;No;CVE-2018-3639;All;Low;-;72;72;Prevents Speculative Store Bypass (Variant 4) attacks;Enable to protect against speculative execution vulnerabilities;HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management;FeatureSettingsOverride;https://nvd.nist.gov/vuln/detail/CVE-2018-3639
+SSBD;Speculative Store Bypass Disable;Critical;Protected;Enabled;Active;No;CVE-2018-3639;All;Low;-;8396872;8396872;Prevents Speculative Store Bypass (Variant 4) attacks;Intel CPUs: Set to 0x802048 (8396872) for Basic+BHI mitigations. AMD CPUs: Set to 0x2048 (8264) for Basic mitigations;HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management;FeatureSettingsOverride;https://support.microsoft.com/en-us/topic/kb4072698
 VBS;Virtualization Based Security;Optional;Protected;Enabled;N/A;No;Kernel Isolation;All;Low;HVCI, Credential Guard;1;1;Hardware-based security isolation using virtualization;Enable for enhanced kernel isolation (requires hardware support);HKLM:\SYSTEM\CurrentControlSet\Control\DeviceGuard;EnableVirtualizationBasedSecurity;https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-vbs
 UEFI;UEFI Firmware;Prerequisite;Active;N/A;Active;No;Boot Security Prerequisite;All;None;Secure Boot, VBS, HVCI, Credential Guard;True;;UEFI firmware mode (required for Secure Boot and modern security);UEFI mode required for Secure Boot, VBS, and HVCI;HKLM:\SYSTEM\CurrentControlSet\Control\SecureBoot\State;UEFISecureBootEnabled;https://uefi.org/specifications
 ...
@@ -906,6 +912,38 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ---
 
 ## 📝 Changelog
+
+### v2.1.9 (2025-12-02)
+- 🔧 **CRITICAL: Fixed FeatureSettingsOverride detection per Microsoft KB4072698**
+  * Changed from incorrect values (0, 72) to Microsoft-documented values
+  * Now accepts: 0x2048 (basic), 0x800000 (BHI only), 0x802048 (basic+BHI combined)
+  * Intel CPUs: Recommends 0x802048 (8396872) for Basic + BHI mitigations via bitwise OR (0x2048 | 0x800000)
+  * AMD CPUs: Recommends 0x2048 (8264) for Basic mitigations only (AMD not vulnerable to BHI)
+  * Validates SSBD system-wide enablement via runtime detection (SSBDWindowsSupportEnabledSystemWide)
+  * Updated SSBD mitigation URL to official Microsoft KB4072698 article
+  * Value 0 no longer accepted (does NOT enable system-wide mitigations)
+
+### v2.1.8 (2025-12-02)
+- 🔧 **Attempted SSBD fix** (later corrected in v2.1.9)
+  * Changed FeatureSettingsOverride from 72 to 0 (but 0 also incorrect)
+  * Issue: Value 0 enables per-process mitigations, NOT system-wide
+
+### v2.1.7 (2025-12-02)
+- 🔧 **CRITICAL: Fixed all kernel API flag bitmasks**
+  * Corrected KVAS detection: now uses 0x08 (RDCL HW Protected) instead of wrong 0x4000
+  * Fixed all flag bitmasks to match Microsoft SpeculationControl module exactly
+  * KVAS now correctly shows "Not Needed (HW Immune)" for Meltdown-immune CPUs (Tiger Lake, Ice Lake, etc.)
+  * Enhanced IBRS: Fixed from 0x100 to correct 0x10000
+  * MDS HW Protected: Fixed from 0x40000 to correct 0x1000000
+  * All 15+ flags now use Microsoft's exact bitmask values from official module
+
+### v2.1.6 (2025-12-02)
+- 🔬 **Added hardware-based detection via NtQuerySystemInformation API**
+  * Added flags2 reading for SBDR (0x01), FBSDP (0x02), PSDP (0x04) hardware protection
+  * Fixed regex bug: "Inactive" no longer matches "Active" pattern (added word boundary)
+  * Added FBSDP mitigation (Fill Buffer Stale Data Propagator)
+  * SBDR/PSDP now correctly show "Vulnerable" when hardware doesn't support
+  * Runtime detection now authoritative over registry-only checks
 
 ### v2.1.5 (2025-12-02)
 - 📚 **Enhanced VM configuration guidance**
