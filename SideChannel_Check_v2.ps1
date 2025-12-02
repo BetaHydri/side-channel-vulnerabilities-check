@@ -1437,8 +1437,10 @@ function Show-MitigationTable {
             foreach ($result in $Results) {
                 $statusColor = switch ($result.OverallStatus) {
                     'Protected' { 'Green' }
+                    'Active' { 'Green' }
                     'Vulnerable' { 'Red' }
-                    'Active' { 'Cyan' }
+                    'Missing' { 'Red' }
+                    'Unknown' { 'Yellow' }
                     default { 'Gray' }
                 }
                 
