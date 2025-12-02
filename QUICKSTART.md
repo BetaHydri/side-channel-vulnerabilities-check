@@ -55,8 +55,10 @@ Selectively apply mitigations with two view modes.
 
 **Recommended Workflow:**
 1. `.\SideChannel_Check_v2.ps1 -ShowDetails` - Review CVEs and impacts
-2. `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive` - Choose [A] mode
-3. Select specific mitigations based on your requirements
+2. `.\SideChannel_Check_v2.ps1 -Mode Backup` - Create manual backup (recommended before remediation)
+3. `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive` - Choose [A] mode
+4. Select specific mitigations based on your requirements
+5. Restart system to activate changes
 
 ---
 
@@ -194,11 +196,6 @@ Selectively apply mitigations with two view modes.
 # Choose [A] for all mitigations view
 ```
 
-### Run Automated Tests
-```powershell
-.\Test-SideChannelTool.ps1
-```
-
 ---
 
 ## 📦 Legacy Version (Archived)
@@ -241,8 +238,7 @@ cd archive\v1
 
 1. **Full Documentation:** [README.md](README.md)
 2. **GitHub Issues:** https://github.com/BetaHydri/side-channel-vulnerabilities-check/issues
-3. **Test Suite:** `.\Test-SideChannelTool.ps1`
-4. **Parameter Help:** `Get-Help .\SideChannel_Check_v2.ps1 -Detailed`
+3. **Parameter Help:** `Get-Help .\SideChannel_Check_v2.ps1 -Detailed`
 
 ---
 

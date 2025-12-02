@@ -185,11 +185,14 @@ Interactively select and apply security mitigations with two selection modes.
 **Recommended Workflow:**
 1. Run detailed assessment: `.\SideChannel_Check_v2.ps1 -ShowDetails`
 2. Review CVEs, descriptions, impacts, and recommendations
-3. Use ApplyInteractive with mode [A] to selectively enable mitigations
-4. Make informed decisions based on your security requirements
+3. **Create manual backup:** `.\SideChannel_Check_v2.ps1 -Mode Backup` (recommended before any changes)
+4. Use ApplyInteractive with mode [A] to selectively enable mitigations
+5. Make informed decisions based on your security requirements
+6. Restart system to activate changes
 
 **Features:**
-- ✅ Automatic backup creation before changes
+- ✅ Automatic backup creation before changes (ApplyInteractive mode)
+- ✅ Manual backup recommended for safety before starting remediation
 - ✅ Interactive selection (individual, ranges, or all)
 - ✅ Two view modes: Recommended only or All mitigations
 - ✅ WhatIf preview support
