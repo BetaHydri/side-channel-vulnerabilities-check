@@ -1,12 +1,12 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.0
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.2
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
     mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs).
     
-    Version 2.0 features a redesigned architecture with:
+    Version 2.1.2 features a redesigned architecture with:
     - Modular function-based design (PowerShell 5.1 & 7.x compatible)
     - Kernel runtime state detection via native Windows API  
     - Platform-aware recommendations (Physical/Hyper-V/VMware)

@@ -1,4 +1,4 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.1
+# Side-Channel Vulnerability Mitigation Tool v2.1.2
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
@@ -863,11 +863,29 @@ Get-Help about_Functions_CmdletBindingAttribute
 ```
 
 ### Unicode characters not displaying correctly
-**Solution:** v2.1.1 uses runtime Unicode generation for full compatibility.
+**Solution:** v2.1.2 uses runtime Unicode generation for full compatibility.
 
 The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) at runtime using `[System.Char]::ConvertFromUtf32()`, ensuring consistent display across PowerShell 5.1 and 7.x without requiring specific file encoding.
 
 **No action needed** - this is handled automatically by the `Get-StatusIcon` function.
+
+### MitigationOptions showing as "Not Configured" after reboot
+**Symptom:** The "Hardware Security Mitigations" mitigation shows as "Not Configured" or "Disabled" after system restart, even though it was properly applied.
+
+**Cause:** Windows converts the `MitigationOptions` registry value from `REG_QWORD` to `REG_BINARY` after reboot. Older versions of the script couldn't read REG_BINARY format.
+
+**Solution:** v2.1.2+ automatically handles REG_BINARY conversion. The script now:
+- Detects when `MitigationOptions` is stored as a byte array (REG_BINARY)
+- Converts the 8-byte array to `uint64` using `[BitConverter]::ToUInt64()`
+- Performs correct bitwise comparison to verify the mitigation flag is set
+
+**No action needed** - upgrade to v2.1.2 or later. The detection works correctly both before and after system restart.
+
+**Technical Details:**
+```powershell
+# Before reboot: REG_QWORD (direct uint64 comparison)
+# After reboot: REG_BINARY (converted from byte[] to uint64)
+```
 
 ---
 
@@ -881,6 +899,17 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ---
 
 ## 📝 Changelog
+
+### v2.1.2 (2025-12-02)
+- 🐛 **Critical Fix: REG_BINARY detection for MitigationOptions**
+  * Fixed detection failure after system reboot when Windows converts MitigationOptions to REG_BINARY
+  * Added automatic byte array to uint64 conversion in Compare-MitigationValue function
+  * Handles both REG_QWORD (pre-reboot) and REG_BINARY (post-reboot) registry formats
+  * Supports 8-byte (uint64) and 4-byte (uint32) binary conversions
+  * Hardware Security Mitigations now correctly detected in all scenarios
+- 📖 **Documentation updates**
+  * Added troubleshooting section for MitigationOptions REG_BINARY issue
+  * Included technical details about registry type conversion behavior
 
 ### v2.1.1 (2025-12-01)
 - 📚 **Enhanced Runtime Status Guide**
@@ -1141,7 +1170,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.1  
-**Last Updated:** 2025-12-01  
+**Version:** 2.1.2  
+**Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
