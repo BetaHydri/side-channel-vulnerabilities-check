@@ -2801,11 +2801,11 @@ function Start-SideChannelCheck {
                 }
             }
             
-            'RevertInteractive' {
+            'Revert' {
                 $backup = Get-LatestBackup
                 if ($null -eq $backup) {
                     Write-Host "`n$(Get-StatusIcon -Name Error) No backup found. Cannot revert." -ForegroundColor Red
-                    Write-Host "Tip: Use -Mode Restore to select from available backups." -ForegroundColor Gray
+                    Write-Host "Tip: Use -Mode RestoreInteractive to select from available backups." -ForegroundColor Gray
                     return
                 }
                 
@@ -2860,7 +2860,7 @@ function Start-SideChannelCheck {
                 Write-Host "Mitigations: $($backupData.Mitigations.Count)" -ForegroundColor White
             }
             
-            'Restore' {
+            'RestoreInteractive' {
                 $backups = @(Get-AllBackups)
                 if ($backups.Count -eq 0) {
                     Write-Host "`n$(Get-StatusIcon -Name Error) No backups found." -ForegroundColor Red
