@@ -2038,21 +2038,21 @@ function Show-MitigationTable {
                 $ansiGray = "`e[90m"
                 
                 foreach ($result in $Results) {
-                    # Determine ANSI color based on status AND category
-                    # Critical vulnerabilities get bright red, Recommended vulnerabilities get regular red
-                    $lineAnsi = switch ($result.OverallStatus) {
-                        'Protected' { $ansiGreen }
-                        'Vulnerable' { 
-                            if ($result.Category -eq 'Critical') { 
-                                $ansiBrightRed  # Bright red for critical vulnerabilities
-                            } 
-                            else { 
-                                $ansiRed  # Regular red for recommended vulnerabilities
-                            }
-                        }
-                        'Active' { $ansiCyan }
-                        'Unknown' { $ansiYellow }
-                        default { $ansiGray }
+                    # Determine ANSI color based on ActionNeeded and Category (same logic as Detailed view)
+                    $lineAnsi = if ($result.OverallStatus -in @('Protected', 'Active')) {
+                        $ansiGreen
+                    }
+                    elseif ($result.ActionNeeded -match 'Yes - Critical') {
+                        $ansiBrightRed  # Critical vulnerability requiring immediate action
+                    }
+                    elseif ($result.ActionNeeded -eq 'Consider' -or $result.Category -eq 'Optional') {
+                        $ansiYellow  # Optional or recommended - evaluate for environment
+                    }
+                    elseif ($result.OverallStatus -eq 'Vulnerable') {
+                        $ansiRed  # Vulnerable but not optional
+                    }
+                    else {
+                        $ansiGray
                     }
                     
                     # Format the entire line
@@ -2068,14 +2068,21 @@ function Show-MitigationTable {
                     # Format the entire line as a single string
                     $line = "{0,-45} {1,-20} {2,-26} {3}" -f $result.Name, $result.OverallStatus, $result.ActionNeeded, $result.Impact
                     
-                    # Determine color based on status AND category
-                    # Note: PowerShell 5.1 doesn't support bright colors well, so both use Red
-                    $lineColor = switch ($result.OverallStatus) {
-                        'Protected' { 'Green' }
-                        'Vulnerable' { 'Red' }  # All vulnerabilities show in red
-                        'Active' { 'Cyan' }
-                        'Unknown' { 'Yellow' }
-                        default { 'Gray' }
+                    # Determine color based on ActionNeeded and Category (same logic as Detailed view)
+                    $lineColor = if ($result.OverallStatus -in @('Protected', 'Active')) {
+                        'Green'
+                    }
+                    elseif ($result.ActionNeeded -match 'Yes - Critical') {
+                        'Red'  # Critical vulnerability requiring immediate action
+                    }
+                    elseif ($result.ActionNeeded -eq 'Consider' -or $result.Category -eq 'Optional') {
+                        'Yellow'  # Optional or recommended - evaluate for environment
+                    }
+                    elseif ($result.OverallStatus -eq 'Vulnerable') {
+                        'Red'  # Vulnerable but not optional
+                    }
+                    else {
+                        'Gray'
                     }
                     
                     Write-Host $line -ForegroundColor $lineColor
