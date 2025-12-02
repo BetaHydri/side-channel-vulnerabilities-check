@@ -1081,7 +1081,7 @@ When running as a VMware guest, the tool provides GUI-based instructions to enab
 
 **Registry settings alone in the VM are insufficient** - the physical CPU features must be active on the host first.
 
-**Complete Configuration Guide:** See `HYPERVISOR_CONFIGURATION.md` for detailed step-by-step instructions for:
+**Complete Configuration Guide:** See [HYPERVISOR_CONFIGURATION.md](HYPERVISOR_CONFIGURATION.md) for detailed step-by-step instructions for:
 - Hyper-V host configuration
 - VMware ESXi/Workstation configuration
 - VM processor settings
