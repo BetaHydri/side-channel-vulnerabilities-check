@@ -1,10 +1,16 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.9
+# Side-Channel Vulnerability Mitigation Tool v2.2.0
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
 ## 🎯 Features
 
-### Critical Fixes (v2.1.9)
+### New in v2.2.0
+- **⚠️ Microcode Detection** - Automatically detects when registry is set but CPU microcode updates are missing
+- **🔴 Critical Highlighting** - SBDR and PSDP upgraded to Critical category with bright red alerts
+- **📊 Enhanced Status** - "Inactive (Microcode Update Required)" status shows exact issue
+- **💡 Actionable Guidance** - Specific steps for BIOS/UEFI firmware updates
+
+### Previous Fixes (v2.1.9)
 - **🔧 SSBD Detection Fixed** - FeatureSettingsOverride now uses Microsoft KB4072698 documented values
 - **✅ Intel CPU Support** - Recommends 0x802048 (Basic + BHI combined) for Intel CPUs
 - **✅ AMD CPU Support** - Recommends 0x2048 (Basic only) for AMD CPUs
@@ -912,6 +918,24 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 ---
 
 ## 📝 Changelog
+
+### v2.2.0 (2025-12-02)
+- ⚠️ **NEW: Intelligent microcode detection**
+  * Detects when registry values are set but CPU microcode updates are missing
+  * Shows "Inactive (Microcode Update Required)" status for SBDR/PSDP when registry configured but kernel inactive
+  * New warning section: ⚠ MICROCODE UPDATE REQUIRED with actionable guidance
+  * Explains common causes: outdated BIOS/UEFI, missing vendor microcode updates
+  * Special VM notes about hypervisor requirements
+- 🔴 **UPGRADED: SBDR and PSDP to Critical category**
+  * Changed from Recommended to Critical (high-severity CVEs)
+  * SBDR: CVE-2022-21123/21125 (MMIO Stale Data)
+  * PSDP: CVE-2022-0001/0002 (Branch History Injection)
+  * Bright red highlighting in PowerShell 7+ for Critical vulnerabilities
+- 🎨 **ENHANCED: Color coding improvements**
+  * Critical vulnerabilities: Bright red (ANSI 91)
+  * Recommended vulnerabilities: Regular red (ANSI 31)
+  * Unknown status: Yellow highlighting
+  * All Protected items consistently green
 
 ### v2.1.9 (2025-12-02)
 - 🔧 **CRITICAL: Fixed FeatureSettingsOverride detection per Microsoft KB4072698**

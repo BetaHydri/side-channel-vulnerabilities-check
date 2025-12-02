@@ -1,16 +1,17 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.9
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.2.0
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
     mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs).
     
-    Version 2.1.9 fixes SSBD detection to align with Microsoft KB4072698:
-    - FIXED: FeatureSettingsOverride detection now accepts Microsoft documented values
-    - Accepts: 0x2048 (basic), 0x800000 (BHI only), 0x802048 (basic+BHI combined)
-    - RECOMMENDED for Intel CPUs: 0x802048 (combines basic mitigations with BHI via bitwise OR)
-    - Validates bit 3 (SSBD disable) is clear for any other value
+    Version 2.2.0 adds microcode detection and critical vulnerability highlighting:
+    - NEW: Microcode update detection - warns when registry set but kernel inactive
+    - NEW: "Inactive (Microcode Update Required)" status for SBDR/PSDP
+    - UPGRADED: SBDR and PSDP to Critical category (from Recommended)
+    - ENHANCED: Bright red highlighting for Critical vulnerabilities in PowerShell 7+
+    - FIXED: FeatureSettingsOverride uses Microsoft KB4072698 values (0x2048/0x802048)
     - FIXED: BTI, SSBD, Retpoline, Enhanced IBRS now use correct bit positions
     - FIXED: MDS hardware protection now uses correct bitmask (0x1000000)
     - Aligned detection logic with Microsoft's SpeculationControl module
@@ -138,7 +139,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.9'
+$script:Version = '2.2.0'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 

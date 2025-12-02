@@ -1,6 +1,6 @@
-# Quick Start Guide - v2.1.9
+# Quick Start Guide - v2.2.0
 
-> **Note:** v2.1.9 includes critical fixes for FeatureSettingsOverride detection per Microsoft KB4072698. See README.md changelog for details.
+> **Note:** v2.2.0 adds intelligent microcode detection and upgrades SBDR/PSDP to Critical category. See README.md changelog for details.
 
 ---
 
