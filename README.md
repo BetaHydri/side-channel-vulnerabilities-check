@@ -751,7 +751,10 @@ When Enhanced IBRS shows "Active," only the BTI/Spectre v2 vulnerability is prot
 - **SMAP** (Supervisor Mode Access Prevention)
 
 ### Optional Mitigations (6)
-- **L1TF** (L1 Terminal Fault) - High performance impact
+- **L1TF** (L1 Terminal Fault) - CVE-2018-3620, CVE-2018-3646
+  * High performance impact (15-25% loss)
+  * Only for Hyper-V hosts running multi-tenant/untrusted VMs
+  * NOT recommended for single-tenant environments, development hosts, or physical workstations
 - **VBS** (Virtualization Based Security) - Requires hardware
 - **HVCI** (Hypervisor-protected Code Integrity) - Requires VBS
 - **Credential Guard** - Requires VBS + TPM
@@ -844,7 +847,24 @@ When Enhanced IBRS shows "Active," only the BTI/Spectre v2 vulnerability is prot
 - Hyper-V Core Scheduler
 
 ### High Impact (15%+ performance loss)
-- L1TF (L1 Terminal Fault)
+- **L1TF (L1 Terminal Fault)** - CVE-2018-3620, CVE-2018-3646
+  * **Performance Impact:** High (15-25% performance loss in virtualization workloads)
+  * **What it does:** Flushes L1 data cache on every VM entry/exit to prevent L1 Terminal Fault attacks
+  * **When to ENABLE:**
+    - Multi-tenant cloud environments (untrusted VMs on same host)
+    - Public cloud providers (AWS, Azure, GCP)
+    - Hosting providers with customer VMs
+    - High-security environments processing sensitive data in VMs
+  * **When to DISABLE (or leave disabled):**
+    - Single-tenant environments (only your VMs on the host)
+    - Development/test Hyper-V hosts
+    - Personal virtualization workstations
+    - Trusted VM workloads only
+    - Physical machines (non-Hyper-V hosts) - not applicable
+    - Virtual machines (guests) - not applicable, host-only mitigation
+  * **Platform:** Hyper-V Host only (not applicable to physical workstations or VM guests)
+  * **Category:** Optional (only required for multi-tenant virtualization)
+  * **Recommendation:** Only enable if you run untrusted VMs from different security domains on the same host
 - **⚠️ Test in non-production first!**
 
 ---
