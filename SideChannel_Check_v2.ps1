@@ -97,7 +97,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.1'
+$script:Version = '2.1.2'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
