@@ -176,6 +176,44 @@ The tool uses intelligent color coding based on **mitigation category** and **se
 
 *Example output showing the color-coded security assessment: Green protected mitigations, Yellow optional mitigations (L1TF, Hyper-V Core Scheduler, Disable SMT), and Red critical vulnerabilities (SBDR/SBDS, PSDP) requiring immediate attention.*
 
+### 🖥️ Platform Applicability Matrix
+
+The tool automatically detects your platform and only evaluates **applicable mitigations** for fair scoring:
+
+| Mitigation | Physical | Hyper-V Host | Hyper-V Guest | VMware Guest | Notes |
+|------------|----------|--------------|---------------|--------------|-------|
+| **SSBD** (Speculative Store Bypass) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **BTI** (Branch Target Injection) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **KVAS** (Kernel VA Shadowing) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **MDS** (Microarchitectural Data Sampling) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **TAA** (TSX Asynchronous Abort) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **SBDR** (SRBDS) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **Retbleed** | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **MMIO Stale Data** | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **PSDP** (Predictive Store Forwarding) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **BHI** (Branch History Injection) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **SBDS** (SRBDS) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **Enhanced IBRS** | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **Control Flow Guard** | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **SMAP** (Supervisor Mode Access Prevention) | ✅ | ✅ | ✅ | ✅ | All platforms |
+| **VBS** (Virtualization Based Security) | ✅ | ✅ | ✅ | ✅ | All platforms (requires hardware) |
+| **HVCI** (Hypervisor Code Integrity) | ✅ | ✅ | ✅ | ✅ | All platforms (requires VBS) |
+| **Credential Guard** | ✅ | ✅ | ✅ | ✅ | All platforms (requires VBS) |
+| **L1TF** (L1 Terminal Fault) | ❌ | ✅ | ❌ | ❌ | **Hyper-V hosts only** (multi-tenant) |
+| **Hyper-V Core Scheduler** | ❌ | ✅ | ❌ | ❌ | **Hyper-V hosts only** (SMT protection) |
+| **Disable SMT** | ✅ | ✅ | ✅ | ✅ | All platforms (optional, high impact) |
+
+**Platform-Specific Behavior:**
+- **VMware Guest**: L1TF and Hyper-V Core Scheduler are **skipped** (not counted in score)
+- **Hyper-V Host**: All mitigations evaluated, L1TF shows as **yellow** (optional for multi-tenant only)
+- **Physical Desktop**: Hyper-V-specific mitigations are **skipped**
+- **Score is always fair**: Only counts mitigations that make sense for your platform!
+
+**Example Scores:**
+- VMware VM: 17/19 mitigations (L1TF & Core Scheduler skipped)
+- Hyper-V Host: 19/19 mitigations (all applicable)
+- Physical Desktop: 17/19 mitigations (hypervisor-only skipped)
+
 **Detailed Output** (`-ShowDetails` flag):
 When using `-ShowDetails`, each mitigation displays comprehensive educational information:
 - **CVE Numbers** - Associated vulnerability identifiers
