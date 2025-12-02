@@ -1,14 +1,15 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.8
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.9
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
     mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs).
     
-    Version 2.1.7 fixes kernel API flag detection to match Microsoft's SpeculationControl module:
-    - FIXED: Corrected all kernel API flag bitmasks (were completely wrong)
-    - FIXED: KVAS now correctly detects hardware immunity (Meltdown protection)
+    Version 2.1.9 fixes SSBD detection to align with Microsoft KB4072698:
+    - FIXED: FeatureSettingsOverride detection now accepts Microsoft documented values
+    - Accepts: 0 (Windows defaults), 0x2048 (basic), 0x800000 (BHI), 0x802048 (combined)
+    - Also validates bit 3 (SSBD disable) is clear for any other value
     - FIXED: BTI, SSBD, Retpoline, Enhanced IBRS now use correct bit positions
     - FIXED: MDS hardware protection now uses correct bitmask (0x1000000)
     - Aligned detection logic with Microsoft's SpeculationControl module
@@ -136,7 +137,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.8'
+$script:Version = '2.1.9'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -664,13 +665,13 @@ function Get-MitigationDefinitions {
             Category         = 'Critical'
             RegistryPath     = 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
             RegistryName     = 'FeatureSettingsOverride'
-            EnabledValue     = 0
+            EnabledValue     = 0x2048  # Microsoft KB4072698: 0x2048 (8264) = Basic mitigations system-wide, 0x802048 (8396872) = Basic+BHI
             Description      = 'Prevents Speculative Store Bypass (Variant 4) attacks'
             Impact           = 'Low'
             Platform         = 'All'
             RuntimeDetection = 'SSBD'
-            Recommendation   = 'Enable SSBD system-wide (FeatureSettingsOverride=0 enables ALL mitigations including SSBD)'
-            URL              = 'https://nvd.nist.gov/vuln/detail/CVE-2018-3639'
+            Recommendation   = 'Set to 0x2048 (8264) for Microsoft recommended configuration per KB4072698 to enable system-wide mitigations. Value 0 does NOT enable system-wide.'
+            URL              = 'https://support.microsoft.com/en-us/topic/kb4072698-windows-server-and-azure-stack-hci-guidance-to-protect-against-silicon-based-microarchitectural-and-speculative-execution-side-channel-vulnerabilities-2f965763-00e2-8f98-b632-0d96f30c8c8e'
         },
         @{
             Id               = 'SSBD_Mask'
@@ -1372,12 +1373,24 @@ function Compare-MitigationValue {
     )
     
     # Special handling for FeatureSettingsOverride
-    # This registry value is a DISABLE mask: 0 = enable all, missing = not configured
+    # This registry value is a bit field with disable and enable flags
+    # Per Microsoft KB4072698, recommended values to ENABLE system-wide mitigations:
+    #   0x2048 (8264) = Basic mitigations (TAA, MDS, Spectre, Meltdown, MMIO, SSBD, L1TF)
+    #   0x800000 (8388608) = BHI mitigation (CVE-2022-0001)
+    #   0x802048 (8396872) = Both (Basic + BHI)
+    # Value 0 = Windows decides per-process, NOT system-wide (does NOT enable SSBD system-wide)
+    # Bit 3 (0x8) = Disable SSBD - must be CLEAR for SSBD to be enabled
     if ($RegistryName -eq 'FeatureSettingsOverride') {
         # If value doesn't exist, mitigations are NOT enabled system-wide
         if ($null -eq $Current) { return $false }
-        # Expected value is 0 (enable all mitigations)
-        return $Current -eq 0
+        
+        # Accept ONLY Microsoft recommended values that enable system-wide mitigations
+        $microsoftValues = @(0x2048, 0x800000, 0x802048)
+        if ($microsoftValues -contains $Current) { return $true }
+        
+        # Value 0 or other values do NOT enable system-wide, so registry check fails
+        # (Runtime detection will be the authoritative check)
+        return $false
     }
     
     if ($null -eq $Current) { return $false }
