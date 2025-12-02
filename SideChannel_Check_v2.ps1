@@ -2066,7 +2066,20 @@ function Show-Recommendations {
         Write-Host "`n$(Get-StatusIcon -Name RedCircle) CRITICAL - Apply immediately:" -ForegroundColor Red
         foreach ($item in $critical) {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
-            Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+            
+            # Provide context-aware recommendation based on status
+            if ($item.RuntimeStatus -match 'Microcode Update Required') {
+                Write-Host "     $(Get-StatusIcon -Name Warning) Registry configured but CPU microcode missing" -ForegroundColor Yellow
+                Write-Host "     Action: Update BIOS/UEFI firmware to get latest CPU microcode" -ForegroundColor Gray
+            }
+            elseif ($item.RegistryStatus -eq 'Not Configured') {
+                Write-Host "     Action: Enable this mitigation (registry not configured)" -ForegroundColor Gray
+                Write-Host "     $($item.Recommendation)" -ForegroundColor DarkGray
+            }
+            else {
+                Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+            }
+            
             if ($item.Impact -eq 'High') {
                 Write-Host "     $(Get-StatusIcon -Name Warning) Performance Impact: HIGH" -ForegroundColor Yellow
             }
@@ -2077,7 +2090,18 @@ function Show-Recommendations {
         Write-Host "`n$(Get-StatusIcon -Name YellowCircle) RECOMMENDED - Apply for enhanced security:" -ForegroundColor Yellow
         foreach ($item in $recommended) {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
-            Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+            
+            # Provide context-aware recommendation based on status
+            if ($item.RuntimeStatus -match 'Microcode Update Required') {
+                Write-Host "     $(Get-StatusIcon -Name Warning) Registry configured but CPU microcode missing" -ForegroundColor Yellow
+                Write-Host "     Action: Update BIOS/UEFI firmware to get latest CPU microcode" -ForegroundColor Gray
+            }
+            elseif ($item.RegistryStatus -eq 'Not Configured') {
+                Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+            }
+            else {
+                Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
+            }
         }
     }
     
