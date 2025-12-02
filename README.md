@@ -2,9 +2,7 @@
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
-> **Note:** This is version 2.1.1 - the production-ready version with enhanced features. The legacy v1.x version has been archived to `archive/v1/` for reference.
-
-## 🎯 What's New in v2.1.1
+## 🎯 Features
 
 ### Major Enhancements
 - **✨ Simplified Mode Structure** - Dedicated modes replace parameter combinations
@@ -18,23 +16,6 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 - **🖥️ Platform-Aware** - Automatically adapts to Physical/Hyper-V/VMware environments
 - **🔧 PS 5.1 & 7.x Compatible** - Runtime Unicode generation for cross-version compatibility
 
-### Version Comparison
-
-| Feature | v1 (Archived) | v2.1.1 (Current) |
-|---------|---------------|------------------|
-| Mitigations Covered | 28 checks | 30 checks (comprehensive) |
-| Architecture | Monolithic | Modular functions |
-| Hardware Detection | Basic | Comprehensive (5 prerequisites) |
-| Scoring | All-inclusive | Intelligent (excludes N/A) |
-| Interactive Apply | ❌ No | ✅ [R]ecommended/[A]ll modes |
-| Selective Restore | ❌ No | ✅ [A]ll/[S]elect options |
-| Backup System | Auto-backup only | Dedicated management |
-| WhatIf Support | ❌ No | ✅ Yes |
-| Detailed View | ❌ No | ✅ CVEs, Impact, Recommendations |
-| PowerShell Support | 5.1+ | 5.1 & 7.x (optimized) |
-| Unicode Rendering | BOM-dependent | Runtime generation |
-| Hardware-only Filtering | ❌ No | ✅ Auto-skips TPM/CPU/IOMMU |
-
 ## 🚀 Quick Start
 
 ### Prerequisites
@@ -42,8 +23,6 @@ Enterprise-grade PowerShell tool for assessing and managing Windows side-channel
 - PowerShell 5.1 or PowerShell 7.x
 - Administrator privileges
 - Execution policy allowing script execution
-
-**Note:** v2.1.1 uses runtime Unicode generation for full compatibility across PowerShell versions without requiring UTF-8 BOM encoding.
 
 ```powershell
 # Set execution policy (if needed)
