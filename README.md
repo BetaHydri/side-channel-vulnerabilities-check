@@ -189,6 +189,7 @@ Interactively select and apply security mitigations with two selection modes.
 4. Use ApplyInteractive with mode [A] to selectively enable mitigations
 5. Make informed decisions based on your security requirements
 6. Restart system to activate changes
+7. **If needed, restore from backup:** `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
 
 **Features:**
 - ✅ Automatic backup creation before changes (ApplyInteractive mode)

@@ -59,6 +59,7 @@ Selectively apply mitigations with two view modes.
 3. `.\SideChannel_Check_v2.ps1 -Mode ApplyInteractive` - Choose [A] mode
 4. Select specific mitigations based on your requirements
 5. Restart system to activate changes
+6. If needed, restore: `.\SideChannel_Check_v2.ps1 -Mode RevertInteractive` or `-Mode Restore`
 
 ---
 
