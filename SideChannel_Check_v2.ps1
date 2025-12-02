@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.2
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.4
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
@@ -58,7 +58,7 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.0
+    Version:        2.1.4
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
@@ -97,7 +97,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.2'
+$script:Version = '2.1.4'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -349,9 +349,41 @@ function Initialize-PlatformDetection {
         }
     }
     else {
-        # Check for Hyper-V role
-        $hyperV = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -ErrorAction SilentlyContinue
-        if ($hyperV -and $hyperV.State -eq 'Enabled') {
+        # Check for Hyper-V role using multiple methods
+        $isHyperVHost = $false
+        
+        # Method 1: Check Hyper-V service
+        try {
+            $hvService = Get-Service -Name vmms -ErrorAction SilentlyContinue
+            if ($hvService -and $hvService.Status -eq 'Running') {
+                $isHyperVHost = $true
+            }
+        }
+        catch { }
+        
+        # Method 2: Check for Hyper-V hypervisor
+        if (-not $isHyperVHost) {
+            try {
+                $hypervisorPresent = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -Name "HypervisorPresent" -ErrorAction SilentlyContinue
+                if ($hypervisorPresent -and $hypervisorPresent.HypervisorPresent -eq 1) {
+                    $isHyperVHost = $true
+                }
+            }
+            catch { }
+        }
+        
+        # Method 3: Check Win32_ComputerSystem HypervisorPresent
+        if (-not $isHyperVHost) {
+            try {
+                if ($computerSystem.HypervisorPresent -eq $true) {
+                    # Additional check: if we're not in a VM, this means we're a Hyper-V host
+                    $isHyperVHost = $true
+                }
+            }
+            catch { }
+        }
+        
+        if ($isHyperVHost) {
             $script:PlatformInfo.Type = 'HyperVHost'
         }
         else {
@@ -447,11 +479,30 @@ function Initialize-HardwareDetection {
             $script:HardwareInfo.VTxEnabled = $true
         }
         else {
-            # Check if Hyper-V is running
-            $hyperv = Get-WindowsOptionalFeature -FeatureName Microsoft-Hyper-V -Online -ErrorAction SilentlyContinue
-            if ($hyperv -and $hyperv.State -eq 'Enabled') {
-                $script:HardwareInfo.VTxEnabled = $true
+            # Fallback: Check if hypervisor is present (indicates VT-x is enabled)
+            $hvPresent = $false
+            
+            # Check registry for hypervisor
+            try {
+                $hvReg = Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Virtualization" -Name "HypervisorPresent" -ErrorAction SilentlyContinue
+                if ($hvReg -and $hvReg.HypervisorPresent -eq 1) {
+                    $hvPresent = $true
+                }
             }
+            catch { }
+            
+            # Check via Win32_ComputerSystem
+            if (-not $hvPresent) {
+                try {
+                    $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+                    if ($cs.HypervisorPresent -eq $true) {
+                        $hvPresent = $true
+                    }
+                }
+                catch { }
+            }
+            
+            $script:HardwareInfo.VTxEnabled = $hvPresent
         }
     }
     catch {

@@ -1,4 +1,4 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.2
+# Side-Channel Vulnerability Mitigation Tool v2.1.4
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
@@ -900,6 +900,19 @@ The script automatically generates Unicode characters (✓, ✗, ⚠, █, ░) 
 
 ## 📝 Changelog
 
+### v2.1.4 (2025-12-02)
+- 🐛 **Enhanced OS compatibility for hardware detection**
+  * Removed dependency on `Get-WindowsOptionalFeature` which causes errors on Windows Server and some client builds
+  * Improved VT-x/AMD-V detection using multiple fallback methods (registry, WMI, hypervisor presence)
+  * Better compatibility across Windows 10/11 client and Windows Server 2016-2025
+  * Fixes "Class not registered" errors on both client and server operating systems
+
+### v2.1.3 (2025-12-02)
+- 🐛 **Fixed Hyper-V detection on Windows 11 25H2**
+  * Replaced `Get-WindowsOptionalFeature` with multi-method detection to prevent "Class not registered" errors
+  * Added fallback detection using Hyper-V service, registry checks, and Win32_ComputerSystem
+  * Improves reliability across different Windows 11 builds and configurations
+
 ### v2.1.2 (2025-12-02)
 - 🐛 **Critical Fix: REG_BINARY detection for MitigationOptions**
   * Fixed detection failure after system reboot when Windows converts MitigationOptions to REG_BINARY
@@ -1170,7 +1183,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.2  
+**Version:** 2.1.4  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+
