@@ -147,7 +147,7 @@ Example detailed output:
   CVE:          CVE-2018-3639
   URL:          https://nvd.nist.gov/vuln/detail/CVE-2018-3639
   Description:  Prevents Speculative Store Bypass (Variant 4) attacks
-  Runtime:      Active
+  Runtime:      ✓ Active
   Registry:     Enabled
   Impact:       Low
 
@@ -156,7 +156,14 @@ Example detailed output:
   URL:          https://uefi.org/specifications
   Required For: Secure Boot, VBS, HVCI, Credential Guard
   Description:  UEFI firmware mode (required for Secure Boot and modern security)
-  Runtime:      Active
+  Runtime:      ✓ Active
+  Impact:       None
+
+• TPM 2.0 [Protected]
+  CVE:          Hardware Cryptographic Security
+  Required For: BitLocker, VBS, Credential Guard, Windows Hello
+  Description:  Trusted Platform Module for hardware-based cryptography
+  Runtime:      ✓ Active (2.0)
   Impact:       None
 ```
 

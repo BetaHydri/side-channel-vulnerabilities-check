@@ -329,7 +329,7 @@ Config/                                      # Reserved for future use
   - Prevents data corruption in PrerequisiteFor field (e.g., "Secure Boot, VBS, HVCI, Credential Guard")
   - Example CSV row:
     ```csv
-    "SecureBoot";"Secure Boot";"Prerequisite";"Active";"N/A";"Enabled";"";"Boot Security Prerequisite";"All";"None";"VBS, HVCI, Credential Guard";"Enabled";"Enabled";"UEFI Secure Boot provides boot-time verification...";"Enable Secure Boot in UEFI/BIOS settings";"N/A";"N/A";"https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-secure-boot"
+    "SecureBoot";"Secure Boot";"Prerequisite";"Protected";"N/A";"Active";"""Boot Security Prerequisite";"All";"None";"VBS, HVCI, Credential Guard";"Active";"Enabled";"UEFI Secure Boot provides boot-time verification...";"Enable Secure Boot in UEFI/BIOS settings";"N/A";"N/A";"https://learn.microsoft.com/en-us/windows-hardware/design/device-experiences/oem-secure-boot"
     ```
   - Compatible with Excel and all standard CSV tools
   
@@ -371,25 +371,25 @@ Config/                                      # Reserved for future use
 ### Enhanced Hardware Detection Display
 - **Comprehensive Hardware Security Features Section**:
   - Displays firmware type (UEFI vs Legacy BIOS)
-  - Secure Boot status (Enabled/Capable/Not Supported)
+  - Secure Boot status (Active/Inactive (Capable)/Not Supported)
   - TPM presence and version (e.g., "Present (2.0)")
-  - CPU virtualization status (VT-x/AMD-V)
-  - IOMMU/VT-d detection
+  - CPU virtualization status (VT-x/AMD-V: Active/Not Supported)
+  - IOMMU/VT-d detection (Active/Not Supported)
   - VBS capability assessment
   - HVCI capability assessment
 
 - **Color-Coded Status Indicators**:
-  - **Green**: Enabled or present (UEFI, Secure Boot enabled, TPM present, VT-x enabled, IOMMU detected, VBS/HVCI capable)
-  - **Yellow**: Capable but disabled (Secure Boot capable but not enabled, Legacy BIOS)
-  - **Red**: Missing or not supported (No TPM, VT-x disabled, IOMMU not detected, VBS/HVCI not capable)
+  - **Green**: Active or present (UEFI, Secure Boot active, TPM present, VT-x active, IOMMU active, VBS/HVCI capable)
+  - **Yellow**: Capable but inactive (Secure Boot capable but not active, Legacy BIOS)
+  - **Red**: Missing or not supported (No TPM, VT-x not supported, IOMMU not supported, VBS/HVCI not capable)
   - **Gray**: Contextual hints for missing prerequisites (e.g., "(Requires: UEFI)" when VBS not capable)
 
 - **Intelligent Prerequisite Hints**:
   - When VBS/HVCI is not capable, displays specific missing requirement:
     * "(Requires: UEFI)" if firmware is Legacy BIOS
     * "(Requires: Secure Boot)" if UEFI but Secure Boot not capable
-    * "(Requires: CPU Virtualization)" if VT-x/AMD-V disabled
-    * "(Requires: IOMMU/VT-d)" if IOMMU not detected
+    * "(Requires: CPU Virtualization)" if VT-x/AMD-V not supported
+    * "(Requires: IOMMU/VT-d)" if IOMMU not supported
   - Helps users identify exact BIOS/firmware changes needed
 
 - **TPM Version Display Enhancement**:
