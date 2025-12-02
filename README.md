@@ -1,8 +1,13 @@
-# Side-Channel Vulnerability Mitigation Tool v2.1.6
+# Side-Channel Vulnerability Mitigation Tool v2.1.7
 
 Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
 
 ## 🎯 Features
+
+### Critical Fixes (v2.1.7)
+- **🔧 CRITICAL BUG FIX** - Corrected all kernel API flag bitmasks (v2.1.6 had completely wrong values)
+- **✅ KVAS Detection Fixed** - Now correctly shows "Not Needed (HW Immune)" for Meltdown-immune CPUs (Tiger Lake, Ice Lake, etc.)
+- **🎯 Microsoft Alignment** - All flag detection now matches Microsoft's SpeculationControl module exactly
 
 ### Major Enhancements (v2.1.6)
 - **🔬 Hardware-Based Detection** - Reads flags2 from Windows kernel API for SBDR/FBSDP/PSDP
@@ -1248,7 +1253,7 @@ When running as a Hyper-V guest, the tool provides PowerShell commands to enable
 
 ---
 
-**Version:** 2.1.6  
+**Version:** 2.1.7  
 **Last Updated:** 2025-12-02  
 **PowerShell:** 5.1, 7.x  
 **Platform:** Windows 10/11, Server 2016+

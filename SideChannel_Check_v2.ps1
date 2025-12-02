@@ -1,12 +1,16 @@
 <#
 .SYNOPSIS
-    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.6
+    Side-Channel Vulnerability Mitigation Assessment and Remediation Tool - Version 2.1.7
 
 .DESCRIPTION
     Enterprise-grade tool for assessing and configuring Windows side-channel vulnerability
     mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs).
     
-    Version 2.1.6 features hardware-based detection for SBDR/FBSDP/PSDP mitigations:
+    Version 2.1.7 fixes kernel API flag detection to match Microsoft's SpeculationControl module:
+    - FIXED: Corrected all kernel API flag bitmasks (were completely wrong)
+    - FIXED: KVAS now correctly detects hardware immunity (Meltdown protection)
+    - FIXED: BTI, SSBD, Retpoline, Enhanced IBRS now use correct bit positions
+    - FIXED: MDS hardware protection now uses correct bitmask (0x1000000)
     - Aligned detection logic with Microsoft's SpeculationControl module
     - Reads flags2 from NtQuerySystemInformation API for hardware protection status
     - Correctly identifies hardware immunity for AMD/ARM processors
@@ -65,10 +69,23 @@
     Run assessment and export results to CSV
 
 .NOTES
-    Version:        2.1.6
+    Version:        2.1.7
     Requires:       PowerShell 5.1 or higher, Administrator privileges
     Platform:       Windows 10/11, Windows Server 2016+
     Compatible:     PowerShell 5.1, 7.x
+    
+    Changelog v2.1.7:
+    - CRITICAL FIX: Corrected all kernel API flag bitmasks (v2.1.6 had wrong values)
+    - Fixed KVAS detection: Now correctly shows "Not Needed (HW Immune)" for Meltdown-immune CPUs
+    - Fixed BTI bitmask: 0x01 → 0x10
+    - Fixed SSBD bitmask: 0x10 → 0x400
+    - Fixed Retpoline bitmask: 0x200 → 0x4000
+    - Fixed Enhanced IBRS bitmask: 0x100 → 0x10000
+    - Fixed MDS bitmask: 0x8000 → 0x1000000
+    - Fixed MBClear bitmask: 0x1000 → 0x2000000
+    - Added KVAS-specific flags: Required (0x01), Enabled (0x02), PCID (0x04), RDCL (0x08)
+    - Removed incorrect manual KVAS registry detection logic
+    - All flag values now match Microsoft SpeculationControl module exactly
     
     Changelog v2.1.6:
     - Fixed SBDR/FBSDP/PSDP detection to align with Microsoft SpeculationControl module
@@ -113,7 +130,7 @@ if ($ShowDetails -and $Mode -notin @('Assess', 'ApplyInteractive')) {
 $ProgressPreference = 'SilentlyContinue'
 
 # Script metadata
-$script:Version = '2.1.6'
+$script:Version = '2.1.7'
 $script:BackupPath = "$PSScriptRoot\Backups"
 $script:ConfigPath = "$PSScriptRoot\Config"
 
@@ -258,17 +275,22 @@ public static extern int NtQuerySystemInformation(
             
             if ($result -eq 0) {
                 # Parse the returned structure (8 bytes: flags + flags2)
+                # Flag definitions aligned with Microsoft SpeculationControl module
                 $flags = [System.Runtime.InteropServices.Marshal]::ReadInt32($infoPtr, 0)
                 
                 # Extract individual mitigation states from flags (first DWORD)
-                $script:RuntimeState.Flags['BTIEnabled'] = ($flags -band 0x01) -ne 0
-                $script:RuntimeState.Flags['SSBDSystemWide'] = ($flags -band 0x10) -ne 0
-                $script:RuntimeState.Flags['EnhancedIBRS'] = ($flags -band 0x100) -ne 0
-                $script:RuntimeState.Flags['RetpolineEnabled'] = ($flags -band 0x200) -ne 0
-                $script:RuntimeState.Flags['MBClearEnabled'] = ($flags -band 0x1000) -ne 0
-                $script:RuntimeState.Flags['L1DFlushSupported'] = ($flags -band 0x2000) -ne 0
-                $script:RuntimeState.Flags['RDCLHardwareProtected'] = ($flags -band 0x4000) -ne 0
-                $script:RuntimeState.Flags['MDSHardwareProtected'] = ($flags -band 0x8000) -ne 0
+                # Based on Microsoft's scf* constants in SpeculationControl.psm1
+                $script:RuntimeState.Flags['KVAShadowRequired'] = ($flags -band 0x01) -ne 0
+                $script:RuntimeState.Flags['KVAShadowEnabled'] = ($flags -band 0x02) -ne 0
+                $script:RuntimeState.Flags['KVAShadowPCIDEnabled'] = ($flags -band 0x04) -ne 0
+                $script:RuntimeState.Flags['RDCLHardwareProtected'] = ($flags -band 0x08) -ne 0  # Meltdown hardware immunity
+                $script:RuntimeState.Flags['BTIEnabled'] = ($flags -band 0x10) -ne 0
+                $script:RuntimeState.Flags['SSBDSystemWide'] = ($flags -band 0x400) -ne 0
+                $script:RuntimeState.Flags['RetpolineEnabled'] = ($flags -band 0x4000) -ne 0
+                $script:RuntimeState.Flags['EnhancedIBRS'] = ($flags -band 0x10000) -ne 0
+                $script:RuntimeState.Flags['MDSHardwareProtected'] = ($flags -band 0x1000000) -ne 0
+                $script:RuntimeState.Flags['MBClearEnabled'] = ($flags -band 0x2000000) -ne 0
+                $script:RuntimeState.Flags['L1DFlushSupported'] = ($flags -band 0x8000000) -ne 0
                 
                 # Read flags2 (second DWORD at offset 4) for newer mitigations
                 if ($returnLength -gt 4) {
@@ -296,11 +318,6 @@ public static extern int NtQuerySystemInformation(
                         # Continue with values from flags2 if CPU detection fails
                     }
                 }
-                
-                # KVAS detection
-                $kvasReg = Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management" `
-                    -Name "EnableKernelVaShadow" -ErrorAction SilentlyContinue
-                $script:RuntimeState.Flags['KVAShadowEnabled'] = ($null -ne $kvasReg) -and (-not $script:RuntimeState.Flags['RDCLHardwareProtected'])
                 
                 $script:RuntimeState.APIAvailable = $true
                 Write-Log "Kernel runtime state detection: Operational" -Level Success
