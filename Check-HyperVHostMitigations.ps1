@@ -12,8 +12,11 @@
     .\Check-HyperVHostMitigations.ps1
     
 .NOTES
-    Version: 1.0
+    Version: 1.1 (Updated for SideChannel_Check v2.3.0)
     Requires: Administrator privileges
+    
+.LINK
+    Compatible with SideChannel_Check_v2.ps1 v2.3.0+
 #>
 
 #Requires -RunAsAdministrator
@@ -163,7 +166,7 @@ else {
     
     Write-Host "`nRequired Actions:" -ForegroundColor Yellow
     Write-Host "`n1. Run your main mitigation tool to enable missing mitigations:"
-    Write-Host "   .\SideChannel_Check_v2.ps1 -Mode ApplyInteractive" -ForegroundColor Cyan
+    Write-Host "   .\SideChannel_Check_v2.ps1 -Mode Apply" -ForegroundColor Cyan
     Write-Host "   (Choose [R]ecommended when prompted)"
     
     Write-Host "`n2. CRITICAL: Restart this Hyper-V host:" -ForegroundColor Yellow
