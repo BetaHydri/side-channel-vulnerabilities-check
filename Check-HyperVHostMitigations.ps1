@@ -41,10 +41,12 @@ if ($hvService) {
     Write-Host "  Status:   " -NoNewline
     if ($hvService.Status -eq 'Running') {
         Write-Host "Running" -ForegroundColor Green
-    } else {
+    }
+    else {
         Write-Host "$($hvService.Status)" -ForegroundColor Yellow
     }
-} else {
+}
+else {
     Write-Host "  Status:   NOT INSTALLED" -ForegroundColor Red
     Write-Host "`nERROR: Hyper-V is not installed on this machine." -ForegroundColor Red
     exit 1
@@ -53,46 +55,46 @@ if ($hvService) {
 # Define required mitigations for VM CPU feature exposure
 $requiredMitigations = @(
     @{
-        Name = "SBDR/SBDS Mitigation"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "SBDRMitigationLevel"
+        Name          = "SBDR/SBDS Mitigation"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "SBDRMitigationLevel"
         ExpectedValue = 1
-        Impact = "Required for VM SBDR/FBSDP support"
+        Impact        = "Required for VM SBDR/FBSDP support"
     },
     @{
-        Name = "SRBDS Mitigation"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "SRBDSMitigationLevel"
+        Name          = "SRBDS Mitigation"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "SRBDSMitigationLevel"
         ExpectedValue = 1
-        Impact = "Required for VM SRBDS support"
+        Impact        = "Required for VM SRBDS support"
     },
     @{
-        Name = "DRPW Mitigation"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "DRPWMitigationLevel"
+        Name          = "DRPW Mitigation"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "DRPWMitigationLevel"
         ExpectedValue = 1
-        Impact = "Required for VM DRPW support"
+        Impact        = "Required for VM DRPW support"
     },
     @{
-        Name = "PSDP (Predictive Store Forwarding)"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "PredictiveStoreForwardingDisable"
+        Name          = "PSDP (Predictive Store Forwarding)"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "PredictiveStoreForwardingDisable"
         ExpectedValue = 1
-        Impact = "Required for VM PSDP support"
+        Impact        = "Required for VM PSDP support"
     },
     @{
-        Name = "Retbleed Mitigation"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "RetpolineConfiguration"
+        Name          = "Retbleed Mitigation"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "RetpolineConfiguration"
         ExpectedValue = 1
-        Impact = "Required for VM Retbleed support"
+        Impact        = "Required for VM Retbleed support"
     },
     @{
-        Name = "MMIO Stale Data Mitigation"
-        Path = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
-        ValueName = "MmioStaleDataMitigationLevel"
+        Name          = "MMIO Stale Data Mitigation"
+        Path          = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager\kernel"
+        ValueName     = "MmioStaleDataMitigationLevel"
         ExpectedValue = 1
-        Impact = "Required for VM MMIO protection"
+        Impact        = "Required for VM MMIO protection"
     }
 )
 
@@ -121,7 +123,8 @@ foreach ($mitigation in $requiredMitigations) {
             Write-Host "  Status:   " -NoNewline
             Write-Host "ENABLED" -ForegroundColor Green
             Write-Host "  Value:    $currentValue (Expected: $($mitigation.ExpectedValue))"
-        } else {
+        }
+        else {
             Write-Host "  Status:   " -NoNewline
             Write-Host "MISCONFIGURED" -ForegroundColor Red
             Write-Host "  Value:    $currentValue (Expected: $($mitigation.ExpectedValue))"
@@ -153,7 +156,8 @@ if ($allConfigured) {
     Write-Host "  2. After host restart, " -NoNewline
     Write-Host "RESTART YOUR VMs" -ForegroundColor Yellow
     Write-Host "  3. VMs should then detect CPU features properly"
-} else {
+}
+else {
     Write-Host "`nRESULT: " -NoNewline
     Write-Host "MISSING $($missingMitigations.Count) MITIGATION(S)" -ForegroundColor Red
     
