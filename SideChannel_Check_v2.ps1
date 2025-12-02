@@ -2106,7 +2106,7 @@ function Show-Recommendations {
     }
     
     if ($optional.Count -gt 0) {
-        Write-Host "`n$(Get-StatusIcon -Name GreenCircle) OPTIONAL - Evaluate based on environment:" -ForegroundColor Cyan
+        Write-Host "`n$(Get-StatusIcon -Name GreenCircle) OPTIONAL - Evaluate based on environment:" -ForegroundColor Green
         foreach ($item in $optional) {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name)" -ForegroundColor White
             Write-Host "     $($item.Recommendation)" -ForegroundColor Gray
@@ -2122,10 +2122,10 @@ function Show-Recommendations {
             Write-Host "   $(Get-StatusIcon -Name Bullet) $($item.Name) - Registry configured but kernel mitigation inactive" -ForegroundColor Yellow
         }
         Write-Host "`n   This typically means:" -ForegroundColor Cyan
-        Write-Host "   • CPU microcode update is missing or outdated" -ForegroundColor Gray
-        Write-Host "   • Update BIOS/UEFI firmware to latest version" -ForegroundColor Gray
-        Write-Host "   • Check with your hardware vendor for microcode updates" -ForegroundColor Gray
-        Write-Host "   • Some older CPUs may not receive microcode updates" -ForegroundColor DarkGray
+        Write-Host "   $(Get-StatusIcon -Name Bullet) CPU microcode update is missing or outdated" -ForegroundColor Gray
+        Write-Host "   $(Get-StatusIcon -Name Bullet) Update BIOS/UEFI firmware to latest version" -ForegroundColor Gray
+        Write-Host "   $(Get-StatusIcon -Name Bullet) Check with your hardware vendor for microcode updates" -ForegroundColor Gray
+        Write-Host "   $(Get-StatusIcon -Name Bullet) Some older CPUs may not receive microcode updates" -ForegroundColor DarkGray
         if ($script:PlatformInfo.Type -eq 'VM' -or $script:PlatformInfo.Type -eq 'HyperVGuest' -or $script:PlatformInfo.Type -eq 'VMwareGuest') {
             Write-Host "`n   $(Get-StatusIcon -Name Info) VM Note: Hypervisor host must have microcode updates and mitigations enabled first" -ForegroundColor Cyan
         }
