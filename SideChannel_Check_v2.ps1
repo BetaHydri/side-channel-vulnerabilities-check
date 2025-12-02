@@ -1533,9 +1533,9 @@ function Show-MitigationTable {
             if ($script:RuntimeState.APIAvailable) {
                 Write-Host "`n$(Get-StatusIcon -Name Info) " -NoNewline -ForegroundColor Cyan
                 Write-Host "Runtime Status Guide:" -ForegroundColor White
-                Write-Host "  $(Get-StatusIcon -Name Success) Active / Active (method)" -ForegroundColor Green -NoNewline
+                Write-Host "  $(Get-StatusIcon -Name Success) Active / Active (details)" -ForegroundColor Green -NoNewline
                 Write-Host " - Protection is running (protected)" -ForegroundColor Gray
-                Write-Host "  $(Get-StatusIcon -Name Cross) Inactive" -ForegroundColor Red -NoNewline
+                Write-Host "  $(Get-StatusIcon -Name Cross) Inactive / Inactive (details)" -ForegroundColor Red -NoNewline
                 Write-Host " - Protection is NOT running (vulnerable)" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Info) Not Needed (HW Immune)" -ForegroundColor Cyan -NoNewline
                 Write-Host " - Hardware immunity (no mitigation needed)" -ForegroundColor Gray
@@ -1543,6 +1543,7 @@ function Show-MitigationTable {
                 Write-Host " - Feature not available on this hardware" -ForegroundColor Gray
                 Write-Host "  $(Get-StatusIcon -Name Info) N/A" -ForegroundColor Gray -NoNewline
                 Write-Host " - No runtime detection (check registry)" -ForegroundColor Gray
+                Write-Host "`n  Note: Status may include additional details in parentheses (e.g., version, method)" -ForegroundColor DarkGray
             }
         }
         
