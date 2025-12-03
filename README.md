@@ -322,6 +322,18 @@ Example detailed output:
   Impact:       None
 ```
 
+**Screenshots with `-ShowDetails` flag:**
+
+![ShowDetails Output - Part 1](docs/Showdetails.png)
+
+*Detailed view showing comprehensive information for each mitigation including CVE numbers, descriptions, runtime status, registry status, and performance impact. This educational format helps administrators understand what each mitigation protects against.*
+
+![ShowDetails Output - Part 2](docs/Showdetails2.png)
+
+*Continuation of detailed output with runtime status guide explaining the meaning of different status indicators (Active, Inactive, Not Needed, Not Supported) for informed decision-making.*
+
+---
+
 ### 2. **ApplyInteractive**
 Interactively select and apply security mitigations with two selection modes.
 
