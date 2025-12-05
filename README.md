@@ -1,6 +1,70 @@
-# Side-Channel Vulnerability Mitigation Tool v2.3.0
+# Side-Channel Vulnerability Mitigation Tool
 
-Enterprise-grade PowerShell tool for assessing and managing Windows side-channel vulnerability mitigations (Spectre, Meltdown, L1TF, MDS, and related CVEs) with comprehensive hardware detection and intelligent scoring.
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B%20%7C%207.x-5391FE?logo=powershell&logoColor=white)](https://github.com/PowerShell/PowerShell)
+[![Platform](https://img.shields.io/badge/Platform-Windows-0078D6?logo=windows&logoColor=white)](https://www.microsoft.com/windows)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Version](https://img.shields.io/badge/Version-2.3.0-blue.svg)](https://github.com/BetaHydri/side-channel-vulnerabilities-check/releases)
+[![Maintained](https://img.shields.io/badge/Maintained-Yes-brightgreen.svg)](https://github.com/BetaHydri/side-channel-vulnerabilities-check/graphs/commit-activity)
+
+## 📖 Overview
+
+**Enterprise-grade PowerShell tool** for assessing and managing Windows side-channel vulnerability mitigations with comprehensive hardware detection, intelligent platform-aware scoring, and automated backup/restore capabilities.
+
+### What it does
+
+🛡️ **Comprehensive Security Assessment**
+- Evaluates **20 side-channel mitigations** (Spectre, Meltdown, L1TF, MDS, Retbleed, MMIO, and more)
+- Assesses **5 hardware security prerequisites** (UEFI, Secure Boot, TPM 2.0, VT-x, IOMMU)
+- Provides **runtime kernel-level detection** via Windows API for authoritative status
+- Maps each mitigation to **specific CVE identifiers** with NVD/Microsoft references
+
+🎯 **Platform-Aware Intelligence**
+- **Automatic platform detection** (Physical, Hyper-V Host/Guest, VMware Guest)
+- **Fair scoring system** - only counts applicable mitigations for your platform
+- **Hyper-V hosts**: All 20 mitigations evaluated (including L1TF, Core Scheduler)
+- **VMware/Hyper-V guests**: 17 mitigations (skips hypervisor-only features)
+- **ESXi/vSphere guidance** - PowerCLI scripts and vSphere configuration instructions
+
+🎨 **Intelligent Color Coding**
+- **Green** = Protected/Active (mitigation working correctly)
+- **Red** = Critical vulnerability (immediate action required)
+- **Yellow** = Optional/High-impact (evaluate based on environment - L1TF, SMT disable)
+- **Gray** = Informational (prerequisites, hardware status)
+
+💾 **Advanced Backup & Recovery**
+- **Automatic backups** before applying changes (ApplyInteractive mode)
+- **Manual backups** for creating checkpoint snapshots
+- **Quick revert** to latest backup (one command)
+- **Selective restore** - browse all backups, restore specific mitigations
+- **Timestamped JSON backups** with full metadata
+
+📊 **Educational & Actionable**
+- **Detailed mode** (`-ShowDetails`) shows CVE numbers, descriptions, URLs, impact levels
+- **Performance impact ratings** (Low/Medium/High/Very High) for informed decisions
+- **Specific recommendations** per mitigation with platform-specific guidance
+- **Visual security score** with progress bar (█░) and percentage rating
+
+### Who should use this
+
+✅ **System Administrators** - Harden Windows servers and workstations against CPU vulnerabilities  
+✅ **Security Teams** - Audit compliance and generate security assessment reports  
+✅ **Hyper-V Administrators** - Configure host and guest mitigations correctly  
+✅ **VMware Administrators** - Validate Windows VMs and follow ESXi hardening guidance  
+✅ **IT Auditors** - Export CSV reports for compliance documentation  
+✅ **Enterprise IT** - Deploy consistent security baselines across infrastructure
+
+### Key Features
+
+- ✅ **5 dedicated modes**: Assess, Apply, Revert, Backup, RestoreInteractive
+- ✅ **PowerShell 5.1 & 7.x compatible** (Windows PowerShell & PowerShell Core)
+- ✅ **WhatIf preview** for all modification operations
+- ✅ **CSV export** for reporting and documentation
+- ✅ **Microcode detection** - alerts when BIOS updates are needed
+- ✅ **No external dependencies** - pure PowerShell, no modules required
+- ✅ **Comprehensive logging** - full audit trail of all operations
+- ✅ **MIT licensed** - free for personal and commercial use
+
+---
 
 ## 🎯 Features
 
